@@ -43,6 +43,9 @@ dependencies:
   rxdart: ^0.28.0
   avatar_stack: ^1.2.0
   intl: ^0.19.0
+  salomon_bottom_bar: ^3.3.2
+  flutter_timeline: ^0.3.0
+  fl_chart: ^0.69.0
 
 dev_dependencies:
   flutter_test:

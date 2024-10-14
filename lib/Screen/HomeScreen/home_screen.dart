@@ -1,6 +1,5 @@
 import 'package:avatar_stack/avatar_stack.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:splitter/Constants/constants.dart';
@@ -15,9 +14,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  List<String> expenseHistoryStrings = ["Flight Confirmation", "Hotel Reservation", "Activity Planning", "Packing List", "Travel Insurance", "Resort Booking",];
+
   @override
   Widget build(BuildContext context) {
-    debugPrint(((Get.width - (width_10 * 3.2)) / 2).toString());
     return SafeArea(
       child: Scaffold(
         backgroundColor: neopopBackground,
@@ -90,31 +90,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: EdgeInsets.only(
                           right: width_16,
                           left: width_16,
+                          top: 0,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(56),
-                              child: Container(
-                                height: height_10 * 3.6,
-                                width: height_10 * 3.6,
-                                color: neopopOnBackground,
-                                child: SvgPicture.asset(
-                                  "assets/dev_images/undraw_traveling_yhxq.svg",
-                                  height: height_10 * 3.6,
-                                  width: height_10 * 3.6,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: height_10 * 1.2),
+                            // ClipRRect(
+                            //   borderRadius: BorderRadius.circular(56),
+                            //   child: Container(
+                            //     height: height_10 * 3.6,
+                            //     width: height_10 * 3.6,
+                            //     color: neopopOnBackground,
+                            //     child: SvgPicture.asset(
+                            //       "assets/dev_images/undraw_traveling_yhxq.svg",
+                            //       height: height_10 * 3.6,
+                            //       width: height_10 * 3.6,
+                            //       fit: BoxFit.contain,
+                            //     ),
+                            //   ),
+                            // ),
+                            // SizedBox(width: height_10 * 1.2),
                             Text(
                               "Trip to Paris",
-                              style: body1_text.copyWith(
+                              style: headline3_text.copyWith(
+                                fontFamily: "NunitoSans",
                                 color: neopopBackground,
                                 fontWeight: FontWeight.w500,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ],
@@ -128,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           left: width_16,
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SizedBox(
@@ -142,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     TextSpan(
                                       text: "\$3800",
-                                      style: sub_headline4_text.copyWith(
+                                      style: headline2_text.copyWith(
                                         color: neopopBackground,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -154,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             SizedBox(
                               width: (Get.width - 70) / 2,
                               child: RichText(
+                                textAlign: TextAlign.right,
                                 text: TextSpan(
                                   text: "To Collect\n",
                                   style: body2_text.copyWith(
@@ -162,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     TextSpan(
                                       text: "\$900",
-                                      style: sub_headline4_text.copyWith(
+                                      style: headline2_text.copyWith(
                                         color: neopopBackground,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -191,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               "Split To",
-                              style: body2_text.copyWith(
+                              style: caption_text.copyWith(
                                 color: neopopBackground,
                               ),
                             ),
@@ -257,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: EdgeInsets.symmetric(horizontal: height_16),
                   decoration: BoxDecoration(
                     color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(0),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: neopopGrey,
                       width: 1,
@@ -266,55 +270,79 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 5,
+                    itemCount: 6,
                     padding: EdgeInsets.zero,
                     itemBuilder: (context, index) {
                       return Container(
-                        padding: EdgeInsets.symmetric(vertical: height_16),
+                        padding:
+                            EdgeInsets.symmetric(vertical: height_10 * 2.4),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(56),
                               child: Image.network(
-                                "https://preview.redd.it/trying-to-come-up-with-a-new-avatar-for-my-various-social-v0-i3kyoe6e1lsb1.jpg?width=519&format=pjpg&auto=webp&s=af4100e59c80d5e8847b64f0ca68fa76e36547e5",
+                                "https://placedog.net/50${(index + 1) * 2}/50${(index + 1) * 2}",
                                 height: height_16 * 3,
                                 width: width_16 * 3,
                               ),
                             ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: 0,
+                                horizontal: width_10 * 2,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: (devSysWidth * 0.4),
+                                    child: Text(
+                                      expenseHistoryStrings[index%6],
+                                      overflow: TextOverflow.ellipsis,
+                                      style: body1_text.copyWith(
+                                        color: neopopOnBackground,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: height_10),
+                                  SizedBox(
+                                    width: (devSysWidth * 0.4),
+                                    child: Text(
+                                      "Trip to Paris - Paid by Rini",
+                                      overflow: TextOverflow.ellipsis,
+                                      style: caption_text.copyWith(
+                                        color: neopopGrey,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
                             Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  "Resort Booking",
-                                  style: body2_text.copyWith(
-                                    color: neopopOnBackground,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  "Trip to Paris - Paid by Rini",
-                                  style: caption_text.copyWith(
-                                    color: neopopGrey,
-                                  ),
-                                ),
-                                Text(
-                                  DateFormat('hh:mm a \t EEE d MMM')
+                                  DateFormat('HH:mm \t EEE d MMM')
                                       .format(DateTime.now()),
                                   style: caption_text.copyWith(
                                     color: neopopOnBackground,
                                   ),
                                 ),
+                                SizedBox(height: height_10),
+                                Text(
+                                  "\$600",
+                                  style: body1_text.copyWith(
+                                    color: neopopAccent,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ],
-                            ),
-                            Text(
-                              "\$600",
-                              style: body2_text.copyWith(
-                                color: neopopAccent,
-                                fontWeight: FontWeight.w500,
-                              ),
                             ),
                           ],
                         ),
@@ -325,7 +353,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           horizontal: height_10, vertical: 0),
                       child: const Divider(
                         height: 1,
-                        thickness: 1,
+                        thickness: 2,
+                        color: neopopSecondaryGrey,
                       ),
                     ),
                   ),

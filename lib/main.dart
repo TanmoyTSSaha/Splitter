@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/HomeScreen/home_screen.dart';
+import 'package:splitter/Screen/BottomNavigationController/bottom_navigation_controller.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,14 +14,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Flutter Demo',
+      title: 'Spliter',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: neopopColorScheme,
+        highlightColor: neopopAccent,
+        splashColor: neopopAccent,
         useMaterial3: true,
         textTheme: splitter_custom_text_theme,
       ),
-      home: HomeScreen(),
+      home: BottomNavigationController(),
     );
   }
 }

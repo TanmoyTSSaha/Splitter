@@ -61,67 +61,68 @@ import 'package:google_fonts/google_fonts.dart';
 
 // LOCAL FONT
 TextStyle headline1_text = const TextStyle(
-  fontFamily: 'Albra',
-  fontSize: 36,
+  fontFamily: 'Poppins', // or Montserrat
+  fontSize: 32, // Reduced for better proportionality in mobile UI
   fontWeight: FontWeight.bold,
   fontStyle: FontStyle.normal,
 );
 
 TextStyle headline2_text = const TextStyle(
-  fontFamily: 'Albra',
-  fontSize: 32,
+  fontFamily: 'Poppins', // or Montserrat
+  fontSize: 28, 
   fontWeight: FontWeight.w600,
   fontStyle: FontStyle.normal,
 );
 
 TextStyle headline3_text = const TextStyle(
-  fontFamily: 'Albra',
-  fontSize: 28,
+  fontFamily: 'Poppins', // or Montserrat
+  fontSize: 24,
   fontWeight: FontWeight.w500,
   fontStyle: FontStyle.normal,
 );
 
 TextStyle sub_headline4_text = const TextStyle(
-  fontFamily: 'Albra',
-  fontSize: 24,
-  fontWeight: FontWeight.w400,
-  fontStyle: FontStyle.normal,
-);
-
-TextStyle sub_headline5_text = const TextStyle(
-  fontFamily: 'Albra',
+  fontFamily: 'Poppins', // or Montserrat
   fontSize: 20,
   fontWeight: FontWeight.w400,
   fontStyle: FontStyle.normal,
 );
 
-TextStyle body1_text = const TextStyle(
-  fontFamily: 'Albra',
+TextStyle sub_headline5_text = const TextStyle(
+  fontFamily: 'Poppins', // or Montserrat
   fontSize: 18,
+  fontWeight: FontWeight.w400,
+  fontStyle: FontStyle.normal,
+);
+
+TextStyle body1_text = const TextStyle(
+  fontFamily: 'Poppins', // or Montserrat
+  fontSize: 16,
   fontWeight: FontWeight.normal,
   fontStyle: FontStyle.normal,
 );
 
 TextStyle body2_text = const TextStyle(
-  fontFamily: 'Albra',
-  fontSize: 16,
+  fontFamily: 'Poppins', // or Montserrat
+  fontSize: 14,
   fontWeight: FontWeight.normal,
   fontStyle: FontStyle.normal,
 );
 
 TextStyle caption_text = const TextStyle(
-  fontFamily: 'Albra',
-  fontSize: 14,
+  fontFamily: 'Poppins', // or Montserrat
+  fontSize: 12,
   fontWeight: FontWeight.normal,
   fontStyle: FontStyle.italic,
 );
 
 TextStyle button_text = const TextStyle(
-  fontFamily: 'Albra',
+  fontFamily: 'Poppins', // or Montserrat
   fontSize: 16,
   fontWeight: FontWeight.w600,
   fontStyle: FontStyle.normal,
 );
+
 
 final TextTheme splitter_custom_text_theme = TextTheme(
   displayLarge: headline1_text,
