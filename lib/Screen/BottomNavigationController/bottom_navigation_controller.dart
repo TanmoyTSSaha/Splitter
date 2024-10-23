@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/FriendScreen/friends_screen.dart';
+import 'package:splitter/Screen/FriendScreen/personal_transaction_screen.dart';
 import 'package:splitter/Screen/GroupScreen/group_screen.dart';
 import 'package:splitter/Screen/HomeScreen/home_screen.dart';
 import 'package:splitter/Screen/ProfileScreen/profile_screen.dart';
@@ -20,7 +20,7 @@ class _BottomNavigationControllerState
   List<Widget> screens = const [
     HomeScreen(),
     GroupScreen(),
-    FriendScreen(),
+    PersonalTransactionScreen(),
     ProfileScreen(),
   ];
 
@@ -75,11 +75,11 @@ class _BottomNavigationControllerState
               selectedColor: neopopAccent),
           SalomonBottomBarItem(
               icon: Icon(
-                Icons.person,
+                Icons.currency_rupee,
                 size: height_10 * 2.4,
               ),
               title: Text(
-                "Friends",
+                "Exp",
                 style: body2_text.copyWith(fontWeight: FontWeight.w500),
               ),
               selectedColor: neopopAccent),

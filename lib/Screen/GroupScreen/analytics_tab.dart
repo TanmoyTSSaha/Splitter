@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Screen/GroupScreen/GraphAnalysisWidgets/group_expense_analysis.dart';
+import 'package:splitter/Screen/GroupScreen/GraphAnalysisWidgets/split_balance_and_dept_analysis.dart';
 
 class AnalyticsTab extends StatefulWidget {
   const AnalyticsTab({super.key});
@@ -30,8 +31,8 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
                 labelColor: neopopAccent,
                 labelStyle: body2_text,
                 unselectedLabelColor: neopopGrey,
-                overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                  (Set<WidgetState> states) {
+                overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                  (Set<MaterialState> states) {
                     return neopopAccent.withOpacity(0.15);
                   },
                 ),
@@ -64,7 +65,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
                 child: TabBarView(
                   children: [
                     GroupExpenseAnalysis(),
-                    GroupExpenseAnalysis(),
+                    SplitBalanceAndDeptAnalysis(),
                     GroupExpenseAnalysis(),
                     GroupExpenseAnalysis(),
                     GroupExpenseAnalysis(),

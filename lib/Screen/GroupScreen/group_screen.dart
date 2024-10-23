@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Screen/GroupScreen/group_detailed_screen.dart';
@@ -56,19 +57,36 @@ class _GroupScreenState extends State<GroupScreen> {
           elevation: 0,
           title: RichText(
             text: TextSpan(
-                text: "Hi Klaudia\n",
-                style: sub_headline5_text.copyWith(
-                  color: neopopOnBackground,
-                ),
-                children: [
-                  TextSpan(
-                    text: "Make your group and split bills easy",
-                    style: caption_text.copyWith(
-                      color: neopopGrey,
-                    ),
+              text: "Hi Klaudia\n",
+              style: sub_headline5_text.copyWith(
+                color: neopopOnBackground,
+              ),
+              children: [
+                TextSpan(
+                  text: "Make your group and split bills easy",
+                  style: caption_text.copyWith(
+                    color: neopopGrey,
                   ),
-                ]),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            Padding(
+              padding: EdgeInsets.only(
+                right: height_16,
+              ),
+              child: IconButton(
+                onPressed: () {},
+                icon: SvgPicture.asset(
+                  "assets/icons/svg/solar--bell-off-broken.svg",
+                  height: height_10 * 2.4,
+                  width: height_10 * 2.4,
+                  color: neopopOnPrimary,
+                ),
+              ),
+            ),
+          ],
         ),
         body: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),

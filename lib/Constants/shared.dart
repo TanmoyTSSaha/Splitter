@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 import 'package:splitter/Constants/constants.dart';
 
 Color getRandomBrightColor() {
@@ -167,7 +169,9 @@ class GroupCard extends StatelessWidget {
         width: devSysWidth,
         padding: EdgeInsets.all(height_16),
         decoration: BoxDecoration(
-          border: Border.all(color: neopopGrey),
+          border: Border.all(
+            color: neopopGrey.withOpacity(0.5),
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -359,7 +363,173 @@ class SettleUpBalanceWidget extends StatelessWidget {
 }
 
 Color getColorOpacity(Color color, int currentIndex, int totalIndex) {
-  double opacity = 1.0 - (currentIndex / (totalIndex - 1));
+  double opacity = 1.0 / currentIndex + 1;
 
   return color.withOpacity(opacity);
+}
+
+class TransactionCard extends StatelessWidget {
+  final int index;
+  final String cardTitle;
+  final String cardSubTitle;
+  final DateTime cardDateTime;
+  final double cardPrice;
+  const TransactionCard({
+    required this.index,
+    required this.cardTitle,
+    required this.cardSubTitle,
+    required this.cardDateTime,
+    required this.cardPrice,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: height_10 * 2.4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(56),
+            child: Image.network(
+              "https://placedog.net/50${(index + 1) * 2}/50${(index + 1) * 2}",
+              height: height_16 * 3,
+              width: width_16 * 3,
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: 0,
+              horizontal: width_10 * 2,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: (devSysWidth * 0.4),
+                  child: Text(
+                    cardTitle, //[index % 6],
+                    overflow: TextOverflow.ellipsis,
+                    style: body1_text.copyWith(
+                      color: neopopOnBackground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                SizedBox(height: height_10),
+                SizedBox(
+                  width: (devSysWidth * 0.4),
+                  child: Text(
+                    cardSubTitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: caption_text.copyWith(
+                      color: neopopGrey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                alignment: Alignment.centerRight,
+                width: devSysWidth * 0.25,
+                child: Text(
+                  DateFormat('HH:mm \t EEE d MMM').format(cardDateTime),
+                  overflow: TextOverflow.ellipsis,
+                  style: caption_text.copyWith(
+                    color: neopopOnBackground,
+                  ),
+                ),
+              ),
+              SizedBox(height: height_10),
+              Container(
+                alignment: Alignment.centerRight,
+                width: devSysWidth * 0.25,
+                child: Text(
+                  "₹$cardPrice",
+                  overflow: TextOverflow.ellipsis,
+                  style: body1_text.copyWith(
+                    color: neopopAccent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum DurationLabel {
+  daily('Daily', 0),
+  weekly('Weekly', 1),
+  monthly('Monthly', 2),
+  yearly('Yearly', 3);
+
+  const DurationLabel(this.label, this.idx);
+  final String label;
+  final int idx;
+}
+
+class ElevatedCustomTextAndIconButton extends StatelessWidget {
+  final String iconPath;
+  final String buttonName;
+  final Color buttonBackgroundColor;
+  final Color buttonForegroundColor;
+  void Function()? onPressed;
+  ElevatedCustomTextAndIconButton({
+    required this.iconPath,
+    required this.buttonName,
+    this.buttonBackgroundColor = neopopAccent,
+    this.buttonForegroundColor = neopopOnPrimary,
+    required this.onPressed,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+        ),
+        padding: EdgeInsets.symmetric(
+          vertical: height_16,
+          horizontal: height_16,
+        ),
+        backgroundColor: buttonBackgroundColor,
+        foregroundColor: buttonForegroundColor,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SvgPicture.asset(
+            iconPath,
+            height: height_10 * 2.4,
+            width: height_10 * 2.4,
+            color: neopopBackground,
+          ),
+          SizedBox(width: width_16),
+          Text(
+            buttonName,
+            style: button_text.copyWith(
+              color: neopopBackground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

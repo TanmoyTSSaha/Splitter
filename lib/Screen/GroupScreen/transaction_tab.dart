@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:splitter/Constants/constants.dart';
+
+import '../../Constants/shared.dart';
 
 class TransactionTab extends StatefulWidget {
   final List<String> expenseHistoryStrings;
@@ -25,7 +26,7 @@ class _TransactionTabState extends State<TransactionTab> {
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: neopopGrey,
+              color: neopopGrey.withOpacity(0.5),
               width: 1,
             ),
           ),
@@ -35,78 +36,12 @@ class _TransactionTabState extends State<TransactionTab> {
             itemCount: widget.expenseHistoryStrings.length,
             padding: EdgeInsets.zero,
             itemBuilder: (context, index) {
-              return Container(
-                padding: EdgeInsets.symmetric(vertical: height_10 * 2.4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(56),
-                      child: Image.network(
-                        "https://placedog.net/50${(index + 1) * 2}/50${(index + 1) * 2}",
-                        height: height_16 * 3,
-                        width: width_16 * 3,
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 0,
-                        horizontal: width_10 * 2,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: (devSysWidth * 0.4),
-                            child: Text(
-                              widget.expenseHistoryStrings[index % 6],
-                              overflow: TextOverflow.ellipsis,
-                              style: body1_text.copyWith(
-                                color: neopopOnBackground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: height_10),
-                          SizedBox(
-                            width: (devSysWidth * 0.4),
-                            child: Text(
-                              "Trip to Paris - Paid by Rini",
-                              overflow: TextOverflow.ellipsis,
-                              style: caption_text.copyWith(
-                                color: neopopGrey,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          DateFormat('HH:mm \t EEE d MMM')
-                              .format(DateTime.now()),
-                          style: caption_text.copyWith(
-                            color: neopopOnBackground,
-                          ),
-                        ),
-                        SizedBox(height: height_10),
-                        Text(
-                          "₹600",
-                          style: body1_text.copyWith(
-                            color: neopopAccent,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              return TransactionCard(
+                index: index,
+                cardTitle: widget.expenseHistoryStrings[index % 6],
+                cardSubTitle: "Mysuru Trip paid by Tanmoy",
+                cardDateTime: DateTime.now(),
+                cardPrice: 600,
               );
             },
             separatorBuilder: (context, index) => Padding(

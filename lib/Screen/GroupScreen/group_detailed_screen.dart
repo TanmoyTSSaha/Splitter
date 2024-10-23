@@ -149,30 +149,31 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
             ),
           ),
         ),
-        floatingActionButton:
-            Obx(() => [0, 2].contains(_groupScreenController.tabIndex.value)
-                ? ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: neopopAccent,
-                      minimumSize: Size(devSysWidth * 0.35, height_16 * 3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(devSysWidth * 0.5),
-                      ),
+        floatingActionButton: Obx(
+          () => [0, 2].contains(_groupScreenController.tabIndex.value)
+              ? ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: neopopAccent,
+                    minimumSize: Size(devSysWidth * 0.35, height_16 * 3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(devSysWidth * 0.5),
                     ),
-                    child: Text(
-                      _groupScreenController.tabIndex == 0
-                          ? "Add Transaction"
-                          : "Settle Up",
-                      style: button_text.copyWith(
-                        color: neopopOnBackground,
-                      ),
+                  ),
+                  child: Text(
+                    _groupScreenController.tabIndex == 0
+                        ? "Add Transaction"
+                        : "Settle Up",
+                    style: button_text.copyWith(
+                      color: neopopOnBackground,
                     ),
-                  )
-                : const SizedBox(
-                    height: 0,
-                    width: 0,
-                  )),
+                  ),
+                )
+              : const SizedBox(
+                  height: 0,
+                  width: 0,
+                ),
+        ),
       ),
     );
   }

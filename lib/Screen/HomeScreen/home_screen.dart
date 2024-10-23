@@ -1,5 +1,6 @@
 import 'package:avatar_stack/avatar_stack.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:splitter/Constants/constants.dart';
@@ -14,7 +15,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<String> expenseHistoryStrings = ["Flight Confirmation", "Hotel Reservation", "Activity Planning", "Packing List", "Travel Insurance", "Resort Booking",];
+  List<String> expenseHistoryStrings = [
+    "Flight Confirmation",
+    "Hotel Reservation",
+    "Activity Planning",
+    "Packing List",
+    "Travel Insurance",
+    "Resort Booking",
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -51,19 +59,36 @@ class _HomeScreenState extends State<HomeScreen> {
           elevation: 0,
           title: RichText(
             text: TextSpan(
-                text: "Hi Klaudia\n",
-                style: sub_headline5_text.copyWith(
-                  color: neopopOnBackground,
-                ),
-                children: [
-                  TextSpan(
-                    text: "Make your group and split bills easy",
-                    style: caption_text.copyWith(
-                      color: neopopGrey,
-                    ),
+              text: "Hi Klaudia\n",
+              style: sub_headline5_text.copyWith(
+                color: neopopOnBackground,
+              ),
+              children: [
+                TextSpan(
+                  text: "Make your group and split bills easy",
+                  style: caption_text.copyWith(
+                    color: neopopGrey,
                   ),
-                ]),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            Padding(
+              padding: EdgeInsets.only(
+                right: height_16,
+              ),
+              child: IconButton(
+                onPressed: () {},
+                icon: SvgPicture.asset(
+                  "assets/icons/svg/solar--bell-off-broken.svg",
+                  height: height_10 * 2.4,
+                  width: height_10 * 2.4,
+                  color: neopopOnPrimary,
+                ),
+              ),
+            ),
+          ],
         ),
         body: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -144,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   children: [
                                     TextSpan(
-                                      text: "\$3800",
+                                      text: "₹3800",
                                       style: headline2_text.copyWith(
                                         color: neopopBackground,
                                         fontWeight: FontWeight.w600,
@@ -165,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   children: [
                                     TextSpan(
-                                      text: "\$900",
+                                      text: "₹900",
                                       style: headline2_text.copyWith(
                                         color: neopopBackground,
                                         fontWeight: FontWeight.w600,
@@ -184,11 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         thickness: 2,
                       ),
                       Padding(
-                        padding: EdgeInsets.only(
-                          top: height_16,
-                          right: width_16,
-                          left: width_16,
-                        ),
+                        padding: EdgeInsets.all(height_16),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +252,119 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                      )
+                      ),
+                      // const Divider(
+                      //   color: neopopBackground,
+                      //   height: 1,
+                      //   thickness: 2,
+                      // ),
+                      // Padding(
+                      //   padding: EdgeInsets.only(
+                      //     top: height_16,
+                      //     right: height_16,
+                      //     left: height_16,
+                      //   ),
+                      //   child: Row(
+                      //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      //     crossAxisAlignment: CrossAxisAlignment.center,
+                      //     children: [
+                      //       Container(
+                      //         height: height_16 * 6,
+                      //         width: devSysWidth * 0.4,
+                      //         padding: EdgeInsets.all(width_16),
+                      //         decoration: const BoxDecoration(
+                      //           color: neopopYellow,
+                      //         ),
+                      //         child: Row(
+                      //           mainAxisAlignment: MainAxisAlignment.start,
+                      //           crossAxisAlignment: CrossAxisAlignment.center,
+                      //           children: [
+                      //             SizedBox(
+                      //               height: height_16 * 2.5,
+                      //               width: width_16 * 2.5,
+                      //               child: CircularProgressIndicator(
+                      //                 color: neopopBackground,
+                      //                 backgroundColor:
+                      //                     neopopBackground.withOpacity(0.3),
+                      //                 value: 0.3,
+                      //                 strokeWidth: 7,
+                      //                 strokeCap: StrokeCap.round,
+                      //               ),
+                      //             ),
+                      //             SizedBox(width: width_10),
+                      //             Column(
+                      //               mainAxisAlignment: MainAxisAlignment.center,
+                      //               crossAxisAlignment:
+                      //                   CrossAxisAlignment.start,
+                      //               children: [
+                      //                 Text(
+                      //                   "Today",
+                      //                   style: sub_headline5_text.copyWith(
+                      //                     color: neopopBackground,
+                      //                   ),
+                      //                 ),
+                      //                 Text(
+                      //                   "₹120",
+                      //                   style: headline3_text.copyWith(
+                      //                     color: neopopBackground,
+                      //                   ),
+                      //                 ),
+                      //               ],
+                      //             ),
+                      //           ],
+                      //         ),
+                      //       ),
+                      //       Container(
+                      //         height: height_16 * 6,
+                      //         width: devSysWidth * 0.4,
+                      //         padding: EdgeInsets.all(width_16),
+                      //         decoration: const BoxDecoration(
+                      //           color: neopopYellow,
+                      //         ),
+                      //         child: Row(
+                      //           mainAxisAlignment: MainAxisAlignment.start,
+                      //           crossAxisAlignment: CrossAxisAlignment.center,
+                      //           children: [
+                      //             SizedBox(
+                      //               height: height_16 * 2.5,
+                      //               width: width_16 * 2.5,
+                      //               child: CircularProgressIndicator(
+                      //                 color: neopopBackground,
+                      //                 backgroundColor:
+                      //                     neopopBackground.withOpacity(0.3),
+                      //                 value: 0.3,
+                      //                 strokeWidth: 7,
+                      //                 strokeCap: StrokeCap.round,
+                      //               ),
+                      //             ),
+                      //             SizedBox(width: width_10),
+                      //             Column(
+                      //               mainAxisAlignment: MainAxisAlignment.center,
+                      //               crossAxisAlignment:
+                      //                   CrossAxisAlignment.start,
+                      //               children: [
+                      //                 Text(
+                      //                   DateFormat.MMM()
+                      //                       .format(DateTime.now())
+                      //                       .toString(),
+                      //                   style: sub_headline5_text.copyWith(
+                      //                     color: neopopBackground,
+                      //                   ),
+                      //                 ),
+                      //                 Text(
+                      //                   "₹1200",
+                      //                   style: headline3_text.copyWith(
+                      //                     color: neopopBackground,
+                      //                   ),
+                      //                 ),
+                      //               ],
+                      //             ),
+                      //           ],
+                      //         ),
+                      //       ),
+                      //     ],
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
@@ -263,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: neopopGrey,
+                      color: neopopGrey.withOpacity(0.5),
                       width: 1,
                     ),
                   ),
@@ -273,79 +406,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: 6,
                     padding: EdgeInsets.zero,
                     itemBuilder: (context, index) {
-                      return Container(
-                        padding:
-                            EdgeInsets.symmetric(vertical: height_10 * 2.4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(56),
-                              child: Image.network(
-                                "https://placedog.net/50${(index + 1) * 2}/50${(index + 1) * 2}",
-                                height: height_16 * 3,
-                                width: width_16 * 3,
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                vertical: 0,
-                                horizontal: width_10 * 2,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: (devSysWidth * 0.4),
-                                    child: Text(
-                                      expenseHistoryStrings[index%6],
-                                      overflow: TextOverflow.ellipsis,
-                                      style: body1_text.copyWith(
-                                        color: neopopOnBackground,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: height_10),
-                                  SizedBox(
-                                    width: (devSysWidth * 0.4),
-                                    child: Text(
-                                      "Trip to Paris - Paid by Rini",
-                                      overflow: TextOverflow.ellipsis,
-                                      style: caption_text.copyWith(
-                                        color: neopopGrey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  DateFormat('HH:mm \t EEE d MMM')
-                                      .format(DateTime.now()),
-                                  style: caption_text.copyWith(
-                                    color: neopopOnBackground,
-                                  ),
-                                ),
-                                SizedBox(height: height_10),
-                                Text(
-                                  "\$600",
-                                  style: body1_text.copyWith(
-                                    color: neopopAccent,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      return TransactionCard(
+                        index: index,
+                        cardTitle: expenseHistoryStrings[index % 6],
+                        cardSubTitle: "Trip to Paris - Paid by Rini",
+                        cardDateTime: DateTime.now(),
+                        cardPrice: 600,
                       );
                     },
                     separatorBuilder: (context, index) => Padding(
