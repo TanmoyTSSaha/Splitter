@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Constants/shared.dart';
+import 'package:splitter/Screen/AuthScreens/login_screen.dart';
 import 'package:splitter/Screen/FeatureComingUp/feature_coming_up_next.dart';
+import 'package:splitter/Services/supabase_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,6 +14,58 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  Future<void> _showLogOutDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: neopopYellow,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero,
+          ),
+          titlePadding: EdgeInsets.all(height_16),
+          actionsPadding: EdgeInsets.all(height_16),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          title: Text(
+            "Are you sure?",
+            style: sub_headline5_text.copyWith(
+              color: neopopBackground,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          content: Text(
+            "Do you really wanted to logout?",
+            style: caption_text.copyWith(
+              color: neopopBackground,
+            ),
+          ),
+          actions: [
+            CustomSecondaryButton(
+              buttonText: "Yes",
+              onPressed: () {
+                SupabaseAuth().supabaseSignOut();
+                setState(() {
+                  Get.offAll(() => const LoginScreen());
+                });
+              },
+              buttonHeight: height_16 * 2.5,
+              buttonWidth: devSysWidth * 0.26,
+            ),
+            CustomSecondaryButton(
+              buttonText: "No",
+              onPressed: () {
+                Get.back();
+              },
+              buttonHeight: height_16 * 2.5,
+              buttonWidth: devSysWidth * 0.26,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -287,9 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   buttonName: "Logout",
                   iconPath: "assets/icons/svg/material-symbols--logout.svg",
                   onPressed: () {
-                    Get.to(
-                      () => const FeatureComingUpNext(),
-                    );
+                    _showLogOutDialog();
                   },
                 ),
               ],

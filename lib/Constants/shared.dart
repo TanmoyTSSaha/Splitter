@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:splitter/Constants/constants.dart';
 
 Color getRandomBrightColor() {
@@ -529,6 +530,88 @@ class ElevatedCustomTextAndIconButton extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class LoadingWidget extends StatelessWidget {
+  const LoadingWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        height: height_16 * 7,
+        width: height_16 * 7,
+        padding: EdgeInsets.all(height_16 * 1.5),
+        decoration: BoxDecoration(
+          color: neopopOnPrimary,
+          borderRadius: BorderRadius.circular(height_16 / 2),
+        ),
+        alignment: Alignment.center,
+        child: LoadingAnimationWidget.staggeredDotsWave(
+          color: neopopAccent,
+          size: height_16 * 3.5,
+        ),
+      ),
+    );
+  }
+}
+
+class SuccessWidget extends StatelessWidget {
+  const SuccessWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        height: height_16 * 7,
+        width: height_16 * 7,
+        padding: EdgeInsets.all(height_16 * 1.5),
+        decoration: BoxDecoration(
+          color: neopopOnPrimary,
+          borderRadius: BorderRadius.circular(height_16 / 2),
+        ),
+        alignment: Alignment.center,
+        child: LoadingAnimationWidget.inkDrop(
+          color: neopopAccent,
+          size: height_16 * 3.5,
+        ),
+      ),
+    );
+  }
+}
+
+class CustomSecondaryButton extends StatelessWidget {
+  final String buttonText;
+  void Function()? onPressed;
+  double buttonHeight;
+  double buttonWidth;
+  CustomSecondaryButton({
+    required this.buttonText,
+    required this.onPressed,
+    this.buttonHeight = 16 * 3,
+    this.buttonWidth = 16 * 8,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: neopopBackground,
+        minimumSize: Size(buttonWidth, buttonHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+        ),
+      ),
+      child: Text(
+        buttonText,
+        style: button_text.copyWith(
+          color: neopopOnBackground,
+        ),
       ),
     );
   }

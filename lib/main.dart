@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
+import 'package:splitter/Screen/AuthScreens/login_screen.dart';
 import 'package:splitter/Screen/BottomNavigationController/bottom_navigation_controller.dart';
+import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitter/git_ignore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+Future<void> main() async {
+  await Supabase.initialize(
+    url: supabaseURL,
+    anonKey: supabaseAnonPublicKey,
+  );
   runApp(const MyApp());
 }
 
@@ -23,7 +31,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: splitter_custom_text_theme,
       ),
-      home: BottomNavigationController(),
+      home: SupabaseAuth().supabaseRetrieveSession()
+          ? const BottomNavigationController()
+          : const LoginScreen(),
     );
   }
 }

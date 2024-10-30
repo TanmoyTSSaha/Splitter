@@ -69,7 +69,7 @@ TextStyle headline1_text = const TextStyle(
 
 TextStyle headline2_text = const TextStyle(
   fontFamily: 'Poppins', // or Montserrat
-  fontSize: 28, 
+  fontSize: 28,
   fontWeight: FontWeight.w600,
   fontStyle: FontStyle.normal,
 );
@@ -123,7 +123,6 @@ TextStyle button_text = const TextStyle(
   fontStyle: FontStyle.normal,
 );
 
-
 final TextTheme splitter_custom_text_theme = TextTheme(
   displayLarge: headline1_text,
   displayMedium: headline2_text,
@@ -173,7 +172,6 @@ const ColorScheme neopopColorScheme = ColorScheme(
   onError: neopopOnError,
   brightness: Brightness.dark,
 );
-
 
 // ########## THIS SECTION IS FOR SIZES ##########
 double devSysHeight = Get.context!.height;
