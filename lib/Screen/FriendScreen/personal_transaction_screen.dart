@@ -401,6 +401,7 @@ class _PersonalTransactionScreenState extends State<PersonalTransactionScreen> {
                           cardSubTitle: "Trip to Paris - Paid by Rini",
                           cardDateTime: DateTime.now(),
                           cardPrice: 600,
+                          categoryLogoURL: "",
                         );
                       },
                       separatorBuilder: (context, index) => Padding(

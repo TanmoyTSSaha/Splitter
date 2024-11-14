@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:splitter/Constants/constants.dart';
 
+import '../Model/group_model.dart';
+
 Color getRandomBrightColor() {
   Random random = Random();
 
@@ -154,16 +156,58 @@ class NeoPopCustomTextButton extends StatelessWidget {
 }
 
 class GroupCard extends StatelessWidget {
-  final String groupName;
+  final GroupModel groupModel;
+  final String userID;
   void Function()? onTap;
   GroupCard({
-    required this.groupName,
+    required this.groupModel,
+    required this.userID,
     required this.onTap,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    List<GroupBalanceModel> donorList = [];
+    List<GroupBalanceModel> receiverList = [];
+
+    debugPrint(groupModel.groupName!);
+    for (var element in groupModel.groupBalance!) {
+      debugPrint(
+          "\n\n\nUSER ID: $userID \nDONOR ID: ${element.donorID} \nRECEIVER ID: ${element.receiverID}\n\n\n");
+      if (element.donorID == userID) {
+        donorList.add(element);
+      } else if (element.receiverID == userID) {
+        receiverList.add(element);
+      }
+    }
+
+    debugPrint(
+        "Main Model: ${groupModel.groupBalance} \nDonor Model: $donorList \nReceiver Model: $receiverList");
+
+    GroupBalanceModel? maxDonation;
+    if (donorList.isNotEmpty) {
+      for (int i = 0; i < donorList.length; i++) {
+        if (i == 0) {
+          maxDonation = donorList[i];
+        } else if (donorList[i].amount! > maxDonation!.amount!) {
+          maxDonation = donorList[i];
+        }
+      }
+    }
+
+    GroupBalanceModel? maxReceived;
+
+    if (receiverList.isNotEmpty) {
+      for (int i = 0; i < receiverList.length; i++) {
+        if (i == 0) {
+          maxReceived = receiverList[i];
+        } else if (receiverList[i].amount! > maxReceived!.amount!) {
+          maxReceived = receiverList[i];
+        }
+      }
+    }
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -193,7 +237,7 @@ class GroupCard extends StatelessWidget {
                   alignment: Alignment.center,
                   padding: EdgeInsets.all(width_16 / 2),
                   child: Text(
-                    getInitials(groupName),
+                    getInitials(groupModel.groupName!),
                     style: headline2_text.copyWith(
                       color: neopopBackground,
                     ),
@@ -209,24 +253,33 @@ class GroupCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        groupName,
+                        groupModel.groupName!,
                         style: sub_headline5_text,
                       ),
                       SizedBox(
                         height: height_10 / 2,
                       ),
-                      Text(
-                        "You owe Ramesh ₹300",
-                        style: caption_text.copyWith(
-                          color: neopopPrimary,
+                      if (maxDonation != null)
+                        Text(
+                          "You owe ${maxDonation.receiver!.split(" ")[0]} ₹${maxDonation.amount!}",
+                          style: caption_text.copyWith(
+                            color: neopopPrimary,
+                          ),
                         ),
-                      ),
-                      Text(
-                        "Shudhanshu owe's you ₹500",
-                        style: caption_text.copyWith(
-                          color: neopopAccent,
+                      if (maxReceived != null)
+                        Text(
+                          "${maxReceived.donor!.split(" ")[0]} owe's you ₹${maxReceived.amount!}",
+                          style: caption_text.copyWith(
+                            color: neopopAccent,
+                          ),
                         ),
-                      ),
+                      if (maxDonation == null && maxReceived == null)
+                        Text(
+                          "There are no transactions with you in the group.",
+                          style: caption_text.copyWith(
+                            color: neopopAccent,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -375,12 +428,14 @@ class TransactionCard extends StatelessWidget {
   final String cardSubTitle;
   final DateTime cardDateTime;
   final double cardPrice;
+  final String categoryLogoURL;
   const TransactionCard({
     required this.index,
     required this.cardTitle,
     required this.cardSubTitle,
     required this.cardDateTime,
     required this.cardPrice,
+    required this.categoryLogoURL,
     super.key,
   });
 
@@ -392,12 +447,19 @@ class TransactionCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(56),
-            child: Image.network(
-              "https://placedog.net/50${(index + 1) * 2}/50${(index + 1) * 2}",
-              height: height_16 * 3,
-              width: width_16 * 3,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(56),
+              color: neopopSecondaryGrey,
+            ),
+            padding: EdgeInsets.all(height_10 / 2),
+            alignment: Alignment.center,
+            height: height_16 * 3,
+            width: width_16 * 3,
+            child: SvgPicture.network(
+              categoryLogoURL,
+              fit: BoxFit.contain,
+              color: neopopAccent,
             ),
           ),
           Padding(
@@ -454,14 +516,23 @@ class TransactionCard extends StatelessWidget {
               Container(
                 alignment: Alignment.centerRight,
                 width: devSysWidth * 0.25,
-                child: Text(
-                  "₹$cardPrice",
-                  overflow: TextOverflow.ellipsis,
-                  style: body1_text.copyWith(
-                    color: neopopAccent,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                child: cardPrice != 0
+                    ? Text(
+                        "₹$cardPrice",
+                        overflow: TextOverflow.ellipsis,
+                        style: body1_text.copyWith(
+                          color: neopopAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : Text(
+                        "You're not in",
+                        overflow: TextOverflow.ellipsis,
+                        style: caption_text.copyWith(
+                          color: neopopAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -553,6 +624,34 @@ class LoadingWidget extends StatelessWidget {
         child: LoadingAnimationWidget.staggeredDotsWave(
           color: neopopAccent,
           size: height_16 * 3.5,
+        ),
+      ),
+    );
+  }
+}
+
+class ImageLoadingWidget extends StatelessWidget {
+  final double loaderRadius;
+  const ImageLoadingWidget({
+    required this.loaderRadius,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        height: loaderRadius,
+        width: loaderRadius,
+        padding: EdgeInsets.all(loaderRadius - (loaderRadius * 0.75)),
+        decoration: BoxDecoration(
+          color: neopopSecondaryGrey,
+          borderRadius: BorderRadius.circular(loaderRadius),
+        ),
+        alignment: Alignment.center,
+        child: LoadingAnimationWidget.waveDots(
+          color: neopopAccent,
+          size: loaderRadius * 0.75,
         ),
       ),
     );

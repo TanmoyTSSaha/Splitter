@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Controller/group_screen_controller.dart';
+import 'package:splitter/Model/group_model.dart';
 import 'package:splitter/Screen/GroupScreen/analytics_tab.dart';
 import 'package:splitter/Screen/GroupScreen/members_tab.dart';
 import 'package:splitter/Screen/GroupScreen/settle_up_tab.dart';
@@ -10,9 +11,11 @@ import 'package:splitter/Screen/GroupScreen/transaction_tab.dart';
 import '../../Constants/shared.dart';
 
 class GroupDetailedScreen extends StatefulWidget {
-  final String group_name;
+  final GroupModel groupModel;
+  final String userID;
   const GroupDetailedScreen({
-    required this.group_name,
+    required this.groupModel,
+    required this.userID,
     super.key,
   });
 
@@ -78,7 +81,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       alignment: Alignment.center,
                       padding: EdgeInsets.all(width_16 / 2),
                       child: Text(
-                        getInitials(widget.group_name),
+                        getInitials(widget.groupModel.groupName!),
                         style: headline2_text.copyWith(
                           color: neopopBackground,
                         ),
@@ -90,7 +93,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       width: width_10 * 25,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        widget.group_name,
+                        widget.groupModel.groupName!,
                         style: headline1_text,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -138,7 +141,10 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                   child: TabBarView(
                     children: [
                       TransactionTab(
-                          expenseHistoryStrings: expenseHistoryStrings),
+                        expenseHistoryStrings: expenseHistoryStrings,
+                        userID: widget.userID,
+                        groupID: widget.groupModel.groupID!,
+                      ),
                       const AnalyticsTab(),
                       const SettleUpTab(),
                       const MembersTab(),
