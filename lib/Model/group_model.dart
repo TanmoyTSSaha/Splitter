@@ -1,7 +1,3 @@
-import 'dart:convert';
-
-import 'package:flutter/material.dart';
-
 class GroupModel {
   String? groupID;
   String? groupName;
@@ -113,8 +109,10 @@ class GroupTransactionModel {
   String? transactionID;
   String? transactionGroupID;
   String? groupID;
-  String? paidBy;
-  String? sharedWith;
+  String? paidByUUID;
+  String? paidByName;
+  String? sharedWithUUID;
+  String? sharedWithName;
   double? totalTransactionAmount;
   double? sharedTransactionAmount;
   double? sharedPercentage;
@@ -122,6 +120,7 @@ class GroupTransactionModel {
   double? selfSharePercentage;
   String? sharingType;
   String? category;
+  String? categoryLogo;
   String? description;
   String? transactionPhoto;
   String? transactionNote;
@@ -132,8 +131,10 @@ class GroupTransactionModel {
     this.transactionID,
     this.transactionGroupID,
     this.groupID,
-    this.paidBy,
-    this.sharedWith,
+    this.paidByUUID,
+    this.paidByName,
+    this.sharedWithUUID,
+    this.sharedWithName,
     this.totalTransactionAmount,
     this.sharedTransactionAmount,
     this.sharedPercentage,
@@ -141,6 +142,7 @@ class GroupTransactionModel {
     this.selfSharePercentage,
     this.sharingType,
     this.category,
+    this.categoryLogo,
     this.description,
     this.transactionPhoto,
     this.transactionNote,
@@ -148,19 +150,26 @@ class GroupTransactionModel {
     this.transactionDate,
   });
 
-  GroupTransactionModel.fromJSON(Map<String, dynamic> data) {
+  GroupTransactionModel.fromJSON(Map<String, dynamic> data,
+      String paidByNameStr, String sharedWithNameStr, String categoryLogoStr) {
     transactionID = data["transaction_id"];
     transactionGroupID = data["transaction_group_id"];
     groupID = data["group_id"];
-    paidBy = data["paid_by"];
-    sharedWith = data["shared_with"];
-    totalTransactionAmount = double.parse(data["total_transaction_amount"].toString());
-    sharedTransactionAmount = double.parse(data["shared_transaction_amount"].toString());
+    paidByUUID = data["paid_by"];
+    paidByName = paidByNameStr;
+    sharedWithUUID = data["shared_with"];
+    sharedWithName = sharedWithNameStr;
+    totalTransactionAmount =
+        double.parse(data["total_transaction_amount"].toString());
+    sharedTransactionAmount =
+        double.parse(data["shared_transaction_amount"].toString());
     sharedPercentage = double.parse(data["shared_percentage"].toString());
     selfShareAmount = double.parse(data["self_share_amount"].toString());
-    selfSharePercentage = double.parse(data["self_share_percentage"].toString());
+    selfSharePercentage =
+        double.parse(data["self_share_percentage"].toString());
     sharingType = data["sharing_type"];
     category = data["category"];
+    categoryLogo = categoryLogoStr;
     description = data["description"];
     transactionPhoto = data["transaction_photo"];
     transactionNote = data["transaction_note"];
@@ -174,8 +183,8 @@ class GroupTransactionModel {
     data["transaction_id"] = transactionID;
     data["transaction_group_id"] = transactionGroupID;
     data["group_id"] = groupID;
-    data["paid_by"] = paidBy;
-    data["shared_with"] = sharedWith;
+    data["paid_by"] = paidByUUID;
+    data["shared_with"] = sharedWithUUID;
     data["total_transaction_amount"] = totalTransactionAmount;
     data["shared_transaction_amount"] = sharedTransactionAmount;
     data["shared_percentage"] = sharedPercentage;
@@ -193,13 +202,15 @@ class GroupTransactionModel {
 class ConsolidatedGroupTransactionModel {
   String? transactionGroupID;
   String? groupID;
-  String? paidBy;
+  String? paidByUUID;
+  String? paidByName;
   double? totalTransactionAmount;
   double? selfSharingAmount;
   double? selfSharingPercentage;
   List<ConsolidatedGroupTransactionSharedTransactionModel>? sharedWith;
   String? sharingType;
   String? category;
+  String? categoryLogo;
   String? description;
   String? transactionPhotoURL;
   String? transactionNote;
@@ -209,13 +220,15 @@ class ConsolidatedGroupTransactionModel {
   ConsolidatedGroupTransactionModel({
     this.transactionGroupID,
     this.groupID,
-    this.paidBy,
+    this.paidByUUID,
+    this.paidByName,
     this.totalTransactionAmount,
     this.selfSharingAmount,
     this.selfSharingPercentage,
     this.sharedWith,
     this.sharingType,
     this.category,
+    this.categoryLogo,
     this.description,
     this.transactionPhotoURL,
     this.transactionNote,
@@ -230,7 +243,8 @@ class ConsolidatedGroupTransactionModel {
 
     for (var element in groupTransactionModel) {
       Map<String, dynamic> data = <String, dynamic>{
-        "shared_with": element.sharedWith,
+        "shared_with_uuid": element.sharedWithUUID,
+        "shared_with_name": element.sharedWithName,
         "shared_transaction_amount": element.sharedTransactionAmount,
         "shared_percentage": element.sharedPercentage,
       };
@@ -241,13 +255,15 @@ class ConsolidatedGroupTransactionModel {
 
     transactionGroupID = groupTransactionModel[0].transactionGroupID;
     groupID = groupTransactionModel[0].groupID;
-    paidBy = groupTransactionModel[0].paidBy;
+    paidByUUID = groupTransactionModel[0].paidByUUID;
+    paidByName = groupTransactionModel[0].paidByName;
     totalTransactionAmount = groupTransactionModel[0].totalTransactionAmount;
     selfSharingAmount = groupTransactionModel[0].selfShareAmount;
     selfSharingPercentage = groupTransactionModel[0].selfSharePercentage;
     sharedWith = sharedWithList;
     sharingType = groupTransactionModel[0].sharingType;
     category = groupTransactionModel[0].category;
+    categoryLogo = groupTransactionModel[0].categoryLogo;
     description = groupTransactionModel[0].description;
     transactionPhotoURL = groupTransactionModel[0].transactionPhoto;
     transactionNote = groupTransactionModel[0].transactionNote;
@@ -257,30 +273,57 @@ class ConsolidatedGroupTransactionModel {
 }
 
 class ConsolidatedGroupTransactionSharedTransactionModel {
-  String? sharedWith;
+  String? sharedWithUUID;
+  String? sharedWithName;
   double? sharedTransactionAmount;
   double? sharedPercentage;
 
   ConsolidatedGroupTransactionSharedTransactionModel({
-    this.sharedWith,
+    this.sharedWithUUID,
+    this.sharedWithName,
     this.sharedTransactionAmount,
     this.sharedPercentage,
   });
 
   ConsolidatedGroupTransactionSharedTransactionModel.fromJSON(
       Map<String, dynamic> data) {
-    sharedWith = data["shared_with"];
-    sharedTransactionAmount = double.parse(data["shared_transaction_amount"].toString());
+    sharedWithUUID = data["shared_with_uuid"];
+    sharedWithName = data["shared_with_name"];
+    sharedTransactionAmount =
+        double.parse(data["shared_transaction_amount"].toString());
     sharedPercentage = double.parse(data["shared_percentage"].toString());
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
 
-    data["shared_with"] = sharedWith;
+    data["shared_with_uuid"] = sharedWithUUID;
+    data["shared_with_name"] = sharedWithName;
     data["shared_transaction_amount"] = sharedTransactionAmount;
     data["shared_percentage"] = sharedPercentage;
 
     return data;
+  }
+}
+
+class GroupMembersWithNameModel {
+  String? groupID;
+  String? userID;
+  String? userName;
+  String? userPic;
+
+  GroupMembersWithNameModel({
+    this.groupID,
+    this.userID,
+    this.userName,
+    this.userPic,
+  });
+
+  GroupMembersWithNameModel.fromVariables(GroupMembers groupMember,
+      String memberName, String memberProfilePictureURL) {
+    groupID = groupMember.groupID;
+    userID = groupMember.userID;
+    userName = memberName;
+    userPic = memberProfilePictureURL;
   }
 }

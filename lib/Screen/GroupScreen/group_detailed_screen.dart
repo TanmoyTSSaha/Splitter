@@ -50,7 +50,17 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
           elevation: 0,
           actions: [
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                // HERE WRITE THE LOGIC FOR RELOAD DATA TO GET LATEST DATA. NEED TO DELETE PREVIOUS CACHE AND SAVE THE LATEST DATA ONCE LOADING IS COMPLETED.
+              },
+              icon: const Icon(
+                Icons.replay_rounded,
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                // WRITE THR LOGIC FOR GROUP SETTINGS SCREEN AND ALL.
+              },
               icon: const Icon(
                 Icons.settings_outlined,
               ),
@@ -115,7 +125,6 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                     },
                   ),
                   onTap: (index) {
-                    debugPrint("INDEX:: $index");
                     _groupScreenController.updateTabIndex(index);
                   },
                   isScrollable: true,
@@ -147,7 +156,10 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       ),
                       const AnalyticsTab(),
                       const SettleUpTab(),
-                      const MembersTab(),
+                      MembersTab(
+                        userID: widget.userID,
+                        groupID: widget.groupModel.groupID!,
+                      ),
                     ],
                   ),
                 ),

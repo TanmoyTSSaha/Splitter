@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:splitter/Constants/constants.dart';
@@ -176,7 +174,7 @@ class SupabaseDatabase {
       personalTransactionsModel.add(personalTransaction);
     }
 
-    final product_category_data = await supabase
+    final productCategoryData = await supabase
         .from("master_product_categorisation")
         .select("category, category_logo")
         .inFilter("category", productCategories);
@@ -184,7 +182,7 @@ class SupabaseDatabase {
     List<CategoryOnlyModel> categories = [];
     List<String> categoriesString = [];
 
-    for (var element in product_category_data) {
+    for (var element in productCategoryData) {
       if (!categoriesString.contains(element["category"])) {
         categories.add(CategoryOnlyModel.fromJSON(element));
         categoriesString.add(element["category"]);
@@ -233,10 +231,18 @@ class SupabaseDatabase {
       {required List<GroupTransactionModel> groupTransactionList}) {
     List<ConsolidatedGroupTransactionModel> cnsGrpTrnsData = [];
     List<String> transactionGroupIDs = [];
+    List<String> categories = [];
+    // List<String> userIDs = [];
 
     for (var element in groupTransactionList) {
       if (!transactionGroupIDs.contains(element.transactionGroupID!)) {
         transactionGroupIDs.add(element.transactionGroupID!);
+      }
+    }
+
+    for (var element in groupTransactionList) {
+      if (!categories.contains(element.category!)) {
+        categories.add(element.category!);
       }
     }
 
@@ -249,8 +255,9 @@ class SupabaseDatabase {
         }
       }
 
-      cnsGrpTrnsData.add(
-          ConsolidatedGroupTransactionModel.fromTransactionModel(grpTrnsList));
+      cnsGrpTrnsData.add(ConsolidatedGroupTransactionModel.fromTransactionModel(
+        grpTrnsList,
+      ));
     }
 
     return cnsGrpTrnsData;
@@ -263,16 +270,57 @@ class SupabaseDatabase {
         .select()
         .eq("group_id", groupID);
 
-    debugPrint("QUERY DATA: $grpTrnsData");
-
     List<GroupTransactionModel> groupTransactions = [];
+    List<String> categories = [];
 
     for (var element in grpTrnsData) {
-      debugPrint("GROUP TRANSACTION ELEMENTS: $element");
-      groupTransactions.add(GroupTransactionModel.fromJSON(element));
+      if (!categories.contains(element["category"])) {
+        categories.add(element["category"]);
+      }
     }
 
-    debugPrint("GROUP TRANSACTION: $groupTransactions");
+    final masterProdCategory = await supabase
+        .from("master_product_categorisation")
+        .select("category, category_logo")
+        .inFilter('category', categories);
+
+    List<Map<String, dynamic>> distinctMasterProdCategory = [];
+    List<String> distinctCategory = [];
+
+    for (var element in masterProdCategory) {
+      if (!distinctCategory.contains(element["category"])) {
+        distinctCategory.add(element["category"]);
+        distinctMasterProdCategory.add(element);
+      }
+    }
+
+    for (var element in grpTrnsData) {
+      // OPTIMIZATION NEEDED HERE -> INSTEAD OF CALLING BELOW 2 QUERIES AGAIN AND AGAIN FOR EACH TRANSACTIONS, FIRST SAVE THE USER ID'S BY RUNNING A FOR LOOP OVER THE RAW MAP DATA AND SAVE THE USER ID'S AND QUERY FOR ALL THOSE ID'S AT ONCE. THEN RUN ANOTHER FOR LOOP TO MATCH THE DATA WITH IT'S RESPECTIVE GROUP TRANSACTION.
+      final paidByUserMap = await supabase
+          .from("users")
+          .select("firstname, lastname")
+          .eq('user_id', element["paid_by"])
+          .single();
+
+      final sharedWithUserMap = await supabase
+          .from("users")
+          .select("firstname, lastname")
+          .eq('user_id', element["paid_by"])
+          .single();
+
+      for (var masterCatElem in distinctMasterProdCategory) {
+        if (masterCatElem["category"] == element["category"]) {
+          groupTransactions.add(
+            GroupTransactionModel.fromJSON(
+              element,
+              "${paidByUserMap["firstname"]} ${paidByUserMap["lastname"]}",
+              "${sharedWithUserMap["firstname"]} ${sharedWithUserMap["lastname"]}",
+              masterCatElem["category_logo"],
+            ),
+          );
+        }
+      }
+    }
 
     return groupTransactions;
   }
@@ -331,5 +379,53 @@ class SupabaseDatabase {
     UserDetails userDetails = UserDetails.fromJSON(data);
 
     return userDetails;
+  }
+
+  Future<List<GroupMembersWithNameModel>> getGroupMembers(
+      {required String groupID, required String currentUserID}) async {
+    final groupMembersRawData =
+        await supabase.from("group_members").select().eq("group_id", groupID);
+
+    debugPrint("GROUP MEMBER QUERY: $groupMembersRawData");
+
+    List<String> userIDs = [];
+
+    for (var element in groupMembersRawData) {
+      userIDs.add(element["user_id"]);
+    }
+
+    debugPrint("USER ID'S : $userIDs");
+
+    final groupMembersNameData = await supabase
+        .from("users")
+        .select("user_id, firstname, lastname, profile_picture_url")
+        .inFilter("user_id", userIDs);
+
+    List<GroupMembersWithNameModel> grpMbrNmList = [];
+
+    for (var grpElem in groupMembersRawData) {
+      for (var userElem in groupMembersNameData) {
+        if (grpElem["user_id"] == userElem["user_id"]) {
+          GroupMembers groupMembersModel = GroupMembers.fromJSON(
+            {
+              "group_id": grpElem["group_id"],
+              "user_id": grpElem["user_id"],
+            },
+          );
+
+          grpMbrNmList.add(
+            GroupMembersWithNameModel.fromVariables(
+              groupMembersModel,
+              currentUserID == userElem["user_id"]
+                  ? userElem["firstname"] + " " + userElem["lastname"] + "(you)"
+                  : userElem["firstname"] + " " + userElem["lastname"] + "",
+              userElem["profile_picture_url"] ?? "",
+            ),
+          );
+        }
+      }
+    }
+
+    return grpMbrNmList;
   }
 }

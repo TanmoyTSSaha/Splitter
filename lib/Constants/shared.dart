@@ -171,19 +171,13 @@ class GroupCard extends StatelessWidget {
     List<GroupBalanceModel> donorList = [];
     List<GroupBalanceModel> receiverList = [];
 
-    debugPrint(groupModel.groupName!);
     for (var element in groupModel.groupBalance!) {
-      debugPrint(
-          "\n\n\nUSER ID: $userID \nDONOR ID: ${element.donorID} \nRECEIVER ID: ${element.receiverID}\n\n\n");
       if (element.donorID == userID) {
         donorList.add(element);
       } else if (element.receiverID == userID) {
         receiverList.add(element);
       }
     }
-
-    debugPrint(
-        "Main Model: ${groupModel.groupBalance} \nDonor Model: $donorList \nReceiver Model: $receiverList");
 
     GroupBalanceModel? maxDonation;
     if (donorList.isNotEmpty) {
