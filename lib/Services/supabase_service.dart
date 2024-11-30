@@ -386,15 +386,11 @@ class SupabaseDatabase {
     final groupMembersRawData =
         await supabase.from("group_members").select().eq("group_id", groupID);
 
-    debugPrint("GROUP MEMBER QUERY: $groupMembersRawData");
-
     List<String> userIDs = [];
 
     for (var element in groupMembersRawData) {
       userIDs.add(element["user_id"]);
     }
-
-    debugPrint("USER ID'S : $userIDs");
 
     final groupMembersNameData = await supabase
         .from("users")
@@ -427,5 +423,34 @@ class SupabaseDatabase {
     }
 
     return grpMbrNmList;
+  }
+
+  Future<List<Map<String, dynamic>>> getDistinctGroups(
+      {required String userID}) async {
+    List<Map<String, dynamic>> distinctGroupRawData = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", userID);
+
+    List<String> distinctGroupIDs = [];
+
+    for (var element in distinctGroupRawData) {
+      if (!distinctGroupIDs.contains(element["group_id"])) {
+        distinctGroupIDs.add(element["group_id"]);
+      }
+    }
+
+    distinctGroupRawData = await supabase
+        .from("groups")
+        .select("group_id, group_name")
+        .inFilter("group_id", distinctGroupIDs);
+
+    List<Map<String, dynamic>> distinctMapGroupDetails = [];
+
+    for (var element in distinctGroupRawData) {
+      distinctMapGroupDetails.add(element);
+    }
+
+    return distinctMapGroupDetails;
   }
 }

@@ -180,3 +180,10 @@ double height_10 = (Get.height / devSysHeight).toInt() * 10;
 double width_10 = (Get.width / devSysWidth).toInt() * 10;
 double height_16 = (Get.height / devSysHeight).toInt() * 16;
 double width_16 = (Get.width / devSysWidth).toInt() * 16;
+
+enum SharingMode {
+  byEvenly,
+  byUnevenly,
+  byPercentage,
+  byShares,
+}

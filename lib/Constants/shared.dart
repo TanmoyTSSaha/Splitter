@@ -127,11 +127,15 @@ class NeoPopCustomTextButton extends StatelessWidget {
   final Color buttonTextColor;
   final Color buttonForegroundColor;
   final Function()? onPressed;
+  final bool isBorder;
+  final Color? borderColor;
   const NeoPopCustomTextButton({
     required this.buttonName,
     required this.buttonTextColor,
     required this.buttonForegroundColor,
     required this.onPressed,
+    this.isBorder = false,
+    this.borderColor,
     super.key,
   });
 
@@ -141,6 +145,10 @@ class NeoPopCustomTextButton extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         shape: RoundedRectangleBorder(
+          side: BorderSide(
+            color: borderColor ?? Colors.transparent,
+            width: isBorder ? 0.5 : 0,
+          ),
           borderRadius: BorderRadius.circular(0),
         ),
         foregroundColor: buttonForegroundColor,
@@ -706,6 +714,187 @@ class CustomSecondaryButton extends StatelessWidget {
           color: neopopOnBackground,
         ),
       ),
+    );
+  }
+}
+
+class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
+  final TextEditingController customTextFormFieldTextEditingController;
+  final String prefixIconString;
+  final String hintText;
+  const CustomTextFormFieldWithPrefixIcon({
+    super.key,
+    required this.customTextFormFieldTextEditingController,
+    required this.prefixIconString,
+    required this.hintText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          height: height_10 * 5,
+          width: height_10 * 5,
+          padding: EdgeInsets.all(height_10 / 2),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            border: Border.all(
+              color: neopopGrey,
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(height_16 / 4),
+          ),
+          child: SvgPicture.asset(
+            prefixIconString,
+            height: 20,
+            width: 20,
+            color: neopopGrey,
+          ),
+        ),
+        SizedBox(
+          width: devSysWidth * 0.79,
+          height: height_10 * 5.25,
+          child: TextFormField(
+            obscureText: false,
+            controller: customTextFormFieldTextEditingController,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopGrey,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopGrey,
+                  width: 2,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopGrey,
+                  width: 1,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopError,
+                  width: 2,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopError,
+                  width: 2,
+                ),
+              ),
+              hintText: hintText,
+              hintStyle: sub_headline5_text.copyWith(
+                color: neopopGrey,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class CustomBigTextFormFieldWithPrefixIcon extends StatelessWidget {
+  final TextEditingController customBigTextFormFieldTextEditingController;
+  final String prefixIconString;
+  final String hintText;
+  const CustomBigTextFormFieldWithPrefixIcon({
+    super.key,
+    required this.customBigTextFormFieldTextEditingController,
+    required this.prefixIconString,
+    required this.hintText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: height_10 * 5,
+          width: height_10 * 5,
+          padding: EdgeInsets.all(height_10 / 2),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            border: Border.all(
+              color: neopopGrey,
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(height_16 / 4),
+          ),
+          child: SvgPicture.asset(
+            prefixIconString,
+            height: 20,
+            width: 20,
+            color: neopopGrey,
+          ),
+        ),
+        SizedBox(
+          width: devSysWidth * 0.79,
+          height: devSysHeight * 0.175,
+          child: TextFormField(
+            obscureText: false,
+            maxLines: 5,
+            controller: customBigTextFormFieldTextEditingController,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopGrey,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopGrey,
+                  width: 2,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopGrey,
+                  width: 1,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopError,
+                  width: 2,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(height_16 / 4),
+                borderSide: const BorderSide(
+                  color: neopopError,
+                  width: 2,
+                ),
+              ),
+              hintText: hintText,
+              hintStyle: sub_headline5_text.copyWith(
+                color: neopopGrey,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

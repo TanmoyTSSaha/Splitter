@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Controller/group_screen_controller.dart';
 import 'package:splitter/Model/group_model.dart';
+import 'package:splitter/Screen/GroupScreen/add_transaction_screen.dart';
 import 'package:splitter/Screen/GroupScreen/analytics_tab.dart';
 import 'package:splitter/Screen/GroupScreen/members_tab.dart';
 import 'package:splitter/Screen/GroupScreen/settle_up_tab.dart';
 import 'package:splitter/Screen/GroupScreen/transaction_tab.dart';
 
 import '../../Constants/shared.dart';
+import '../../Services/supabase_service.dart';
 
 class GroupDetailedScreen extends StatefulWidget {
   final GroupModel groupModel;
@@ -24,17 +27,6 @@ class GroupDetailedScreen extends StatefulWidget {
 }
 
 class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
-  List<String> expenseHistoryStrings = [
-    "Flight Confirmation",
-    "Hotel Reservation",
-    "Activity Planning",
-    "Packing List",
-    "Travel Insurance",
-    "Resort Booking",
-    "Packing List",
-    "Hotel Reservation",
-  ];
-
   final GroupScreenController _groupScreenController =
       Get.put(GroupScreenController());
 
@@ -150,7 +142,6 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                   child: TabBarView(
                     children: [
                       TransactionTab(
-                        expenseHistoryStrings: expenseHistoryStrings,
                         userID: widget.userID,
                         groupID: widget.groupModel.groupID!,
                       ),
@@ -170,7 +161,38 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
         floatingActionButton: Obx(
           () => [0, 2].contains(_groupScreenController.tabIndex.value)
               ? ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    if (_groupScreenController.tabIndex.value == 0) {
+                      SupabaseDatabase()
+                          .getGroupMembers(
+                        groupID: widget.groupModel.groupID!,
+                        currentUserID: widget.userID,
+                      )
+                          .then(
+                        (value) {
+                          return Get.to(
+                            () => AddTransactionScreen(
+                              userID: widget.userID,
+                              groupDetails: <String, dynamic>{
+                                "group_id": widget.groupModel.groupID,
+                                "group_name": widget.groupModel.groupName,
+                              },
+                              groupMembersDetails: value,
+                            ),
+                          );
+                        },
+                      ).catchError((e) {
+                        Fluttertoast.showToast(
+                    msg: "Something went wrong! \n$e",
+                    textColor: neopopBackground,
+                    backgroundColor: neopopYellow,
+                  );
+                      });
+                    } else {
+                      null;
+                    }
+                    ;
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: neopopAccent,
                     minimumSize: Size(devSysWidth * 0.35, height_16 * 3),
@@ -179,7 +201,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                     ),
                   ),
                   child: Text(
-                    _groupScreenController.tabIndex == 0
+                    _groupScreenController.tabIndex.value == 0
                         ? "Add Transaction"
                         : "Settle Up",
                     style: button_text.copyWith(

@@ -7,6 +7,9 @@ import 'package:splitter/Services/supabase_service.dart';
 import 'package:splitter/git_ignore.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+
+// RENAME THIS APP TO SplitO.
+
 Future<void> main() async {
   await Supabase.initialize(
     url: supabaseURL,
@@ -37,3 +40,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+

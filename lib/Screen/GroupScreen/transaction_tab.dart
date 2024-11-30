@@ -6,11 +6,9 @@ import '../../Constants/shared.dart';
 import '../../Model/group_model.dart';
 
 class TransactionTab extends StatefulWidget {
-  final List<String> expenseHistoryStrings;
   final String userID;
   final String groupID;
   const TransactionTab({
-    required this.expenseHistoryStrings,
     required this.userID,
     required this.groupID,
     super.key,

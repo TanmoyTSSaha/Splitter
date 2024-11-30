@@ -58,8 +58,6 @@ class MembersTab extends StatelessWidget {
                 ),
                 itemCount: groupMemberSnapshot.data!.length,
                 itemBuilder: (context, index) {
-                  debugPrint(
-                      "USER DP -> $index: ${groupMemberSnapshot.data![index].userPic!}");
                   return Stack(
                     alignment: index % 4 == 1
                         ? Alignment.bottomLeft
