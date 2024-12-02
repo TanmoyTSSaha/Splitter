@@ -722,11 +722,15 @@ class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
   final TextEditingController customTextFormFieldTextEditingController;
   final String prefixIconString;
   final String hintText;
+  final String? Function(String?)? validator;
+  final TextInputType keyboardType;
   const CustomTextFormFieldWithPrefixIcon({
     super.key,
     required this.customTextFormFieldTextEditingController,
     required this.prefixIconString,
     required this.hintText,
+    required this.validator,
+    required this.keyboardType,
   });
 
   @override
@@ -760,6 +764,8 @@ class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
           child: TextFormField(
             obscureText: false,
             controller: customTextFormFieldTextEditingController,
+            validator: validator,
+            keyboardType: keyboardType,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(height_16 / 4),
@@ -795,6 +801,9 @@ class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
                   color: neopopError,
                   width: 2,
                 ),
+              ),
+              errorStyle: const TextStyle(
+                fontSize: 0,
               ),
               hintText: hintText,
               hintStyle: sub_headline5_text.copyWith(
@@ -897,4 +906,10 @@ class CustomBigTextFormFieldWithPrefixIcon extends StatelessWidget {
       ],
     );
   }
+}
+
+RegExp _numeric = RegExp(r'^-?[0-9]+$');
+
+bool isNumeric(String str) {
+  return _numeric.hasMatch(str);
 }

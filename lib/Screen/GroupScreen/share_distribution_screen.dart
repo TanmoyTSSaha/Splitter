@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:get/get.dart';
 import 'package:splitter/Model/group_model.dart';
 import 'package:splitter/Screen/GroupScreen/SharingTypeTabs/even_share_tab.dart';
 import 'package:splitter/Screen/GroupScreen/SharingTypeTabs/percentage_share_tab.dart';
@@ -8,10 +10,12 @@ import 'package:splitter/Screen/GroupScreen/SharingTypeTabs/uneven_share_tab.dar
 import '../../Constants/constants.dart';
 
 class ShareDistributionScreen extends StatefulWidget {
+  final double totalAmount;
   final List<GroupMembersWithNameModel> groupMembersWithNameModel;
   const ShareDistributionScreen({
     super.key,
     required this.groupMembersWithNameModel,
+    required this.totalAmount,
   });
 
   @override
@@ -44,6 +48,12 @@ class _ShareDistributionScreenState extends State<ShareDistributionScreen> {
               IconButton(
                 onPressed: () {
                   // HERE WRITE THE LOGIC FOR ADD THE EXPENSE INSIDE THE SPECIFIC GROUP. AND ALSO UPDATE THE CHANGE TRACKER TABLE ONCE UPDATED.
+                  Get.back();
+                  Fluttertoast.showToast(
+                    msg: "Split shared preciously!",
+                    textColor: neopopBackground,
+                    backgroundColor: neopopYellow,
+                  );
                 },
                 icon: const Icon(
                   Icons.check_rounded,
@@ -100,11 +110,13 @@ class _ShareDistributionScreenState extends State<ShareDistributionScreen> {
                     child: TabBarView(
                       children: [
                         EvenShareTab(
-                            groupMembersWithNameModel:
-                                widget.groupMembersWithNameModel),
+                          groupMembersWithNameModel:
+                              widget.groupMembersWithNameModel,
+                          totalAmount: widget.totalAmount,
+                        ),
                         UnevenShareTab(
                             groupMembersWithNameModel:
-                                widget.groupMembersWithNameModel),
+                                widget.groupMembersWithNameModel, totalAmount: widget.totalAmount,),
                         PercentageShareTab(
                             groupMembersWithNameModel:
                                 widget.groupMembersWithNameModel),
