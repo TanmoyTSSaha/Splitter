@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/shared.dart';
 
 import '../../../Constants/constants.dart';
+import '../../../Constants/shared.dart';
 import '../../../Controller/add_transaction_controller.dart';
 import '../../../Model/group_model.dart';
 
 class UnevenShareTab extends StatelessWidget {
   final List<GroupMembersWithNameModel> groupMembersWithNameModel;
   final double totalAmount;
-  const UnevenShareTab({
+  final AddTransactionScreenController _addTransactionScreenController =
+      Get.put(AddTransactionScreenController());
+  UnevenShareTab({
     super.key,
     required this.groupMembersWithNameModel,
     required this.totalAmount,
-  });
+  }) {
+    _addTransactionScreenController
+        .initializeList(groupMembersWithNameModel.length);
+    // _addTransactionScreenController
+    //     .initializeControllers(groupMembersWithNameModel.length);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final AddTransactionScreenController _addTransactionScreenController =
-        Get.put(AddTransactionScreenController());
     return Obx(
       () {
         return Column(
@@ -44,12 +49,22 @@ class UnevenShareTab extends StatelessWidget {
                 children: [
                   Text(
                     "₹${_addTransactionScreenController.totalAddedAmount.value} of ₹$totalAmount",
-                    style:
-                        sub_headline5_text.copyWith(color: neopopOnBackground),
+                    style: sub_headline5_text.copyWith(
+                        color: _addTransactionScreenController
+                                    .totalAddedAmount.value ==
+                                totalAmount
+                            ? neopopAccent
+                            : neopopOnBackground),
                   ),
                   Text(
                     "₹${totalAmount - _addTransactionScreenController.totalAddedAmount.value} left",
-                    style: body1_text.copyWith(color: neopopOnBackground),
+                    style: body1_text.copyWith(
+                        color: totalAmount -
+                                    _addTransactionScreenController
+                                        .totalAddedAmount.value <
+                                0
+                            ? neopopError
+                            : neopopOnBackground),
                   ),
                 ],
               ),
@@ -60,9 +75,8 @@ class UnevenShareTab extends StatelessWidget {
               shrinkWrap: true,
               itemCount: groupMembersWithNameModel.length,
               itemBuilder: (context, index) {
-                TextEditingController
-                    _extraSmallTextFieldTextEditingController =
-                    TextEditingController();
+                final extraSmallTextFieldTextEditingController =
+                    _addTransactionScreenController.textControllers[index];
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -104,7 +118,7 @@ class UnevenShareTab extends StatelessWidget {
                     ),
                     ExtraSmallTextFormField(
                       extraSmallTextFieldTextEditingController:
-                          _extraSmallTextFieldTextEditingController,
+                          extraSmallTextFieldTextEditingController,
                       validator: (value) {
                         if (value != null && value.isNumericOnly) {
                           return null;
@@ -128,12 +142,8 @@ class UnevenShareTab extends StatelessWidget {
                       },
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
-                        if (isNumeric(value)) {
-                          _addTransactionScreenController
-                              .addMembersToTheUnEvenSplitList(
-                                  groupMembersWithNameModel[index].userID!,
-                                  double.parse(value));
-                        }
+                        _addTransactionScreenController.updateValue(index,
+                            value, groupMembersWithNameModel[index].userID!);
                       },
                     ),
                   ],
@@ -146,79 +156,6 @@ class UnevenShareTab extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class ExtraSmallTextFormField extends StatelessWidget {
-  final TextEditingController extraSmallTextFieldTextEditingController;
-  final String? Function(String?)? validator;
-  final TextInputType keyboardType;
-  final void Function(String)? onChanged;
-  const ExtraSmallTextFormField({
-    super.key,
-    required this.extraSmallTextFieldTextEditingController,
-    required this.keyboardType,
-    required this.validator,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height_10 * 5,
-      width: height_16 * 5,
-      child: TextFormField(
-        obscureText: false,
-        onChanged: onChanged,
-        controller: extraSmallTextFieldTextEditingController,
-        validator: validator,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
-            borderSide: const BorderSide(
-              color: neopopGrey,
-              width: 1,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
-            borderSide: const BorderSide(
-              color: neopopGrey,
-              width: 2,
-            ),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
-            borderSide: const BorderSide(
-              color: neopopGrey,
-              width: 1,
-            ),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
-            borderSide: const BorderSide(
-              color: neopopError,
-              width: 2,
-            ),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
-            borderSide: const BorderSide(
-              color: neopopError,
-              width: 2,
-            ),
-          ),
-          errorStyle: const TextStyle(
-            fontSize: 0,
-          ),
-          hintText: "₹0.00",
-          hintStyle: sub_headline5_text.copyWith(
-            color: neopopGrey,
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class AddTransactionScreenController extends GetxController {
@@ -68,26 +69,47 @@ class AddTransactionScreenController extends GetxController {
   }
 
   // UNEVEN SHARE CONTROLLER LOGICS
-  List<Map<String, dynamic>> userAndSplitDetails = [];
+  RxList<RxMap<String, dynamic>> userAndSplitDetails =
+      <RxMap<String, dynamic>>[].obs;
+
   RxDouble totalAddedAmount = 0.0.obs;
 
-  void addMembersToTheUnEvenSplitList(String userID, double amount) {
-    userAndSplitDetails.add({"user_id": userID, "amount": amount});
-    totalAddedAmount.value = totalAddedAmount.value + amount;
-    update();
-  }
+  final List<TextEditingController> textControllers = [];
 
-  void removeMembersToTheUnEvenSplitList(String userID) {
-    List<Map<String, dynamic>> tempList = [];
-    for (Map<String, dynamic> dtls in userAndSplitDetails) {
-      if (dtls["user_id"] == userID) {
-        totalAddedAmount.value = totalAddedAmount.value - dtls["amount"];
-      } else {
-        tempList.add(dtls);
+  void initializeList(int count) {
+    if (userAndSplitDetails.isEmpty) {
+      // Initialize user and split details only once
+      userAndSplitDetails.value = List.generate(count, (_) {
+        RxMap<String, dynamic> details = <String, dynamic>{}.obs;
+        details["user_id"] = "";
+        details["amount"] = "0.0";
+        return details;
+      });
+
+      // Initialize TextEditingControllers only once
+      for (int i = 0; i < count; i++) {
+        textControllers.add(
+          TextEditingController(
+            text: userAndSplitDetails[i]["amount"], // Default to "0.0"
+          ),
+        );
       }
     }
+  }
 
-    userAndSplitDetails = tempList;
-    update();
+  void updateValue(int index, String value, String userID) {
+    if (index < userAndSplitDetails.length) {
+      // Parse the previous and new values
+      double oldValue =
+          double.tryParse(userAndSplitDetails[index]["amount"]) ?? 0.0;
+      double newValue = double.tryParse(value) ?? 0.0;
+
+      // Update the total added amount
+      totalAddedAmount.value += (newValue - oldValue);
+
+      // Update the specific user's details
+      userAndSplitDetails[index]["amount"] = value;
+      userAndSplitDetails[index]["user_id"] = userID;
+    }
   }
 }

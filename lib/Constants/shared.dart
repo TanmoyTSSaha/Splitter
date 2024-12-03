@@ -913,3 +913,77 @@ RegExp _numeric = RegExp(r'^-?[0-9]+$');
 bool isNumeric(String str) {
   return _numeric.hasMatch(str);
 }
+
+class ExtraSmallTextFormField extends StatelessWidget {
+  final TextEditingController extraSmallTextFieldTextEditingController;
+  final String? Function(String?)? validator;
+  final TextInputType keyboardType;
+  final void Function(String)? onChanged;
+  const ExtraSmallTextFormField({
+    super.key,
+    required this.extraSmallTextFieldTextEditingController,
+    required this.keyboardType,
+    required this.validator,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height_10 * 5,
+      width: height_16 * 5,
+      child: TextFormField(
+        obscureText: false,
+        // onEditingComplete: onEditingComplete,
+        onChanged: onChanged,
+        controller: extraSmallTextFieldTextEditingController,
+        validator: validator,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderSide: const BorderSide(
+              color: neopopGrey,
+              width: 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderSide: const BorderSide(
+              color: neopopGrey,
+              width: 2,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderSide: const BorderSide(
+              color: neopopGrey,
+              width: 1,
+            ),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderSide: const BorderSide(
+              color: neopopError,
+              width: 2,
+            ),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderSide: const BorderSide(
+              color: neopopError,
+              width: 2,
+            ),
+          ),
+          errorStyle: const TextStyle(
+            fontSize: 0,
+          ),
+          hintText: "₹0.00",
+          hintStyle: sub_headline5_text.copyWith(
+            color: neopopGrey,
+          ),
+        ),
+      ),
+    );
+  }
+}
