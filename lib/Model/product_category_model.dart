@@ -14,7 +14,9 @@ class MasterProductCategoryModel {
   MasterProductCategoryModel.fromJSON(Map<String, dynamic> json) {
     category = json["category"];
     productName = json["product_name"];
-    createdAt = DateTime.parse(json["created_at"]);
+    createdAt = json["created_at"] != null
+        ? DateTime.tryParse(json["created_at"])
+        : null;
     categoryLogo = json["category_logo"] ?? "";
   }
 

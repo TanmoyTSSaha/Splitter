@@ -5,6 +5,7 @@ class GroupModel {
   DateTime? createdAt;
   DateTime? updatedOn;
   String? createdBy;
+  bool isTrip;
 
   GroupModel({
     this.groupID,
@@ -13,36 +14,43 @@ class GroupModel {
     this.createdAt,
     this.updatedOn,
     this.createdBy,
+    this.isTrip = false,
   });
 
-  GroupModel.fromJSON(Map<String, dynamic> data) {
+  GroupModel.fromJSON(Map<String, dynamic> data)
+      : isTrip = data["is_trip"] ?? false {
     List<GroupBalanceModel> groupBalanceList = [];
 
-    for (var element in (data["group_balance"] as List<Map<String, dynamic>>)) {
-      groupBalanceList.add(GroupBalanceModel.fromJSON(element));
+    if (data["group_balance"] != null) {
+      for (var element in (data["group_balance"] as List<dynamic>)) {
+        groupBalanceList.add(GroupBalanceModel.fromJSON(element));
+      }
     }
 
     groupID = data["group_id"];
     groupName = data["group_name"];
     groupBalance = groupBalanceList;
-    createdAt = DateTime.parse(data["created_at"]);
-    updatedOn = DateTime.parse(data["updated_on"]);
+    createdAt = DateTime.tryParse(data["created_at"].toString());
+    updatedOn = DateTime.tryParse(data["updated_on"].toString());
     createdBy = data["created_by"];
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
     List<Map<String, dynamic>> groupBalanceData = [];
-    for (var element in groupBalance!) {
-      groupBalanceData.add(element.toJSON());
+    if (groupBalance != null) {
+      for (var element in groupBalance!) {
+        groupBalanceData.add(element.toJSON());
+      }
     }
 
     data["group_id"] = groupID;
     data["group_name"] = groupName;
     data["group_balance"] = groupBalanceData;
-    data["created_at"] = createdAt;
-    data["updated_on"] = updatedOn;
+    data["created_at"] = createdAt?.toIso8601String();
+    data["updated_on"] = updatedOn?.toIso8601String();
     data["created_by"] = createdBy;
+    data["is_trip"] = isTrip;
 
     return data;
   }

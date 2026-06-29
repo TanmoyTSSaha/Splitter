@@ -25,14 +25,19 @@ class UserDetails {
 
   UserDetails.fromJSON(Map<String, dynamic> json) {
     userID = json["user_id"];
-    firstName = json["firstname"];
-    lastName = json["lastname"];
-    email = json["email"];
-    phone = json["phone"].toString();
+    firstName = json["firstname"] ??
+        json["user_name"] ??
+        "User"; // Fallback to user_name or "User"
+    lastName = json["lastname"] ?? "";
+    email = json["user_email"] ?? "";
+    phone = json["phone"]?.toString() ?? "";
     defaultCurrency = json["currency"] ?? "INR";
-    totalSpent = double.parse(json["total_spent"].toString());
-    totalReceived = double.parse(json["total_received"].toString());
-    createdAt = DateTime.parse(json["created_at"]);
+    totalSpent = double.tryParse(json["total_spent"]?.toString() ?? "0") ?? 0.0;
+    totalReceived =
+        double.tryParse(json["total_received"]?.toString() ?? "0") ?? 0.0;
+    createdAt = json["created_at"] != null
+        ? DateTime.tryParse(json["created_at"])
+        : DateTime.now();
     profilePictureURL = json["profile_picture_url"] ?? "";
   }
 

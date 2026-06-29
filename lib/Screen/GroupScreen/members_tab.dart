@@ -3,6 +3,8 @@ import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Model/group_model.dart';
 import 'package:splitter/Services/supabase_service.dart';
 
+import 'package:splitter/Widgets/user_avatar.dart';
+
 import '../../Constants/shared.dart';
 
 class MembersTab extends StatelessWidget {
@@ -70,8 +72,13 @@ class MembersTab extends StatelessWidget {
                       SizedBox(
                         height: devSysWidth * 0.5,
                         width: devSysWidth * 0.5,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.only(
+                        child: UserAvatar(
+                          userID: groupMemberSnapshot.data![index].userID!,
+                          userName: groupMemberSnapshot.data![index].userName!,
+                          imageUrl: groupMemberSnapshot.data![index].userPic,
+                          radius: devSysWidth * 0.25,
+                          shape: BoxShape.rectangle,
+                          customBorderRadius: BorderRadius.only(
                             topLeft: index % 4 == 3
                                 ? const Radius.circular(0)
                                 : Radius.circular(devSysHeight * 0.4),
@@ -84,14 +91,6 @@ class MembersTab extends StatelessWidget {
                             bottomLeft: index % 4 == 1
                                 ? const Radius.circular(0)
                                 : Radius.circular(devSysHeight * 0.4),
-                          ),
-                          child: Image.network(
-                            groupMemberSnapshot.data![index].userPic != ""
-                                ? groupMemberSnapshot.data![index].userPic!
-                                : "https://fiverr-res.cloudinary.com/images/t_main1,q_auto,f_auto,q_auto,f_auto/gigs/152776829/original/a563057b8f0884f5325a5ffa3c180a5f2eb72b7b/design-an-anime-style-avatar.png",
-                            // height: devSysWidth * 0.2,
-                            // width: devSysWidth * 0.2,
-                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -161,7 +160,7 @@ class MembersTab extends StatelessWidget {
                         ),
                         child: Text(
                           groupMemberSnapshot.data![index].userName!,
-                          style: caption_text,
+                          style: caption_text.copyWith(color: Colors.white),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -172,12 +171,9 @@ class MembersTab extends StatelessWidget {
             );
           } else if (groupMemberSnapshot.hasError) {
             debugPrint("SNAPSHOT ERROR: ${groupMemberSnapshot.error}");
-            return Container(
+            return SizedBox(
               height: devSysHeight * 0.6,
               width: devSysWidth,
-              decoration: const BoxDecoration(
-                color: neopopBackground,
-              ),
               child: Center(
                 child: Text(
                   "Something went wrong!",
@@ -189,14 +185,10 @@ class MembersTab extends StatelessWidget {
             );
           }
 
-          return Container(
+          return SizedBox(
             height: devSysHeight * 0.6,
             width: devSysWidth,
-            decoration: const BoxDecoration(
-              color: neopopBackground,
-            ),
-            alignment: Alignment.center,
-            child: const LoadingWidget(),
+            child: const Center(child: LoadingWidget()),
           );
         },
       ),

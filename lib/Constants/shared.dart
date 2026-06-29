@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:splitter/Constants/category_style.dart';
 import 'package:splitter/Constants/constants.dart';
+
+import 'package:splitter/Widgets/user_avatar.dart';
 
 import '../Model/group_model.dart';
 
@@ -53,10 +56,13 @@ class _PrimaryTextFormFieldState extends State<PrimaryTextFormField> {
 
   @override
   Widget build(BuildContext context) {
+    final inputStyle =
+        body1_text.copyWith(color: Theme.of(context).colorScheme.onSurface);
     return TextFormField(
       controller: widget.textEditingController,
       obscureText: isObscure,
       validator: widget.validator,
+      style: inputStyle,
       decoration: InputDecoration(
         filled: true,
         fillColor: neopopSecondaryGrey,
@@ -179,13 +185,22 @@ class GroupCard extends StatelessWidget {
     List<GroupBalanceModel> donorList = [];
     List<GroupBalanceModel> receiverList = [];
 
+    double totalReceived = 0;
+    double totalPaid = 0;
+
     for (var element in groupModel.groupBalance!) {
       if (element.donorID == userID) {
         donorList.add(element);
+        totalPaid += element.amount ?? 0;
       } else if (element.receiverID == userID) {
         receiverList.add(element);
+        totalReceived += element.amount ?? 0;
       }
     }
+
+    double netBalance = totalReceived - totalPaid;
+    final bool isPositive = netBalance >= 0;
+    final double absBalance = netBalance.abs();
 
     GroupBalanceModel? maxDonation;
     if (donorList.isNotEmpty) {
@@ -226,84 +241,96 @@ class GroupCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: height_10 * 8,
-                  height: height_10 * 8,
-                  decoration: BoxDecoration(
-                    color: getRandomBrightColor(),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  alignment: Alignment.center,
-                  padding: EdgeInsets.all(width_16 / 2),
-                  child: Text(
-                    getInitials(groupModel.groupName!),
-                    style: headline2_text.copyWith(
-                      color: neopopBackground,
+                Row(
+                  children: [
+                    UserAvatar(
+                      userID: groupModel.groupID!,
+                      userName: groupModel.groupName!,
+                      radius: height_10 *
+                          4, // width/height was 8 * 10 = 80. Radius = 40.
+                      shape: BoxShape.rectangle,
+                      customBorderRadius: BorderRadius.circular(4),
+                      fontSize: 24, // Estimate for headline2_text
                     ),
-                  ),
+                    SizedBox(width: width_16),
+                    SizedBox(
+                      width: devSysWidth * 0.45, // Constrain middle column
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            groupModel.groupName!,
+                            style: sub_headline5_text,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          SizedBox(
+                            height: height_10 / 2,
+                          ),
+                          if (maxDonation != null)
+                            Text(
+                              "${maxDonation.receiver!.split(" ")[0]} owes You ₹${maxDonation.amount!.toStringAsFixed(0)}",
+                              style: caption_text.copyWith(
+                                color: neopopPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          if (maxReceived != null)
+                            Text(
+                              "You owe ${maxReceived.donor!.split(" ")[0]} ₹${maxReceived.amount!.toStringAsFixed(0)}",
+                              style: caption_text.copyWith(
+                                color: neopopAccent,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          if (maxDonation == null && maxReceived == null)
+                            Text(
+                              "No transactions.",
+                              style: caption_text.copyWith(
+                                color: neopopAccent,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: width_16,
-                ),
-                SizedBox(
-                  width: width_10 * 20,
+                Flexible(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        groupModel.groupName!,
-                        style: sub_headline5_text,
-                      ),
-                      SizedBox(
-                        height: height_10 / 2,
-                      ),
-                      if (maxDonation != null)
-                        Text(
-                          "You owe ${maxDonation.receiver!.split(" ")[0]} ₹${maxDonation.amount!}",
-                          style: caption_text.copyWith(
-                            color: neopopPrimary,
-                          ),
+                        absBalance < 0.01
+                            ? "Settled Up"
+                            : (isPositive ? "You'll pay" : "You'll get"),
+                        textAlign: TextAlign.right,
+                        style: body2_text.copyWith(
+                          color: absBalance < 0.01
+                              ? neopopGrey
+                              : (isPositive ? neopopPrimary : neopopAccent),
                         ),
-                      if (maxReceived != null)
-                        Text(
-                          "${maxReceived.donor!.split(" ")[0]} owe's you ₹${maxReceived.amount!}",
-                          style: caption_text.copyWith(
-                            color: neopopAccent,
-                          ),
-                        ),
-                      if (maxDonation == null && maxReceived == null)
-                        Text(
-                          "There are no transactions with you in the group.",
-                          style: caption_text.copyWith(
-                            color: neopopAccent,
+                      ),
+                      if (absBalance >= 0.01)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "₹${absBalance.toStringAsFixed(0)}",
+                            textAlign: TextAlign.right,
+                            style: headline3_text.copyWith(
+                              color: isPositive ? neopopPrimary : neopopAccent,
+                            ),
                           ),
                         ),
                     ],
-                  ),
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: width_10 * 7.5,
-                  child: RichText(
-                    textAlign: TextAlign.right,
-                    text: TextSpan(
-                      text: "You'll get\n",
-                      style: body2_text.copyWith(
-                        color: neopopAccent,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: "₹200\n",
-                          style: headline3_text.copyWith(
-                            color: neopopAccent,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -431,6 +458,7 @@ class TransactionCard extends StatelessWidget {
   final DateTime cardDateTime;
   final double cardPrice;
   final String categoryLogoURL;
+  final String category;
   const TransactionCard({
     required this.index,
     required this.cardTitle,
@@ -438,11 +466,19 @@ class TransactionCard extends StatelessWidget {
     required this.cardDateTime,
     required this.cardPrice,
     required this.categoryLogoURL,
+    this.category = '',
+    this.amountColor,
+    this.forLightSurface = false,
     super.key,
   });
 
+  final Color? amountColor;
+  final bool forLightSurface;
+
   @override
   Widget build(BuildContext context) {
+    final textColor =
+        forLightSurface ? neopopBackground : neopopOnBackground;
     return Container(
       padding: EdgeInsets.symmetric(vertical: height_10 * 2.4),
       child: Row(
@@ -458,84 +494,73 @@ class TransactionCard extends StatelessWidget {
             alignment: Alignment.center,
             height: height_16 * 3,
             width: width_16 * 3,
-            child: SvgPicture.network(
-              categoryLogoURL,
-              fit: BoxFit.contain,
+            child: buildCategoryLogo(
+              categoryLogo: categoryLogoURL,
+              category: category,
               color: neopopAccent,
+              size: height_16 * 2,
             ),
           ),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: 0,
-              horizontal: width_10 * 2,
-            ),
+          SizedBox(
+              width: width_10 *
+                  2), // Reduced padding slightly or keep same? Logic used width_10 is fine.
+
+          Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: (devSysWidth * 0.4),
-                  child: Text(
-                    cardTitle, //[index % 6],
-                    overflow: TextOverflow.ellipsis,
-                    style: body1_text.copyWith(
-                      color: neopopOnBackground,
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  cardTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: body1_text.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 SizedBox(height: height_10),
-                SizedBox(
-                  width: (devSysWidth * 0.4),
-                  child: Text(
-                    cardSubTitle,
-                    overflow: TextOverflow.ellipsis,
-                    style: caption_text.copyWith(
-                      color: neopopGrey,
-                    ),
+                Text(
+                  cardSubTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: caption_text.copyWith(
+                    color: neopopGrey,
                   ),
                 ),
               ],
             ),
           ),
-          const Spacer(),
+
+          SizedBox(width: width_10),
+
           Column(
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                alignment: Alignment.centerRight,
-                width: devSysWidth * 0.25,
-                child: Text(
-                  DateFormat('HH:mm \t EEE d MMM').format(cardDateTime),
-                  overflow: TextOverflow.ellipsis,
-                  style: caption_text.copyWith(
-                    color: neopopOnBackground,
-                  ),
+              Text(
+                DateFormat('HH:mm \t EEE d MMM').format(cardDateTime),
+                overflow: TextOverflow.ellipsis,
+                style: caption_text.copyWith(
+                  color: textColor,
                 ),
               ),
               SizedBox(height: height_10),
-              Container(
-                alignment: Alignment.centerRight,
-                width: devSysWidth * 0.25,
-                child: cardPrice != 0
-                    ? Text(
-                        "₹$cardPrice",
-                        overflow: TextOverflow.ellipsis,
-                        style: body1_text.copyWith(
-                          color: neopopAccent,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
-                    : Text(
-                        "You're not in",
-                        overflow: TextOverflow.ellipsis,
-                        style: caption_text.copyWith(
-                          color: neopopAccent,
-                          fontWeight: FontWeight.w500,
-                        ),
+              cardPrice != 0
+                  ? Text(
+                      "₹$cardPrice",
+                      overflow: TextOverflow.ellipsis,
+                      style: body1_text.copyWith(
+                        color: amountColor ?? neopopAccent,
+                        fontWeight: FontWeight.w500,
                       ),
-              ),
+                    )
+                  : Text(
+                      "You're not in",
+                      overflow: TextOverflow.ellipsis,
+                      style: caption_text.copyWith(
+                        color: neopopAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
             ],
           ),
         ],
@@ -718,6 +743,41 @@ class CustomSecondaryButton extends StatelessWidget {
   }
 }
 
+class CustomPrimaryButton extends StatelessWidget {
+  final String buttonText;
+  final void Function()? onPressed;
+  final double buttonHeight;
+  final double buttonWidth;
+
+  const CustomPrimaryButton({
+    required this.buttonText,
+    required this.onPressed,
+    this.buttonHeight = 16 * 3,
+    this.buttonWidth = 16 * 8,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: neopopAccent,
+        minimumSize: Size(buttonWidth, buttonHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+        ),
+      ),
+      child: Text(
+        buttonText,
+        style: button_text.copyWith(
+          color: neopopOnPrimary,
+        ),
+      ),
+    );
+  }
+}
+
 class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
   final TextEditingController customTextFormFieldTextEditingController;
   final String prefixIconString;
@@ -735,6 +795,8 @@ class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inputStyle =
+        sub_headline5_text.copyWith(color: Theme.of(context).colorScheme.onSurface);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -766,6 +828,7 @@ class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
             controller: customTextFormFieldTextEditingController,
             validator: validator,
             keyboardType: keyboardType,
+            style: inputStyle,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(height_16 / 4),
@@ -821,15 +884,20 @@ class CustomBigTextFormFieldWithPrefixIcon extends StatelessWidget {
   final TextEditingController customBigTextFormFieldTextEditingController;
   final String prefixIconString;
   final String hintText;
+  final TextStyle? style;
+
   const CustomBigTextFormFieldWithPrefixIcon({
     super.key,
     required this.customBigTextFormFieldTextEditingController,
     required this.prefixIconString,
     required this.hintText,
+    this.style,
   });
 
   @override
   Widget build(BuildContext context) {
+    final inputStyle = style ??
+        sub_headline5_text.copyWith(color: Theme.of(context).colorScheme.onSurface);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -860,6 +928,7 @@ class CustomBigTextFormFieldWithPrefixIcon extends StatelessWidget {
             obscureText: false,
             maxLines: 5,
             controller: customBigTextFormFieldTextEditingController,
+            style: inputStyle,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(height_16 / 4),
@@ -908,10 +977,8 @@ class CustomBigTextFormFieldWithPrefixIcon extends StatelessWidget {
   }
 }
 
-RegExp _numeric = RegExp(r'^-?[0-9]+$');
-
 bool isNumeric(String str) {
-  return _numeric.hasMatch(str);
+  return double.tryParse(str) != null;
 }
 
 class ExtraSmallTextFormField extends StatelessWidget {
@@ -929,6 +996,8 @@ class ExtraSmallTextFormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inputStyle =
+        sub_headline5_text.copyWith(color: Theme.of(context).colorScheme.onSurface);
     return SizedBox(
       height: height_10 * 5,
       width: height_16 * 5,
@@ -939,6 +1008,7 @@ class ExtraSmallTextFormField extends StatelessWidget {
         controller: extraSmallTextFieldTextEditingController,
         validator: validator,
         keyboardType: keyboardType,
+        style: inputStyle,
         decoration: InputDecoration(
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(height_16 / 4),

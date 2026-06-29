@@ -1,456 +1,455 @@
-import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitter/Model/friend_model.dart';
 import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Model/product_category_model.dart';
 import 'package:splitter/Model/personal_transaction_model.dart';
+import 'package:splitter/Model/product_category_model.dart';
 import 'package:splitter/Model/user_details_model.dart';
+import 'package:splitter/Services/SupabaseServices/auth_service.dart';
+import 'package:splitter/Services/SupabaseServices/friend_service.dart';
+import 'package:splitter/Services/SupabaseServices/group_service.dart';
+import 'package:splitter/Services/SupabaseServices/transaction_service.dart';
+import 'package:splitter/Services/SupabaseServices/user_service.dart';
+import 'package:splitter/Services/SupabaseServices/goal_service.dart';
+import 'package:splitter/Model/financial_goal_model.dart';
+import 'package:splitter/Model/loan_model.dart';
+import 'package:splitter/Services/SupabaseServices/loan_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Facade for Authentication Service
 class SupabaseAuth {
   final supabase = Supabase.instance.client;
+  final AuthService _authService = AuthService();
 
   String supabaseGetUserID() {
-    final currentUser = supabase.auth.currentUser;
-
-    if (currentUser == null) {
-      Fluttertoast.showToast(
-        msg: "Something went wrong.",
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
-
-      return "";
-    }
-
-    return currentUser.id;
+    return _authService.supabaseGetUserID();
   }
 
-  Future<bool> supabaseEmailPassSignIn(
-      {required String userEmail, required String userPassword}) async {
-    try {
-      final AuthResponse response = await supabase.auth.signInWithPassword(
-        email: userEmail,
-        password: userPassword,
-      );
-
-      final Session? session = response.session;
-      final User? user = response.user;
-
-      debugPrint("Session: $session |\t User: $user");
-
-      if (user == null) {
-        Fluttertoast.showToast(
-          msg: "Invalid user details!",
-          textColor: neopopBackground,
-          backgroundColor: neopopYellow,
-        );
-
-        return false;
-      }
-
-      return true;
-    } on AuthException catch (e) {
-      debugPrint(e.toString());
-      Fluttertoast.showToast(
-        msg: e.message.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
-      return false;
-    } catch (e) {
-      debugPrint(e.toString());
-      Fluttertoast.showToast(
-        msg: e.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
-      return false;
-    }
+  Future<bool> supabaseEmailPassSignIn({
+    required String userEmail,
+    required String userPassword,
+  }) {
+    return _authService.supabaseEmailPassSignIn(
+      userEmail: userEmail,
+      userPassword: userPassword,
+    );
   }
 
-  void supabaseSignOut() async {
-    try {
-      await supabase.auth.signOut().then(
-        (value) {
-          Fluttertoast.showToast(
-            msg: "Logged out successfully.",
-            textColor: neopopBackground,
-            backgroundColor: neopopYellow,
-          );
-        },
-      );
-    } catch (e) {
-      Fluttertoast.showToast(
-        msg: e.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
-    }
+  void supabaseSignOut() {
+    _authService.supabaseSignOut();
+  }
+
+  Future<bool> supabaseSignUp({
+    required String userEmail,
+    required String userPassword,
+    required String userName,
+    required String firstName,
+    required String lastName,
+  }) {
+    return _authService.supabaseSignUp(
+      userEmail: userEmail,
+      userPassword: userPassword,
+      userName: userName,
+      firstName: firstName,
+      lastName: lastName,
+    );
+  }
+
+  Future<bool> googleSignIn() {
+    return _authService.googleSignIn();
   }
 
   bool supabaseRetrieveSession() {
-    try {
-      final Session? session = supabase.auth.currentSession;
-
-      if (session == null) {
-        debugPrint("SESSION STATUS: $session");
-        return false;
-      }
-
-      if (session.isExpired) {
-        Fluttertoast.showToast(
-          msg: "Session expired! Please login again.",
-          textColor: neopopBackground,
-          backgroundColor: neopopYellow,
-        );
-
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      Fluttertoast.showToast(
-        msg: "$e. Please login again.",
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
-
-      return false;
-    }
+    return _authService.supabaseRetrieveSession();
   }
 }
 
+/// Facade for Database Service
 class SupabaseDatabase {
   final supabase = Supabase.instance.client;
 
-  Future<List<PersonalTransactionModel>> getPersonalTransaction(
-      {required String userID, int? limit}) async {
-    final data = limit != null
-        ? await supabase
-            .from("personal_transactions")
-            .select()
-            .eq("user_id", userID)
-            .order("transaction_date", ascending: false)
-            .limit(limit)
-        : await supabase
-            .from("personal_transactions")
-            .select()
-            .eq("user_id", userID)
-            .order("transaction_date", ascending: false);
+  final UserService _userService = UserService();
+  final GroupService _groupService = GroupService();
+  final FriendService _friendService = FriendService();
+  final TransactionService _transactionService = TransactionService();
 
-    List<PersonalTransactionModel> personalTransactionsModel = [];
+  // ===================== USER SERVICE DELEGATES =====================
 
-    for (final singleData in data) {
-      PersonalTransactionModel personalTransaction;
+  Future<UserDetails> getCurrentUserProfile({required String userID}) {
+    return _userService.getCurrentUserProfile(userID: userID);
+  }
 
-      personalTransaction = PersonalTransactionModel.fromJSON(singleData);
+  Future<List<Map<String, dynamic>>> searchUsersByEmail({
+    required String email,
+  }) {
+    return _userService.searchUsersByEmail(email: email);
+  }
 
-      personalTransactionsModel.add(personalTransaction);
-    }
+  Future<List<Map<String, dynamic>>> searchUsersByEmails({
+    required List<String> emails,
+  }) {
+    return _userService.searchUsersByEmails(emails: emails);
+  }
 
-    return personalTransactionsModel;
+  Future<UserDetails?> getUserByEmail(String email) {
+    return _userService.getUserByEmail(email);
+  }
+
+  Future<void> updateUserProfile({
+    required String userID,
+    required String firstName,
+    required String lastName,
+    required String phone,
+  }) {
+    return _userService.updateUserProfile(
+      userID: userID,
+      firstName: firstName,
+      lastName: lastName,
+      phone: phone,
+    );
+  }
+
+  // ===================== GROUP SERVICE DELEGATES =====================
+
+  Future<void> addMembersToGroup({
+    required String groupID,
+    required List<String> memberIDs,
+  }) {
+    return _groupService.addMembersToGroup(
+      groupID: groupID,
+      memberIDs: memberIDs,
+    );
+  }
+
+  Future<List<GroupMembers>> getGroupMembersData({required String userID}) {
+    return _groupService.getGroupMembersData(userID: userID);
+  }
+
+  Future<List<GroupModel>> getGroupData({required String userID}) {
+    return _groupService.getGroupData(userID: userID);
+  }
+
+  Future<List<GroupMembersWithNameModel>> getGroupMembers({
+    required String groupID,
+    required String currentUserID,
+  }) {
+    return _groupService.getGroupMembers(
+      groupID: groupID,
+      currentUserID: currentUserID,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getDistinctGroups({
+    required String userID,
+  }) {
+    return _groupService.getDistinctGroups(userID: userID);
+  }
+
+  Future<List<GroupBalanceModel>> getGroupBalancesForSettleUp({
+    required String groupID,
+  }) {
+    return _groupService.getGroupBalancesForSettleUp(groupID: groupID);
+  }
+
+  Future<void> recordSettlement({
+    required String groupID,
+    required String fromUserID,
+    required String toUserID,
+    required double amount,
+    required String currency,
+  }) {
+    return _groupService.recordSettlement(
+      groupID: groupID,
+      fromUserID: fromUserID,
+      toUserID: toUserID,
+      amount: amount,
+      currency: currency,
+    );
+  }
+
+  Future<void> sendGroupInvite({
+    required String groupID,
+    required String invitedUserID,
+  }) {
+    return _groupService.sendGroupInvite(
+      groupID: groupID,
+      invitedUserID: invitedUserID,
+    );
+  }
+
+  Future<GroupModel> getOrCreateDirectSplitGroup({
+    required String userID,
+    required String friendUserId,
+    required String friendName,
+  }) {
+    return _groupService.getOrCreateDirectSplitGroup(
+      userID: userID,
+      friendUserId: friendUserId,
+      friendName: friendName,
+    );
+  }
+
+  Future<void> addGroupExpense({
+    required String groupID,
+    required String paidByUserID,
+    required double totalAmount,
+    required String description,
+    required String category,
+    required Map<String, double> splits,
+    required String currency,
+    String? note,
+    String sharingType = 'evenly',
+  }) {
+    return _groupService.addGroupExpense(
+      groupID: groupID,
+      paidByUserID: paidByUserID,
+      totalAmount: totalAmount,
+      description: description,
+      category: category,
+      splits: splits,
+      currency: currency,
+      note: note,
+      sharingType: sharingType,
+    );
+  }
+
+  Future<GroupModel?> getGroupModel(String groupID) {
+    return _groupService.getGroupModel(groupID);
+  }
+
+  // ===================== FRIEND SERVICE DELEGATES =====================
+
+  Future<List<FriendModel>> getFriends({required String userID}) {
+    return _friendService.getFriends(userID: userID);
+  }
+
+  Future<void> sendFriendRequest({
+    required String fromUserID,
+    required String toUserID,
+  }) {
+    return _friendService.sendFriendRequest(
+      fromUserID: fromUserID,
+      toUserID: toUserID,
+    );
+  }
+
+  Future<void> acceptFriendRequest({required String requestID}) {
+    return _friendService.acceptFriendRequest(requestID: requestID);
+  }
+
+  Future<List<FriendBalanceModel>> getFriendBalances({
+    required String userID,
+    required List<FriendModel> friends,
+  }) {
+    return _friendService.getFriendBalances(userID: userID, friends: friends);
+  }
+
+  // ===================== TRANSACTION SERVICE DELEGATES =====================
+
+  Future<List<PersonalTransactionModel>> getPersonalTransaction({
+    required String userID,
+    int? limit,
+  }) {
+    return _transactionService.getPersonalTransaction(
+      userID: userID,
+      limit: limit,
+    );
   }
 
   Future<List<PersonalTransactionWithProductCategoryModel>>
-      getHomePhaseExpenseHistory({required String userID}) async {
-    final personal_transaction_data = await supabase
-        .from("personal_transactions")
-        .select()
-        .eq("user_id", userID)
-        .order("transaction_date", ascending: false)
-        .limit(10);
-
-    List<PersonalTransactionModel> personalTransactionsModel = [];
-    List<String> productCategories = [];
-
-    for (final singleData in personal_transaction_data) {
-      PersonalTransactionModel personalTransaction;
-
-      personalTransaction = PersonalTransactionModel.fromJSON(singleData);
-
-      productCategories.add(singleData["category"]);
-
-      personalTransactionsModel.add(personalTransaction);
-    }
-
-    final productCategoryData = await supabase
-        .from("master_product_categorisation")
-        .select("category, category_logo")
-        .inFilter("category", productCategories);
-
-    List<CategoryOnlyModel> categories = [];
-    List<String> categoriesString = [];
-
-    for (var element in productCategoryData) {
-      if (!categoriesString.contains(element["category"])) {
-        categories.add(CategoryOnlyModel.fromJSON(element));
-        categoriesString.add(element["category"]);
-      }
-    }
-
-    categoriesString = [];
-
-    List<PersonalTransactionWithProductCategoryModel>
-        personalTransactionWithCategoryList = [];
-
-    for (var i = 0; i < personalTransactionsModel.length; i++) {
-      for (var j = 0; j < categories.length; j++) {
-        if (personalTransactionsModel[i].category == categories[j].category) {
-          personalTransactionWithCategoryList.add(
-              PersonalTransactionWithProductCategoryModel.fromModel(
-                  personalTransactionsModel[i], categories[j]));
-        }
-      }
-    }
-
-    return personalTransactionWithCategoryList;
+      getHomePhaseExpenseHistory({required String userID}) {
+    return _transactionService.getHomePhaseExpenseHistory(userID: userID);
   }
 
-  Future<List<GroupMembers>> getGroupMembersData(
-      {required String userID}) async {
-    try {
-      final groupMemberData =
-          await supabase.from("group_members").select().eq("user_id", userID);
-
-      List<GroupMembers> groupMembersDetails = [];
-
-      for (var element in groupMemberData) {
-        groupMembersDetails.add(GroupMembers.fromJSON(element));
-      }
-
-      return groupMembersDetails;
-    } catch (e) {
-      debugPrint("GROUP MEMBER EXCEPTION: $e");
-      List<GroupMembers> groupMembersDetails = [];
-      return groupMembersDetails;
-    }
+  List<ConsolidatedGroupTransactionModel> getConsolidatedGroupTransactionData({
+    required List<GroupTransactionModel> groupTransactionList,
+  }) {
+    return _transactionService.getConsolidatedGroupTransactionData(
+      groupTransactionList: groupTransactionList,
+    );
   }
 
-  List<ConsolidatedGroupTransactionModel> getConsolidatedGroupTransactionData(
-      {required List<GroupTransactionModel> groupTransactionList}) {
-    List<ConsolidatedGroupTransactionModel> cnsGrpTrnsData = [];
-    List<String> transactionGroupIDs = [];
-    List<String> categories = [];
-    // List<String> userIDs = [];
-
-    for (var element in groupTransactionList) {
-      if (!transactionGroupIDs.contains(element.transactionGroupID!)) {
-        transactionGroupIDs.add(element.transactionGroupID!);
-      }
-    }
-
-    for (var element in groupTransactionList) {
-      if (!categories.contains(element.category!)) {
-        categories.add(element.category!);
-      }
-    }
-
-    for (var element in transactionGroupIDs) {
-      List<GroupTransactionModel> grpTrnsList = [];
-
-      for (var grpTrnselem in groupTransactionList) {
-        if (element == grpTrnselem.transactionGroupID) {
-          grpTrnsList.add(grpTrnselem);
-        }
-      }
-
-      cnsGrpTrnsData.add(ConsolidatedGroupTransactionModel.fromTransactionModel(
-        grpTrnsList,
-      ));
-    }
-
-    return cnsGrpTrnsData;
+  Future<List<GroupTransactionModel>> getGroupTransactionsData({
+    required String userID,
+    required String groupID,
+  }) {
+    return _transactionService.getGroupTransactionsData(
+      userID: userID,
+      groupID: groupID,
+    );
   }
 
-  Future<List<GroupTransactionModel>> getGroupTransactionsData(
-      {required String userID, required String groupID}) async {
-    final grpTrnsData = await supabase
-        .from("group_transaction")
-        .select()
-        .eq("group_id", groupID);
-
-    List<GroupTransactionModel> groupTransactions = [];
-    List<String> categories = [];
-
-    for (var element in grpTrnsData) {
-      if (!categories.contains(element["category"])) {
-        categories.add(element["category"]);
-      }
-    }
-
-    final masterProdCategory = await supabase
-        .from("master_product_categorisation")
-        .select("category, category_logo")
-        .inFilter('category', categories);
-
-    List<Map<String, dynamic>> distinctMasterProdCategory = [];
-    List<String> distinctCategory = [];
-
-    for (var element in masterProdCategory) {
-      if (!distinctCategory.contains(element["category"])) {
-        distinctCategory.add(element["category"]);
-        distinctMasterProdCategory.add(element);
-      }
-    }
-
-    for (var element in grpTrnsData) {
-      // OPTIMIZATION NEEDED HERE -> INSTEAD OF CALLING BELOW 2 QUERIES AGAIN AND AGAIN FOR EACH TRANSACTIONS, FIRST SAVE THE USER ID'S BY RUNNING A FOR LOOP OVER THE RAW MAP DATA AND SAVE THE USER ID'S AND QUERY FOR ALL THOSE ID'S AT ONCE. THEN RUN ANOTHER FOR LOOP TO MATCH THE DATA WITH IT'S RESPECTIVE GROUP TRANSACTION.
-      final paidByUserMap = await supabase
-          .from("users")
-          .select("firstname, lastname")
-          .eq('user_id', element["paid_by"])
-          .single();
-
-      final sharedWithUserMap = await supabase
-          .from("users")
-          .select("firstname, lastname")
-          .eq('user_id', element["paid_by"])
-          .single();
-
-      for (var masterCatElem in distinctMasterProdCategory) {
-        if (masterCatElem["category"] == element["category"]) {
-          groupTransactions.add(
-            GroupTransactionModel.fromJSON(
-              element,
-              "${paidByUserMap["firstname"]} ${paidByUserMap["lastname"]}",
-              "${sharedWithUserMap["firstname"]} ${sharedWithUserMap["lastname"]}",
-              masterCatElem["category_logo"],
-            ),
-          );
-        }
-      }
-    }
-
-    return groupTransactions;
+  Future<List<CategoryOnlyModel>> getProductCategories(
+      {String? groupID}) async {
+    return _transactionService.getProductCategories(groupID: groupID);
   }
 
-  Future<List<GroupModel>> getGroupData({required String userID}) async {
-    try {
-      List<GroupMembers> groupMembers =
-          await getGroupMembersData(userID: userID);
-
-      List<String> groupIDs = [];
-
-      for (var element in groupMembers) {
-        groupIDs.add(element.groupID!.toString());
-      }
-
-      final groupData = await supabase
-          .from("groups")
-          .select()
-          .inFilter('group_id', groupIDs)
-          .order('updated_on', ascending: false)
-          .order('group_name', ascending: true);
-
-      List<GroupModel> groupModelData = [];
-
-      for (var element in groupData) {
-        List<Map<String, dynamic>> groupBalanceList = [];
-        for (var elm in (element["group_balance"] as List<dynamic>)) {
-          Map<String, dynamic> groupBalance = {};
-          groupBalance["donor"] = elm["donor"];
-          groupBalance["donor_id"] = elm["donor_id"];
-          groupBalance["receiver"] = elm["receiver"];
-          groupBalance["receiver_id"] = elm["receiver_id"];
-          groupBalance["amount"] = double.parse(elm["amount"].toString());
-
-          groupBalanceList.add(groupBalance);
-        }
-
-        element["group_balance"] = groupBalanceList;
-
-        GroupModel groupModel = GroupModel.fromJSON(element);
-        groupModelData.add(groupModel);
-      }
-
-      return groupModelData;
-    } catch (e) {
-      debugPrint("GROUPS EXCEPTION: $e");
-      List<GroupModel> groupModelData = [];
-      return groupModelData;
-    }
+  Future<void> deleteGroupTransaction({required String transactionGroupID}) {
+    return _transactionService.deleteGroupTransaction(
+        transactionGroupID: transactionGroupID);
   }
 
-  Future<UserDetails> getCurrentUserProfile({required String userID}) async {
-    final data =
-        await supabase.from("users").select().eq("user_id", userID).single();
-
-    UserDetails userDetails = UserDetails.fromJSON(data);
-
-    return userDetails;
+  Future<void> addCustomCategory({
+    required String groupID,
+    required String categoryName,
+    required String iconSvgContent,
+    required String userID,
+  }) {
+    return _transactionService.addCustomCategory(
+      groupID: groupID,
+      categoryName: categoryName,
+      iconSvgContent: iconSvgContent,
+      userID: userID,
+    );
   }
 
-  Future<List<GroupMembersWithNameModel>> getGroupMembers(
-      {required String groupID, required String currentUserID}) async {
-    final groupMembersRawData =
-        await supabase.from("group_members").select().eq("group_id", groupID);
-
-    List<String> userIDs = [];
-
-    for (var element in groupMembersRawData) {
-      userIDs.add(element["user_id"]);
-    }
-
-    final groupMembersNameData = await supabase
-        .from("users")
-        .select("user_id, firstname, lastname, profile_picture_url")
-        .inFilter("user_id", userIDs);
-
-    List<GroupMembersWithNameModel> grpMbrNmList = [];
-
-    for (var grpElem in groupMembersRawData) {
-      for (var userElem in groupMembersNameData) {
-        if (grpElem["user_id"] == userElem["user_id"]) {
-          GroupMembers groupMembersModel = GroupMembers.fromJSON(
-            {
-              "group_id": grpElem["group_id"],
-              "user_id": grpElem["user_id"],
-            },
-          );
-
-          grpMbrNmList.add(
-            GroupMembersWithNameModel.fromVariables(
-              groupMembersModel,
-              currentUserID == userElem["user_id"]
-                  ? userElem["firstname"] + " " + userElem["lastname"] + "(you)"
-                  : userElem["firstname"] + " " + userElem["lastname"] + "",
-              userElem["profile_picture_url"] ?? "",
-            ),
-          );
-        }
-      }
-    }
-
-    return grpMbrNmList;
+  Future<List<Map<String, dynamic>>> getUnifiedTransactions({
+    required String userID,
+    int? limit = 10,
+    String selectedCurrency = 'INR',
+  }) {
+    return _transactionService.getUnifiedTransactions(
+      userID: userID,
+      limit: limit,
+      selectedCurrency: selectedCurrency,
+    );
   }
 
-  Future<List<Map<String, dynamic>>> getDistinctGroups(
-      {required String userID}) async {
-    List<Map<String, dynamic>> distinctGroupRawData = await supabase
-        .from("group_members")
-        .select("group_id")
-        .eq("user_id", userID);
+  Future<Map<String, double>> getMonthlySpendAnalytics(
+      {required String userID, String selectedCurrency = 'INR'}) {
+    return _transactionService.getMonthlySpendAnalytics(
+        userID: userID, selectedCurrency: selectedCurrency);
+  }
 
-    List<String> distinctGroupIDs = [];
+  Future<double> getMonthlyCashFlow(
+      {required String userID, String selectedCurrency = 'INR'}) {
+    return _transactionService.getMonthlyCashFlow(
+        userID: userID, selectedCurrency: selectedCurrency);
+  }
 
-    for (var element in distinctGroupRawData) {
-      if (!distinctGroupIDs.contains(element["group_id"])) {
-        distinctGroupIDs.add(element["group_id"]);
-      }
-    }
+  Future<List<Map<String, dynamic>>> getMonthlyPulseData(
+      {required String userID, String selectedCurrency = 'INR'}) {
+    return _transactionService.getMonthlyPulseData(
+        userID: userID, selectedCurrency: selectedCurrency);
+  }
 
-    distinctGroupRawData = await supabase
-        .from("groups")
-        .select("group_id, group_name")
-        .inFilter("group_id", distinctGroupIDs);
+  Future<void> addPersonalTransaction({
+    required String userID,
+    required double amount,
+    required String description,
+    required String category,
+    required DateTime date,
+    required String paymentMethod,
+    required String currency,
+  }) {
+    return _transactionService.addPersonalTransaction(
+      userID: userID,
+      amount: amount,
+      description: description,
+      category: category,
+      date: date,
+      paymentMethod: paymentMethod,
+      currency: currency,
+    );
+  }
 
-    List<Map<String, dynamic>> distinctMapGroupDetails = [];
+  Future<List<CategoryOnlyModel>> getPersonalCategories(
+      {required String userID}) {
+    return _transactionService.getPersonalCategories(userID: userID);
+  }
 
-    for (var element in distinctGroupRawData) {
-      distinctMapGroupDetails.add(element);
-    }
+  Future<void> addPersonalCustomCategory({
+    required String categoryName,
+    required String iconSvgContent,
+    required String userID,
+  }) {
+    return _transactionService.addPersonalCustomCategory(
+      categoryName: categoryName,
+      iconSvgContent: iconSvgContent,
+      userID: userID,
+    );
+  }
 
-    return distinctMapGroupDetails;
+  // ===================== GOAL SERVICE DELEGATES =====================
+  // Making GoalService accessible via getter or delegates
+  // For now, exposing the service directly or via delegates.
+  // Let's add delegates for consistency with other services.
+
+  // Actually, to fix the lint `SupabaseService.goalService`, I should probably
+  // just expose the static instance if that was the intent, OR update the usage
+  // in HomeScreen to use `_supabase.getGoals(...)`.
+  //
+  // Looking at `HomeScreen.dart` usage: `SupabaseService.goalService.getGoals(...)`
+  // `SupabaseService` is likely a typo for `SupabaseDatabase` or a different class?
+  // The file `supabase_service.dart` contains `SupabaseDatabase` class.
+  //
+  // I will add the delegates here and update HomeScreen to use `_supabase.getGoals`.
+
+  final GoalService _goalService = GoalService();
+
+  Future<List<FinancialGoalModel>> getGoals({required String userID}) {
+    return _goalService.getGoals(userID: userID);
+  }
+
+  Future<void> addGoal(FinancialGoalModel goal) {
+    return _goalService.addGoal(goal);
+  }
+
+  Future<void> updateGoalAmount(String goalId, double newAmount) {
+    return _goalService.updateGoalAmount(goalId, newAmount);
+  }
+
+  Future<void> deleteGoal(String goalId) {
+    return _goalService.deleteGoal(goalId);
+  }
+
+  // ===================== LOAN SERVICE DELEGATES =====================
+
+  final LoanService _loanService = LoanService();
+
+  Future<void> createLoan(LoanModel loan) {
+    return _loanService.createLoan(loan);
+  }
+
+  Future<List<LoanModel>> getLoans({required String userID}) {
+    return _loanService.getLoans(userID: userID);
+  }
+
+  Future<LoanModel?> getLoanById(String loanID) {
+    return _loanService.getLoanById(loanID);
+  }
+
+  Future<void> updateLoanRepayment({
+    required String loanID,
+    required double newAmount,
+  }) {
+    return _loanService.updateRepayment(
+      loanID: loanID,
+      newAmount: newAmount,
+    );
+  }
+
+  Future<void> updateLoanStatus({
+    required String loanID,
+    required String status,
+  }) {
+    return _loanService.updateLoanStatus(
+      loanID: loanID,
+      status: status,
+    );
+  }
+
+  Future<List<LoanModel>> getPendingLoansAwaitingAction({
+    required String userID,
+  }) {
+    return _loanService.getPendingLoansAwaitingAction(userID: userID);
+  }
+
+  Future<void> recordLoanPayment({
+    required String loanID,
+    required double paymentAmount,
+  }) {
+    return _loanService.recordLoanPayment(
+      loanID: loanID,
+      paymentAmount: paymentAmount,
+    );
   }
 }

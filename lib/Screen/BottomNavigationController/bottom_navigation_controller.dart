@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/FriendScreen/personal_transaction_screen.dart';
+
+import 'package:splitter/Controller/group_screen_controller.dart';
+import 'package:splitter/Controller/lending_refresh_controller.dart';
 import 'package:splitter/Screen/GroupScreen/group_screen.dart';
 import 'package:splitter/Screen/HomeScreen/home_screen.dart';
 import 'package:splitter/Screen/ProfileScreen/profile_screen.dart';
+import 'package:splitter/Screen/LendingScreen/lending_dashboard.dart';
+import 'package:splitter/Widgets/animated_glass_bottom_nav_bar.dart';
 
 class BottomNavigationController extends StatefulWidget {
   const BottomNavigationController({super.key});
@@ -17,84 +19,67 @@ class BottomNavigationController extends StatefulWidget {
 class _BottomNavigationControllerState
     extends State<BottomNavigationController> {
   int currIndex = 0;
-  List<Widget> screens = const [
+
+  static const _navItems = [
+    BottomNavItemData(
+      outlineIcon: Icons.home_outlined,
+      filledIcon: Icons.home_rounded,
+      label: 'Home',
+    ),
+    BottomNavItemData(
+      outlineIcon: Icons.groups_2_outlined,
+      filledIcon: Icons.groups_2_rounded,
+      label: 'Groups',
+    ),
+    BottomNavItemData(
+      outlineIcon: Icons.account_balance_wallet_outlined,
+      filledIcon: Icons.account_balance_wallet,
+      label: 'Lending',
+    ),
+    BottomNavItemData(
+      outlineIcon: Icons.person_outline,
+      filledIcon: Icons.person_rounded,
+      label: 'Profile',
+    ),
+  ];
+
+  final List<Widget> screens = [
     HomeScreen(),
     GroupScreen(),
-    PersonalTransactionScreen(),
+    LendingDashboard(),
     ProfileScreen(),
   ];
+
+  void _onTabTap(int index) {
+    if (currIndex == index) return;
+    setState(() => currIndex = index);
+    if (index == 1) {
+      GroupScreenController.refreshFromAnywhere();
+    } else if (index == 2) {
+      LendingRefreshController.refreshFromAnywhere();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: neopopBackground,
-      body: screens[currIndex],
-      bottomNavigationBar: SalomonBottomBar(
-        itemShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(height_10 * 0.8),
-            topRight: Radius.circular(height_10 * 0.8),
-            bottomLeft: currIndex == 0
-                ? Radius.circular(height_10 * 2.8)
-                : Radius.circular(height_10 * 0.8),
-            bottomRight: currIndex == 3
-                ? Radius.circular(height_10 * 2.8)
-                : Radius.circular(height_10 * 0.8),
+      backgroundColor: const Color(0xFFFAFAFA),
+      extendBody: true,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: currIndex,
+            children: screens,
           ),
-        ),
-        // margin: const EdgeInsets.symmetric(
-        //   horizontal: 32,
-        //   vertical: 24,
-        // ),
-        itemPadding: const EdgeInsets.symmetric(
-          horizontal: 32,
-          vertical: 16,
-        ),
-        currentIndex: currIndex,
-        onTap: (i) => setState(() => currIndex = i),
-        items: [
-          SalomonBottomBarItem(
-              icon: Icon(
-                Icons.home,
-                size: height_10 * 2.4,
-              ),
-              title: Text(
-                "Home",
-                style: body2_text.copyWith(fontWeight: FontWeight.w500),
-              ),
-              selectedColor: neopopAccent),
-          SalomonBottomBarItem(
-              icon: Icon(
-                Icons.groups,
-                size: height_10 * 2.4,
-              ),
-              title: Text(
-                "Groups",
-                style: body2_text.copyWith(fontWeight: FontWeight.w500),
-              ),
-              selectedColor: neopopAccent),
-          SalomonBottomBarItem(
-              icon: Icon(
-                Icons.currency_rupee,
-                size: height_10 * 2.4,
-              ),
-              title: Text(
-                "Exp",
-                style: body2_text.copyWith(fontWeight: FontWeight.w500),
-              ),
-              selectedColor: neopopAccent),
-          SalomonBottomBarItem(
-            icon: Icon(
-              Icons.account_box,
-              size: height_10 * 2.4,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AnimatedGlassBottomNavBar(
+              currentIndex: currIndex,
+              onTap: _onTabTap,
+              items: _navItems,
             ),
-            title: Text(
-              "Profile",
-              style: body2_text.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            selectedColor: neopopAccent,
           ),
         ],
       ),

@@ -3,6 +3,10 @@ import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Controller/add_transaction_controller.dart';
 
+import 'package:splitter/Widgets/user_avatar.dart';
+
+import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+
 import '../../../Model/group_model.dart';
 
 class EvenShareTab extends StatefulWidget {
@@ -52,12 +56,12 @@ class _EvenShareTabState extends State<EvenShareTab> {
             children: [
               Text(
                 "Split evenly",
-                style: sub_headline4_text.copyWith(color: neopopOnBackground),
+                style: sub_headline4_text.copyWith(color: groupOnSurface),
               ),
               SizedBox(height: height_16 / 2),
               Text(
                 "Select who owns the even share in the split",
-                style: body1_text.copyWith(color: neopopOnBackground),
+                style: body1_text.copyWith(color: groupOnSurface),
               ),
               SizedBox(height: height_16 * 2),
               Container(
@@ -75,12 +79,12 @@ class _EvenShareTabState extends State<EvenShareTab> {
                           Text(
                             "₹${(widget.totalAmount / _addTransactionScreenController.involvedPersons.value).toStringAsFixed(2)} / Person",
                             style: sub_headline5_text.copyWith(
-                                color: neopopOnBackground),
+                                color: groupOnSurface),
                           ),
                           Text(
                             "(${_addTransactionScreenController.involvedPersons.value} ${_addTransactionScreenController.involvedPersons.value > 1 ? 'Peoples' : 'People'})",
                             style:
-                                body1_text.copyWith(color: neopopOnBackground),
+                                body1_text.copyWith(color: groupOnSurface),
                           ),
                         ],
                       ),
@@ -94,7 +98,7 @@ class _EvenShareTabState extends State<EvenShareTab> {
                           Text(
                             "All",
                             style:
-                                body1_text.copyWith(color: neopopOnBackground),
+                                body1_text.copyWith(color: groupOnSurface),
                           ),
                           Checkbox(
                             activeColor: neopopAccent,
@@ -127,34 +131,22 @@ class _EvenShareTabState extends State<EvenShareTab> {
                         mainAxisAlignment: MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Container(
-                            height: height_16 * 2.5,
-                            width: height_16 * 2.5,
-                            decoration: BoxDecoration(
-                              color: neopopAccent,
-                              borderRadius:
-                                  BorderRadius.circular(height_16 * 2.5),
-                            ),
-                            child: ClipRRect(
-                              borderRadius:
-                                  BorderRadius.circular(height_16 * 2.5),
-                              child: Image.network(
-                                widget.groupMembersWithNameModel[index].userPic
-                                        .toString()
-                                        .trim()
-                                        .isNotEmpty
-                                    ? widget.groupMembersWithNameModel[index]
-                                        .userPic!
-                                    : "https://odlzzaroffbgbmiwvcqr.supabase.co/storage/v1/object/sign/splitter_bucket/user_profile_pictures/default_profile_picture_avatar.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJzcGxpdHRlcl9idWNrZXQvdXNlcl9wcm9maWxlX3BpY3R1cmVzL2RlZmF1bHRfcHJvZmlsZV9waWN0dXJlX2F2YXRhci5wbmciLCJpYXQiOjE3MzI5NTk1NDQsImV4cCI6MTc2NDQ5NTU0NH0.W1G8X4v_3kcqo2IMUCphY3EnOvxD077foLBfoaIOaPc&t=2024-11-30T09%3A39%3A04.548Z",
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                          UserAvatar(
+                            userID: widget
+                                    .groupMembersWithNameModel[index].userID ??
+                                "",
+                            userName: widget.groupMembersWithNameModel[index]
+                                    .userName ??
+                                "User",
+                            imageUrl:
+                                widget.groupMembersWithNameModel[index].userPic,
+                            radius: height_16 * 1.25,
                           ),
                           SizedBox(width: width_10),
                           Text(
                             widget.groupMembersWithNameModel[index].userName!,
                             style: sub_headline5_text.copyWith(
-                                color: neopopOnBackground),
+                                color: groupOnSurface),
                           ),
                         ],
                       ),

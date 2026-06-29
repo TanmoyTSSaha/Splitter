@@ -1,0 +1,155 @@
+{
+  "project": "SplitO",
+  "package": "splitter",
+  "savedAt": "2026-06-27",
+  "purpose": "Persistent project context with Context7 library IDs for documentation lookups",
+  "context7": {
+    "libraries": {
+      "getx": {
+        "id": "/jonataslaw/getx",
+        "useFor": ["Bindings", "Get.put", "GetxController", "Obx", "Get.to navigation"]
+      },
+      "supabase_flutter": {
+        "id": "/supabase/supabase-flutter",
+        "useFor": ["Supabase.initialize", "auth", "realtime postgres changes"]
+      },
+      "supabase_dart_reference": {
+        "id": "/websites/supabase_reference_dart",
+        "useFor": ["Dart API reference", "table queries", "RPC"]
+      },
+      "drift": {
+        "id": "/websites/drift_simonbinder_eu",
+        "useFor": ["watch streams", "migrations", "offline SQLite", "build_runner"]
+      }
+    },
+    "queryExamples": [
+      {
+        "libraryId": "/jonataslaw/getx",
+        "query": "Bindings Get.lazyPut GetxController permanent dependency injection"
+      },
+      {
+        "libraryId": "/supabase/supabase-flutter",
+        "query": "onPostgresChanges channel subscribe realtime group_transaction"
+      },
+      {
+        "libraryId": "/websites/drift_simonbinder_eu",
+        "query": "watch stream insertOnConflictUpdate MigrationStrategy schemaVersion"
+      }
+    ]
+  },
+  "architecture": {
+    "pattern": "layer-by-type",
+    "dataFlow": "Screen -> Controller -> Repository -> SupabaseServices / Drift",
+    "stateManagement": "GetX",
+    "offline": "Drift AppDatabase + SyncService (required)",
+    "backend": "Supabase"
+  },
+  "bottomNav": ["Home", "Groups", "Lending", "Profile"],
+  "friendsAccess": "Profile screen via Get.to — not a bottom tab",
+  "credentialsFile": "lib/git_ignore.dart",
+  "keyFolders": {
+    "screens": "lib/Screen/",
+    "controllers": "lib/Controller/",
+    "repositories": "lib/Repository/",
+    "services": "lib/Services/",
+    "supabaseServices": "lib/Services/SupabaseServices/",
+    "localDb": "lib/Services/local/database.dart",
+    "models": "lib/Model/",
+    "widgets": "lib/Widgets/"
+  },
+  "cursorRules": {
+    "master": ".cursor/rules/flutter-rules.md",
+    "specialized": [
+      "architecture.md",
+      "getx.md",
+      "repository.md",
+      "supabase.md",
+      "storage.md",
+      "models.md",
+      "widgets.md",
+      "theming.md",
+      "navigation.md",
+      "security.md",
+      "dependencies.md",
+      "testing.md",
+      "code-review.md"
+    ]
+  },
+  "knownGaps": [
+    "GroupRepository and TransactionRepository not wired to UI",
+    "No Bindings classes yet",
+    "Many screens call SupabaseDatabase() directly",
+    "SyncIndicator and RealtimeService underused"
+  ],
+  "migrationP0": [
+    "Wire GroupRepository into GroupScreen",
+    "Wire TransactionRepository into transaction flow",
+    "Add HomeController + PersonalTransactionRepository",
+    "Introduce Bindings per feature",
+    "Fix broken widget_test.dart"
+  ],
+  "codegraph": {
+    "indexed": true,
+    "indexPath": ".codegraph/",
+    "initCommand": "codegraph init",
+    "stats": {
+      "filesIndexed": 158,
+      "filesFailed": 1,
+      "nodes": 2516,
+      "edges": 4787
+    },
+    "parseError": "lib/Services/appwrite_service.dart (deleted legacy file)",
+    "mcpTool": "codegraph_explore",
+    "usage": "Pass projectPath and query symbol names or natural-language flow questions before editing",
+    "blastRadiusHighlights": {
+      "SupabaseDatabase": {
+        "callers": 21,
+        "hotspots": [
+          "lib/Screen/GroupScreen/add_transaction_screen.dart",
+          "lib/Screen/GroupScreen/group_screen.dart",
+          "lib/Screen/GroupScreen/transaction_tab.dart",
+          "lib/Screen/HomeScreen/home_screen.dart"
+        ]
+      },
+      "SupabaseAuth": {
+        "callers": 11,
+        "hotspots": [
+          "lib/Screen/AuthScreens/login_screen.dart",
+          "lib/Screen/ProfileScreen/profile_screen.dart",
+          "lib/Screen/FriendScreen/friends_screen.dart"
+        ]
+      },
+      "GroupRepository": {
+        "callers": 0,
+        "status": "orphaned — no UI imports"
+      },
+      "TransactionRepository": {
+        "callers": 0,
+        "status": "orphaned — no UI imports"
+      },
+      "AppDatabase": {
+        "callers": 1,
+        "onlyCaller": "lib/main.dart"
+      },
+      "SyncService": {
+        "callers": 1,
+        "onlyCaller": "lib/main.dart"
+      },
+      "FriendsController": {
+        "callers": 1,
+        "onlyCaller": "lib/Screen/FriendScreen/friends_screen.dart"
+      },
+      "SettleUpController": {
+        "callers": 1,
+        "onlyCaller": "lib/Screen/GroupScreen/settle_up_tab.dart"
+      }
+    },
+    "exampleQueries": [
+      "main.dart bootstrap Supabase AppDatabase SyncService Get.put",
+      "GroupRepository TransactionRepository drift sync",
+      "SupabaseDatabase group_screen home_screen add_transaction_screen",
+      "GetxController FriendsController SettleUpController",
+      "RealtimeService subscribeToGroup onTransactionChange"
+    ]
+  }
+}

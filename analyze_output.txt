@@ -1,0 +1,24 @@
+Analyzing monthly_recap_screen.dart...                          
+
+   info - Parameter 'key' could be a super parameter - lib\screen\profilescreen\monthly_recap_screen.dart:14:9 - use_super_parameters
+  error - Undefined name '_storyController' - lib\screen\profilescreen\monthly_recap_screen.dart:36:5 - undefined_identifier
+   info - Use 'const' with the constructor to improve performance - lib\screen\profilescreen\monthly_recap_screen.dart:76:14 - prefer_const_constructors
+   info - Use 'const' for final variables initialized to a constant value - lib\screen\profilescreen\monthly_recap_screen.dart:262:5 - prefer_const_declarations
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:350:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:366:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:554:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:793:41 - deprecated_member_use
+  error - Undefined name '_storyController' - lib\screen\profilescreen\monthly_recap_screen.dart:955:19 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:1063:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:1311:58 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\screen\profilescreen\monthly_recap_screen.dart:1359:18 - unnecessary_to_list_in_spreads
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:1577:41 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\screen\profilescreen\monthly_recap_screen.dart:1703:31 - prefer_const_constructors
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:1911:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:1958:62 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\screen\profilescreen\monthly_recap_screen.dart:2080:30 - prefer_const_constructors
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:2110:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:2153:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screen\profilescreen\monthly_recap_screen.dart:2346:41 - deprecated_member_use
+  error - Undefined name '_storyController' - lib\screen\profilescreen\monthly_recap_screen.dart:2604:28 - undefined_identifier
+

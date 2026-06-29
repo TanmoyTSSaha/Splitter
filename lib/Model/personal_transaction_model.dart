@@ -9,6 +9,7 @@ class PersonalTransactionModel {
   String? currency;
   String? paymentMethod;
   DateTime? transactionDate;
+  late double exchangeRateToInr;
 
   PersonalTransactionModel({
     this.transactionID,
@@ -19,21 +20,27 @@ class PersonalTransactionModel {
     this.currency,
     this.paymentMethod,
     this.transactionDate,
-  });
+    double exchangeRateToInr = 1.0,
+  }) : exchangeRateToInr = exchangeRateToInr;
 
   PersonalTransactionModel.fromJSON(Map<String, dynamic> json) {
     transactionID = json["transaction_id"];
     userID = json["user_id"];
-    amount = double.parse(json["amount"].toString());
+    amount = double.tryParse(json["amount"]?.toString() ?? "0") ?? 0.0;
     category = json["category"];
     transactionDescription = json["transaction_description"];
     currency = json["currency"];
     paymentMethod = json["payment_method"];
-    transactionDate = DateTime.parse(json["transaction_date"]).toLocal();
+    transactionDate = json["transaction_date"] != null
+        ? DateTime.tryParse(json["transaction_date"])?.toLocal()
+        : null;
+    exchangeRateToInr =
+        double.tryParse(json["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
+            1.0;
   }
 
   Map<String, dynamic> toJSON() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
+    final Map<String, dynamic> data = <String, dynamic>{};
 
     data["user_id"] = this.userID;
     data["amount"] = this.amount;
@@ -41,11 +48,11 @@ class PersonalTransactionModel {
     data["transaction_description"] = this.transactionDescription;
     data["currency"] = this.currency;
     data["payment_method"] = this.paymentMethod;
+    data["exchange_rate_to_inr"] = this.exchangeRateToInr;
 
     return data;
   }
 }
-
 
 class PersonalTransactionWithProductCategoryModel {
   String? transactionID;
@@ -57,6 +64,7 @@ class PersonalTransactionWithProductCategoryModel {
   String? paymentMethod;
   DateTime? transactionDate;
   CategoryOnlyModel? masterCategoryModel;
+  late double exchangeRateToInr;
 
   PersonalTransactionWithProductCategoryModel({
     this.transactionID,
@@ -68,7 +76,8 @@ class PersonalTransactionWithProductCategoryModel {
     this.paymentMethod,
     this.transactionDate,
     this.masterCategoryModel,
-  });
+    double exchangeRateToInr = 1.0,
+  }) : exchangeRateToInr = exchangeRateToInr;
 
   PersonalTransactionWithProductCategoryModel.fromModel(
       PersonalTransactionModel personalTransaction,
@@ -82,18 +91,21 @@ class PersonalTransactionWithProductCategoryModel {
     paymentMethod = personalTransaction.paymentMethod;
     transactionDate = personalTransaction.transactionDate;
     masterCategoryModel = categoryModel;
+    exchangeRateToInr = personalTransaction.exchangeRateToInr;
   }
 
   PersonalTransactionWithProductCategoryModel.fromJSON(
       Map<String, dynamic> json) {
     transactionID = json["transaction_id"];
     userID = json["user_id"];
-    amount = double.parse(json["amount"].toString());
+    amount = double.tryParse(json["amount"]?.toString() ?? "0") ?? 0.0;
     category = json["category"];
     transactionDescription = json["transaction_description"];
     currency = json["currency"];
     paymentMethod = json["payment_method"];
-    transactionDate = DateTime.parse(json["transaction_date"]).toLocal();
+    transactionDate = json["transaction_date"] != null
+        ? DateTime.tryParse(json["transaction_date"])?.toLocal()
+        : null;
     masterCategoryModel = json["master_category"];
   }
 

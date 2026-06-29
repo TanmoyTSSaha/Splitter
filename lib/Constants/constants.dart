@@ -123,6 +123,21 @@ TextStyle button_text = const TextStyle(
   fontStyle: FontStyle.normal,
 );
 
+TextStyle headline4_text = const TextStyle(
+  fontFamily: 'Poppins',
+  fontSize: 16,
+  fontWeight: FontWeight.w600,
+  fontStyle: FontStyle.normal,
+);
+
+TextStyle subtitle1_text = const TextStyle(
+  fontFamily: 'Poppins',
+  fontSize: 14,
+  fontWeight: FontWeight.w400,
+  fontStyle: FontStyle.normal,
+  color: Colors.grey,
+);
+
 final TextTheme splitter_custom_text_theme = TextTheme(
   displayLarge: headline1_text,
   displayMedium: headline2_text,
@@ -176,6 +191,8 @@ const ColorScheme neopopColorScheme = ColorScheme(
 // ########## THIS SECTION IS FOR SIZES ##########
 double devSysHeight = Get.context!.height;
 double devSysWidth = Get.context!.width;
+double height_8 = (Get.height / devSysHeight).toInt() * 8;
+double width_8 = (Get.width / devSysWidth).toInt() * 8;
 double height_10 = (Get.height / devSysHeight).toInt() * 10;
 double width_10 = (Get.width / devSysWidth).toInt() * 10;
 double height_16 = (Get.height / devSysHeight).toInt() * 16;
