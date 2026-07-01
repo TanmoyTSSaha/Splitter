@@ -145,7 +145,7 @@ void onClose() {
 }
 ```
 
-Currently registered in `main.dart` but **not subscribed from any controller** — wire when migrating group detail flow.
+Currently wired in `GroupScreenController` and `TransactionTabController` — subscribe on init, unsubscribe on close, refresh repository on transaction events.
 
 ---
 
@@ -196,7 +196,7 @@ Legacy: `AuthService` shows `Fluttertoast` — do not replicate in new services.
 
 | Pattern | Example |
 |---------|---------|
-| Nested `FutureBuilder` chains hitting Supabase | `group_screen.dart` |
+| Nested `FutureBuilder` chains hitting Supabase | `home_screen.dart` |
 | 700-line service | `transaction_service.dart` — split by operation group when editing |
 | Direct client in screen | `request_feature_screen.dart` line 91 |
 | Facade instantiated per screen field | `_supabase = SupabaseDatabase()` in `home_screen.dart` |

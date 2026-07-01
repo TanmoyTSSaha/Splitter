@@ -2,18 +2,33 @@
 
 Prioritized path from current state to target architecture (GetX + repositories + offline-first). **No application code changes in this document** — implementation order only.
 
+**Last reviewed:** 2026-07-01
+
+---
+
+## Completed since last roadmap
+
+| Task | Notes |
+|------|-------|
+| `AppBindings` + `initialBinding` in `main.dart` | Registers `GroupRepository`, `TransactionRepository`, `GroupScreenController`, `NotificationBadgeController` |
+| Wire `GroupRepository` into `GroupScreen` | `GroupScreenController` — `watchGroups()`, realtime, sync status |
+| Wire `TransactionRepository` into `transaction_tab` | `TransactionTabController` — Drift watch + realtime |
+| Expense Insights feature | `ExpenseInsightsScreen`, `SpendingIntelligenceService`, AI briefing, Pro gate |
+| Premium subscriptions | `PremiumSubscriptionController`, IAP, Supabase sync |
+| Loan enhancements | `LoanInterest`, `RepaymentSchedule`, `created_by`, repayment day fields |
+| Friends cancel pending | `cancelFriendRequest` + RLS policy |
+| Unit tests | `spending_intelligence_service_test`, `insights_pro_gate_test` |
+
 ---
 
 ## P0 — Critical
 
 | # | Task | Effort | Risk | Depends on | Notes |
 |---|------|--------|------|------------|-------|
-| 1 | Wire `GroupRepository` into `GroupScreen` + `GroupScreenController` | M | Low | — | Replace `FutureBuilder` + `SupabaseDatabase.getGroupData` |
-| 2 | Wire `TransactionRepository` into `transaction_tab` + add-transaction flow | L | Med | #1 | Largest user-facing offline win |
-| 3 | Add `HomeController` + `PersonalTransactionRepository` | L | Med | Drift table exists | Migrate `home_screen.dart` |
-| 4 | Register repositories in Bindings | S | Low | #1–3 | Establish pattern for all features |
-| 5 | Fix broken `test/widget_test.dart` | S | Low | — | Replace counter test |
-| 6 | Remove `Get.offAllNamed('/')` in `GoalDetailsController` | S | Low | — | Use `Get.back(result: true)` |
+| 1 | Add `HomeController` + `PersonalTransactionRepository` | L | Med | Drift table exists | Migrate `home_screen.dart` — largest remaining direct Supabase hotspot |
+| 2 | Wire add-transaction flow through `TransactionRepository` | M | Med | — | `TransactionTabController` done; `add_transaction_screen` may still bypass repo |
+| 3 | Fix broken `test/widget_test.dart` | S | Low | — | Replace counter test |
+| 4 | Remove `Get.offAllNamed('/')` in `GoalDetailsController` | S | Low | — | Use `Get.back(result: true)` |
 
 ---
 
@@ -21,13 +36,13 @@ Prioritized path from current state to target architecture (GetX + repositories 
 
 | # | Task | Effort | Risk | Depends on | Notes |
 |---|------|--------|------|------------|-------|
-| 7 | Add `SyncStatusBanner` to Home + Group app bars | S | Low | #1 | `SyncService.syncStatus` stream |
-| 8 | Wire `RealtimeService` in group detail controller | M | Med | #2 | Subscribe/unsubscribe per group |
-| 9 | `FriendRepository` + migrate `FriendsController` | M | Low | — | `LocalFriends` table ready |
-| 10 | `LoanRepository` or service-only with controller for lending | M | Low | — | `lending_dashboard.dart` |
-| 11 | `ProfileController` — extract from `profile_screen.dart` | M | Low | — | 660 lines |
-| 12 | Move `currency_controller.dart` to `Controller/` | S | Low | — | Folder cleanup |
-| 13 | Replace `Navigator.push` with `Get.to` (13 files) | M | Low | — | Touch per file |
+| 5 | Add `SyncStatusBanner` to Home + Group app bars | S | Low | — | `SyncService.syncStatus` stream |
+| 6 | `FriendRepository` + migrate `FriendsController` | M | Low | — | `LocalFriends` table ready |
+| 7 | `LoanRepository` or service-only controller for lending | M | Low | — | `lending_dashboard.dart` |
+| 8 | `ProfileController` — extract from `profile_screen.dart` | M | Low | — | |
+| 9 | Move `currency_controller.dart` + `premium_subscription_controller.dart` to `Controller/` | S | Low | — | Folder cleanup |
+| 10 | Replace `Navigator.push` with `Get.to` (remaining files) | M | Low | — | `expense_insights_screen` still uses `Navigator.pop` |
+| 11 | `InsightsController` — extract state from `ExpenseInsightsScreen` | M | Low | — | StatefulWidget + direct service calls |
 
 ---
 
@@ -35,11 +50,11 @@ Prioritized path from current state to target architecture (GetX + repositories 
 
 | # | Task | Effort | Risk | Depends on | Notes |
 |---|------|--------|------|------------|-------|
-| 14 | Extract widgets from `shared.dart` → `Widgets/` | L | Med | — | 989 lines; incremental |
-| 15 | Move `Constants/*_widget.dart` to `Widgets/` on touch | M | Low | — | emoji, sync, swipe, glass |
-| 16 | Remove unused deps: `salomon_bottom_bar`, `rxdart` | S | Low | — | pubspec cleanup |
-| 17 | Remove Appwrite stub from `git_ignore.dart` | S | Low | — | Legacy |
-| 18 | Resolve Poppins vs Albra font strategy | S | Med | — | Add Poppins to pubspec or standardize Albra |
+| 12 | Extract widgets from `shared.dart` → `Widgets/` | L | Med | — | 989 lines; incremental |
+| 13 | Move `Constants/*_widget.dart` to `Widgets/` on touch | M | Low | — | emoji, sync, swipe, glass |
+| 14 | Remove unused deps: `salomon_bottom_bar`, `rxdart` | S | Low | — | pubspec cleanup |
+| 15 | Remove Appwrite stub from `git_ignore.dart` | S | Low | — | Legacy |
+| 16 | Resolve Poppins vs Albra font strategy | S | Med | — | Add Poppins to pubspec or standardize Albra |
 
 ---
 
@@ -47,11 +62,12 @@ Prioritized path from current state to target architecture (GetX + repositories 
 
 | # | Task | Effort | Risk | Depends on | Notes |
 |---|------|--------|------|------------|-------|
-| 19 | Split `add_transaction_screen.dart` (745 lines) | L | High | #2, #4 | Extract tabs + controller split |
-| 20 | Split `AddTransactionScreenController` (42 Rx fields) | L | High | #19 | Per sharing-type controllers |
-| 21 | Split `monthly_recap_screen.dart` (2,479 lines) | XL | Med | — | Story + data layers |
-| 22 | Split `home_screen.dart`, `group_screen.dart`, `profile_screen.dart` | L | Med | #3, #1, #11 | After controllers exist |
-| 23 | Split `transaction_service.dart`, `group_service.dart` | L | Med | — | When adding service methods |
+| 17 | Split `add_transaction_screen.dart` | L | High | #2 | Extract tabs + controller split |
+| 18 | Split `AddTransactionScreenController` (many Rx fields) | L | High | #17 | Per sharing-type controllers |
+| 19 | Split `monthly_recap_screen.dart` | XL | Med | — | Story + data layers |
+| 20 | Split `home_screen.dart`, `profile_screen.dart` | L | Med | #1, #8 | After controllers exist |
+| 21 | Split `expense_insights_screen.dart` | M | Low | #11 | Widgets already extracted |
+| 22 | Split `transaction_service.dart`, `group_service.dart` | L | Med | — | When adding service methods |
 
 ---
 
@@ -59,10 +75,11 @@ Prioritized path from current state to target architecture (GetX + repositories 
 
 | # | Task | Effort | Risk | Depends on | Notes |
 |---|------|--------|------|------------|-------|
-| 24 | `SettleUpController._simplifyDebts` unit tests | S | Low | — | Pure algorithm |
-| 25 | `GroupRepository` in-memory Drift tests | M | Low | #1 | |
+| 23 | `SettleUpController._simplifyDebts` unit tests | S | Low | — | Pure algorithm |
+| 24 | `GroupRepository` in-memory Drift tests | M | Low | — | |
+| 25 | `LoanInterest` / `LoanScheduleCalculator` unit tests | S | Low | — | Pure math |
 | 26 | `GroupModel.fromJSON` edge case tests | S | Low | — | |
-| 27 | Controller tests with `Get.reset()` | M | Low | #4 | |
+| 27 | Controller tests with `Get.reset()` | M | Low | — | |
 
 ---
 
@@ -70,7 +87,7 @@ Prioritized path from current state to target architecture (GetX + repositories 
 
 | # | Task | Effort | Risk | Depends on | Notes |
 |---|------|--------|------|------------|-------|
-| 28 | Replace nested `FutureBuilder` with single controller load | M | Low | #1, #11 | |
+| 28 | Replace nested `FutureBuilder` with single controller load | M | Low | #1, #8 | |
 | 29 | Audit large `Obx` scopes | S | Low | — | Per `getx.md` |
 | 30 | `ListView.builder` audit on long lists | S | Low | — | |
 
@@ -105,12 +122,12 @@ Prioritized path from current state to target architecture (GetX + repositories 
 
 ---
 
-## Recommended sequence (first 4 sprints)
+## Recommended sequence (next 4 sprints)
 
-**Sprint 1:** #1, #4, #6, #7, #5  
-**Sprint 2:** #2, #8  
-**Sprint 3:** #3, #9, #11  
-**Sprint 4:** #19, #20 (add transaction consolidation)
+**Sprint 1:** #1, #3, #4, #5  
+**Sprint 2:** #2, #6  
+**Sprint 3:** #7, #8, #11  
+**Sprint 4:** #17, #18 (add transaction consolidation)
 
 ---
 

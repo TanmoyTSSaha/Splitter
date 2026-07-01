@@ -23,7 +23,7 @@ Implementation:
 
 - `StatefulWidget` + `setState` for `currIndex` (acceptable for shell only)
 - `IndexedStack` preserves tab state
-- Custom bottom bar (not `salomon_bottom_bar` package)
+- Custom bottom bar: `AnimatedGlassBottomNavBar` in `lib/Widgets/` (not `salomon_bottom_bar` package)
 
 **Do not add a 5th tab without explicit approval.** Friends is not a bottom tab.
 
@@ -92,7 +92,7 @@ Accessed via `Get.to` from parent screens:
 | `AddTransactionScreen` | Group flow |
 | `CreateGoalScreen` / `GoalDetailsScreen` | Home / profile |
 | `CreateTripScreen` / `TripTimelineScreen` | Group screen |
-| `ExpenseInsightsScreen` | Home |
+| `ExpenseInsightsScreen` | Profile, Home (`InsightsPromoCard`) |
 | `NotificationScreen` | Home / profile |
 | `FeatureComingUp` | Profile (placeholder) |
 | `PremiumPlanScreen` | Profile |
@@ -119,7 +119,6 @@ Friends remains secondary under Profile — not a bottom tab per product decisio
 | `Get.offAllNamed('/')` | No named routes configured — broken (`goal_details_controller.dart`) |
 | `GetPage` / route table | Not set up — do not use named routes without adding `getPages` to `GetMaterialApp` |
 | GoRouter | Not in project — do not add |
-| Deep links | Not implemented |
 
 ---
 
@@ -130,10 +129,13 @@ Friends remains secondary under Profile — not a bottom tab per product decisio
 GetMaterialApp(
   title: 'SplitO',
   debugShowCheckedModeBanner: false,
-  theme: ThemeData(...),
+  initialBinding: AppBindings(),
+  theme: AppThemes.light,
   home: _getInitialScreen(),
 )
 ```
+
+Deep links handled by `DeepLinkService` (registered in `main.dart`, uses `app_links`).
 
 No `getPages`, no `initialRoute`. New screens use `Get.to(() => ...)` imperative navigation.
 

@@ -1,13 +1,13 @@
 {
   "project": "SplitO",
   "package": "splitter",
-  "savedAt": "2026-06-27",
+  "savedAt": "2026-07-01",
   "purpose": "Persistent project context with Context7 library IDs for documentation lookups",
   "context7": {
     "libraries": {
       "getx": {
         "id": "/jonataslaw/getx",
-        "useFor": ["Bindings", "Get.put", "GetxController", "Obx", "Get.to navigation"]
+        "useFor": ["Bindings", "Get.put", "GetxController", "Obx", "Get.to navigation", "AppBindings initialBinding"]
       },
       "supabase_flutter": {
         "id": "/supabase/supabase-flutter",
@@ -20,12 +20,16 @@
       "drift": {
         "id": "/websites/drift_simonbinder_eu",
         "useFor": ["watch streams", "migrations", "offline SQLite", "build_runner"]
+      },
+      "in_app_purchase": {
+        "id": "/flutter/packages/in_app_purchase",
+        "useFor": ["PremiumSubscriptionController", "IAP product IDs", "purchase stream"]
       }
     },
     "queryExamples": [
       {
         "libraryId": "/jonataslaw/getx",
-        "query": "Bindings Get.lazyPut GetxController permanent dependency injection"
+        "query": "Bindings Get.lazyPut GetxController permanent dependency injection initialBinding"
       },
       {
         "libraryId": "/supabase/supabase-flutter",
@@ -34,6 +38,10 @@
       {
         "libraryId": "/websites/drift_simonbinder_eu",
         "query": "watch stream insertOnConflictUpdate MigrationStrategy schemaVersion"
+      },
+      {
+        "libraryId": "/flutter/packages/in_app_purchase",
+        "query": "queryProductDetails purchaseStream restorePurchases"
       }
     ]
   },
@@ -41,15 +49,21 @@
     "pattern": "layer-by-type",
     "dataFlow": "Screen -> Controller -> Repository -> SupabaseServices / Drift",
     "stateManagement": "GetX",
-    "offline": "Drift AppDatabase + SyncService (required)",
+    "bindings": "lib/Bindings/app_bindings.dart via GetMaterialApp initialBinding",
+    "offline": "Drift AppDatabase + SyncService (groups + transactions wired)",
     "backend": "Supabase"
   },
   "bottomNav": ["Home", "Groups", "Lending", "Profile"],
-  "friendsAccess": "Profile screen via Get.to — not a bottom tab",
+  "secondaryScreens": {
+    "friends": "Profile screen via Get.to — not a bottom tab",
+    "insights": "Profile + Home promo card via Get.to ExpenseInsightsScreen"
+  },
   "credentialsFile": "lib/git_ignore.dart",
   "keyFolders": {
+    "bindings": "lib/Bindings/",
     "screens": "lib/Screen/",
     "controllers": "lib/Controller/",
+    "legacyControllers": "lib/Controllers/",
     "repositories": "lib/Repository/",
     "services": "lib/Services/",
     "supabaseServices": "lib/Services/SupabaseServices/",
@@ -75,81 +89,111 @@
       "code-review.md"
     ]
   },
+  "fileCounts": {
+    "bindings": 1,
+    "constants": 10,
+    "controller": 11,
+    "controllers": 2,
+    "model": 18,
+    "repository": 2,
+    "services": 33,
+    "supabaseServices": 9,
+    "screen": 70,
+    "widgets": 18,
+    "test": 3,
+    "migrations": 12
+  },
+  "controllers": {
+    "auth": "AuthController",
+    "group": "GroupScreenController",
+    "transactionTab": "TransactionTabController",
+    "addTransaction": "AddTransactionScreenController",
+    "analytics": "AnalyticsController",
+    "settleUp": "SettleUpController",
+    "friends": "FriendsController",
+    "goals": ["CreateGoalController", "GoalDetailsController"],
+    "currency": "CurrencyController (Controllers/)",
+    "premium": "PremiumSubscriptionController (Controllers/)",
+    "lendingRefresh": "LendingRefreshController",
+    "notificationBadge": "NotificationBadgeController"
+  },
+  "insightsStack": {
+    "screen": "lib/Screen/Insights/expense_insights_screen.dart",
+    "service": "lib/Services/spending_intelligence_service.dart",
+    "aiBriefing": "lib/Services/ai_service.dart generateInsightsBriefing",
+    "cache": "lib/Services/insights_briefing_cache.dart",
+    "navigation": "lib/Services/insights_navigation.dart",
+    "proGate": "lib/Widgets/insights_pro_gate.dart",
+    "promoCard": "lib/Widgets/insights_promo_card.dart"
+  },
+  "lendingStack": {
+    "models": ["loan_model.dart", "loan_interest.dart", "repayment_schedule.dart"],
+    "service": "lib/Services/SupabaseServices/loan_service.dart"
+  },
   "knownGaps": [
-    "GroupRepository and TransactionRepository not wired to UI",
-    "No Bindings classes yet",
-    "Many screens call SupabaseDatabase() directly",
-    "SyncIndicator and RealtimeService underused"
+    "HomeScreen still calls SupabaseDatabase() directly — no PersonalTransactionRepository",
+    "FriendRepository not implemented",
+    "LoanRepository not implemented",
+    "ExpenseInsightsScreen is StatefulWidget — no InsightsController",
+    "widget_test.dart still broken counter test",
+    "Many screens still call SupabaseDatabase() directly outside group flows"
   ],
   "migrationP0": [
-    "Wire GroupRepository into GroupScreen",
-    "Wire TransactionRepository into transaction flow",
-    "Add HomeController + PersonalTransactionRepository",
-    "Introduce Bindings per feature",
-    "Fix broken widget_test.dart"
+    "HomeController + PersonalTransactionRepository",
+    "Wire add-transaction through TransactionRepository",
+    "Fix widget_test.dart",
+    "GoalDetailsController navigation fix"
+  ],
+  "completedMigration": [
+    "AppBindings with GroupRepository + TransactionRepository",
+    "GroupScreenController wired to GroupRepository + RealtimeService",
+    "TransactionTabController wired to TransactionRepository",
+    "Expense Insights + Premium Pro gating",
+    "Loan interest/schedule models",
+    "Friends cancel pending request"
   ],
   "codegraph": {
     "indexed": true,
     "indexPath": ".codegraph/",
     "initCommand": "codegraph init",
-    "stats": {
-      "filesIndexed": 158,
-      "filesFailed": 1,
-      "nodes": 2516,
-      "edges": 4787
-    },
-    "parseError": "lib/Services/appwrite_service.dart (deleted legacy file)",
     "mcpTool": "codegraph_explore",
-    "usage": "Pass projectPath and query symbol names or natural-language flow questions before editing",
+    "usage": "Pass natural-language flow questions or symbol names before editing",
     "blastRadiusHighlights": {
       "SupabaseDatabase": {
-        "callers": 21,
+        "status": "still widely used",
         "hotspots": [
+          "lib/Screen/HomeScreen/home_screen.dart",
           "lib/Screen/GroupScreen/add_transaction_screen.dart",
-          "lib/Screen/GroupScreen/group_screen.dart",
-          "lib/Screen/GroupScreen/transaction_tab.dart",
-          "lib/Screen/HomeScreen/home_screen.dart"
-        ]
-      },
-      "SupabaseAuth": {
-        "callers": 11,
-        "hotspots": [
-          "lib/Screen/AuthScreens/login_screen.dart",
-          "lib/Screen/ProfileScreen/profile_screen.dart",
-          "lib/Screen/FriendScreen/friends_screen.dart"
+          "lib/Controller/friends_controller.dart"
         ]
       },
       "GroupRepository": {
-        "callers": 0,
-        "status": "orphaned — no UI imports"
+        "status": "wired",
+        "callers": ["lib/Controller/group_screen_controller.dart", "lib/Bindings/app_bindings.dart"]
       },
       "TransactionRepository": {
-        "callers": 0,
-        "status": "orphaned — no UI imports"
+        "status": "wired",
+        "callers": ["lib/Controller/transaction_tab_controller.dart", "lib/Bindings/app_bindings.dart"]
       },
-      "AppDatabase": {
-        "callers": 1,
-        "onlyCaller": "lib/main.dart"
+      "SpendingIntelligenceService": {
+        "status": "active",
+        "callers": [
+          "lib/Screen/Insights/expense_insights_screen.dart",
+          "lib/Widgets/insights_promo_card.dart",
+          "lib/Services/gamification_service.dart"
+        ]
       },
-      "SyncService": {
-        "callers": 1,
-        "onlyCaller": "lib/main.dart"
-      },
-      "FriendsController": {
-        "callers": 1,
-        "onlyCaller": "lib/Screen/FriendScreen/friends_screen.dart"
-      },
-      "SettleUpController": {
-        "callers": 1,
-        "onlyCaller": "lib/Screen/GroupScreen/settle_up_tab.dart"
+      "PremiumSubscriptionController": {
+        "status": "active",
+        "registeredIn": "lib/main.dart"
       }
     },
     "exampleQueries": [
-      "main.dart bootstrap Supabase AppDatabase SyncService Get.put",
-      "GroupRepository TransactionRepository drift sync",
-      "SupabaseDatabase group_screen home_screen add_transaction_screen",
-      "GetxController FriendsController SettleUpController",
-      "RealtimeService subscribeToGroup onTransactionChange"
+      "main.dart bootstrap Supabase AppDatabase SyncService AppBindings",
+      "GroupRepository TransactionRepository GroupScreenController transaction_tab",
+      "SpendingIntelligenceService getInsights InsightsProGate",
+      "LoanInterest RepaymentSchedule LoanScheduleCalculator",
+      "FriendsController cancelFriendRequest"
     ]
   }
 }

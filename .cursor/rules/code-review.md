@@ -38,7 +38,8 @@ Checklist for AI self-review and human PR review. Verify generated code matches 
 ## GetX Checklist
 
 - [ ] Controller extends `GetxController` for new feature screens
-- [ ] `Binding` registers controller + repository (new features)
+- [ ] `Binding` registers controller + repository (new features; `AppBindings` for shared repos)
+- [ ] Pro features gated via `InsightsProGate` / `PremiumGate` when applicable
 - [ ] `isLoading` + `errorMessage` exposed for async operations
 - [ ] `TextEditingController` disposed in `onClose`
 - [ ] `Obx` scopes minimal — not wrapping full `Scaffold`
@@ -74,6 +75,7 @@ Checklist for AI self-review and human PR review. Verify generated code matches 
 - [ ] `Get.to` / `Get.back` — not `Navigator.push` (new code)
 - [ ] Bottom nav unchanged (4 tabs: Home, Groups, Lending, Profile)
 - [ ] Friends accessed from Profile — not added as bottom tab
+- [ ] Insights accessed from Profile/Home — not added as bottom tab
 - [ ] No `Get.offAllNamed` without configured routes
 
 ---

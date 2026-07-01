@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Constants/glass_card.dart';
+import 'package:splitter/Controller/lending_refresh_controller.dart';
 import 'package:splitter/Controllers/currency_controller.dart';
 import 'package:splitter/Model/loan_model.dart';
 import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
@@ -48,6 +49,12 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       _loan.dueDate != null &&
       _loan.repaymentStartDay != null &&
       _loan.repaymentEndDay != null;
+
+  bool get _canRespondToPending =>
+      _isPending && _loan.createdBy != null && _loan.createdBy != _userID;
+
+  String get _interestPeriodLabel =>
+      _loan.interestPeriod == 'yearly' ? 'yearly' : 'monthly';
 
   String get _counterpartyName => _isLender
       ? (_loan.borrowerName ?? 'Borrower')
@@ -112,6 +119,37 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
     }
   }
 
+  Future<void> _handleLoanResponse(bool accept) async {
+    if (_loan.id == null) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      await _supabase.updateLoanStatus(
+        loanID: _loan.id!,
+        status: accept ? 'active' : 'rejected',
+      );
+      LendingRefreshController.refreshFromAnywhere();
+      Get.snackbar(
+        accept ? 'Loan Accepted' : 'Loan Rejected',
+        accept
+            ? 'The loan is now active.'
+            : 'You have rejected the loan offer.',
+        backgroundColor: neopopBackground,
+        colorText: Colors.white,
+      );
+      Get.back(result: true);
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        e.toString().replaceFirst('Exception: ', ''),
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -136,14 +174,19 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           scrolledUnderElevation: 0,
         ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(groupGutter),
+          padding: EdgeInsets.fromLTRB(
+            groupGutter,
+            groupGapSm,
+            groupGutter,
+            _canRespondToPending ? 120 : groupGutter,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeaderCard(),
               const SizedBox(height: groupGapMd),
               _buildDetailsCard(),
-              if (_isPending) ...[
+              if (_isPending && !_canRespondToPending) ...[
                 const SizedBox(height: groupGapMd),
                 _buildPendingNotice(),
               ],
@@ -154,6 +197,79 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
             ],
           ),
         ),
+        bottomSheet: _canRespondToPending ? _buildResponseActions() : null,
+      ),
+    );
+  }
+
+  Widget _buildResponseActions() {
+    return Container(
+      padding: const EdgeInsets.all(groupGutter),
+      color: Colors.white,
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _handleLoanResponse(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'REJECT',
+                    style: body1_text.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _handleLoanResponse(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: neopopBackground,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'ACCEPT',
+                          style: body1_text.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -161,7 +277,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   Widget _buildHeaderCard() {
     return GlassCard(
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(groupGapLg),
+      padding: const EdgeInsets.all(groupGapMd),
       opacity: 0.1,
       child: Column(
         children: [
@@ -277,7 +393,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   Widget _buildDetailsCard() {
     return GlassCard(
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(groupGapLg),
+      padding: const EdgeInsets.all(groupGapMd),
       opacity: 0.08,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +408,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           const SizedBox(height: groupGapMd),
           _detailRow(
             'Interest rate',
-            '${_loan.interestRate.toStringAsFixed(1)}% monthly (${_loan.interestType})',
+            '${_loan.interestRate.toStringAsFixed(1)}% $_interestPeriodLabel (${_loan.interestType})',
           ),
           if (_loan.duration != null && _loan.durationUnit != null)
             _detailRow('Duration', '${_loan.duration} ${_loan.durationUnit}'),
@@ -306,29 +422,6 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
               'Repayment window',
               'Day ${_loan.repaymentStartDay} – ${_loan.repaymentEndDay} each month',
             ),
-          if (_canViewSchedule) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Get.to(
-                  () => LoanRepaymentScheduleScreen(loan: _loan),
-                ),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'View repayment schedule',
-                  style: body2_text.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: neopopBackground,
-                  ),
-                ),
-              ),
-            ),
-          ],
           Obx(() {
             final sym = Get.find<CurrencyController>().symbol;
             return _detailRow(
@@ -336,6 +429,27 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
               '$sym${_loan.repaymentAmount.toStringAsFixed(0)}',
             );
           }),
+          if (_canViewSchedule) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => Get.to(
+                  () => LoanRepaymentScheduleScreen(loan: _loan),
+                ),
+                child: Text(
+                  'View repayment schedule',
+                  style: body2_text.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: neopopPrimary,
+                    decoration: TextDecoration.underline,
+                    decorationStyle: TextDecorationStyle.dotted,
+                    decorationColor: neopopPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -376,7 +490,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       child: Text(
         initiatedByMe
             ? 'Awaiting the other party\'s response.'
-            : 'Accept or decline this offer in Notifications.',
+            : 'Review the terms below and accept or reject.',
         style: body2_text.copyWith(color: groupOnSurface),
       ),
     );
@@ -385,7 +499,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   Widget _buildPaymentSection() {
     return GlassCard(
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(groupGapLg),
+      padding: const EdgeInsets.all(groupGapMd),
       opacity: 0.08,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,20 +548,27 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _recordPayment,
               style: ElevatedButton.styleFrom(
-                backgroundColor: neopopAccent,
+                backgroundColor: neopopBackground,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Colors.black, width: 2),
                 ),
                 elevation: 0,
               ),
               child: _isSubmitting
-                  ? const CircularProgressIndicator(color: groupOnSurface)
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : Text(
                       'RECORD PAYMENT',
                       style: body1_text.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: groupOnSurface,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
             ),

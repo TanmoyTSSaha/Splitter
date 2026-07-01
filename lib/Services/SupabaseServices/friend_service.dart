@@ -114,6 +114,24 @@ class FriendService {
     }
   }
 
+  /// Cancels a pending friend request sent by [fromUserID].
+  Future<void> cancelFriendRequest({
+    required String requestID,
+    required String fromUserID,
+  }) async {
+    try {
+      await supabase
+          .from('friends')
+          .delete()
+          .eq('id', requestID)
+          .eq('user_id', fromUserID)
+          .eq('status', 'pending');
+    } catch (e) {
+      debugPrint('CANCEL FRIEND REQUEST EXCEPTION: $e');
+      rethrow;
+    }
+  }
+
   /// Computes per-friend balances across all shared groups.
   Future<List<FriendBalanceModel>> getFriendBalances({
     required String userID,

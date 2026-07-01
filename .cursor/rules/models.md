@@ -104,9 +104,11 @@ Do not add Drift imports to `lib/Model/`.
 
 ---
 
-## Existing Models (15 files)
+## Existing Models (18 files)
 
-`activity_model`, `badge_model`, `financial_goal_model`, `friend_model`, `goal_transaction_model`, `group_invite_model`, `group_model`, `loan_model`, `personal_transaction_model`, `product_category_model`, `receipt_model`, `reminder_settings_model`, `trip_model`, `user_details_model`, `wishlist_model`
+`activity_model`, `badge_model`, `financial_goal_model`, `friend_model`, `goal_transaction_model`, `group_invite_model`, `group_model`, `loan_model`, `loan_interest`, `personal_transaction_model`, `product_category_model`, `receipt_model`, `reminder_settings_model`, `repayment_schedule`, `trip_model`, `user_details_model`, `wishlist_model`, `wishlist_prefill`
+
+`loan_interest.dart` and `repayment_schedule.dart` hold pure calculation types (`LoanInterest`, `RepaymentSchedule`, `LoanScheduleCalculator`) — not `*Model` suffix.
 
 ---
 

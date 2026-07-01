@@ -49,6 +49,18 @@ Known violations to split when touched:
 | `active_group_card.dart` | Group list cards |
 | `trip_gradient_card.dart` | Trip summary cards |
 | `custom_big_text_form_field.dart` | Large amount input |
+| `smart_decimal_text_field.dart` | Decimal amount input |
+| `pill_tab_bar.dart` | Pill-style tab bar |
+| `animated_glass_bottom_nav_bar.dart` | App shell bottom nav |
+| `insights_pro_gate.dart` | Blur/lock Pro insight sections |
+| `insights_promo_card.dart` | Home screen insights promo |
+| `premium_gate.dart` | Generic premium feature gate |
+| `notification_bell_button.dart` | Notification bell with badge |
+| `badge_unlock_toast.dart` | Badge unlock celebration |
+| `tab_empty_state.dart` | Empty tab placeholder |
+| `group_reminder_settings_sheet.dart` | Group reminder settings |
+| `activity_comments_sheet.dart` | Activity comment sheet |
+| `dark_surface_theme.dart` | Dark surface theme helpers |
 
 Import: `package:splitter/Widgets/<file>.dart`
 
@@ -57,6 +69,7 @@ Import: `package:splitter/Widgets/<file>.dart`
 ```
 lib/Screen/GroupScreen/SharingTypeTabs/     # even, uneven, percentage, shares, by_item
 lib/Screen/GroupScreen/GraphAnalysisWidgets/  # fl_chart widgets
+lib/Screen/Insights/widgets/              # insights cards, score ring, social trust
 lib/Screen/ProfileScreen/badges_section_widget.dart
 lib/Screen/HomeScreen/empty_state_widget.dart
 lib/Screen/GroupScreen/shareable_settlement_card.dart

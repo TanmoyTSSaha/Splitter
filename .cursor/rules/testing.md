@@ -11,7 +11,8 @@ Testing strategy for SplitO — minimal today, defined path for when tests are r
 | Item | Status |
 |------|--------|
 | `test/widget_test.dart` | **Broken** — default counter test; app has no counter |
-| Unit tests | None |
+| `test/spending_intelligence_service_test.dart` | Unit tests for health score, projections, labels |
+| `test/insights_pro_gate_test.dart` | Widget tests for Pro gate blur/lock |
 | Integration tests | None |
 | CI test runner | None |
 
@@ -134,6 +135,9 @@ Supabase initialization in `main()` prevents testing full `main()` without refac
 | Area | Cases |
 |------|-------|
 | `SettleUpController._simplifyDebts` | Debt minimization algorithm |
+| `SpendingIntelligenceService` | Health score, projections, labels (covered) |
+| `InsightsProGate` | Pro blur/lock behaviour (covered) |
+| `LoanInterest` / `LoanScheduleCalculator` | Interest and EMI math |
 | `GroupRepository.createGroup` | Local write + enqueue |
 | `SyncService.enqueue` | Queue row created |
 | `GroupModel.fromJSON` | Parsing edge cases |

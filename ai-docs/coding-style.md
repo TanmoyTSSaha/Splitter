@@ -20,7 +20,7 @@ Use package imports for project files, not relative `../` across layers.
 | Variables | camelCase | `groupId`, `isLoading` |
 | Constants | camelCase or lowerCamel | `neopopPrimary`, `supabaseURL` |
 | Private fields | `_prefix` | `_db`, `_syncService` |
-| JSON methods | `fromJSON` / `toJSON` | Project convention |
+| JSON methods | `fromJSON` / `toJSON` | Project convention (`LoanModel` uses `fromJson`) |
 | Supabase methods | `supabase` prefix (legacy) | `supabaseGetUserID` |
 
 ## Controllers
@@ -28,11 +28,18 @@ Use package imports for project files, not relative `../` across layers.
 - Suffix: `Controller`
 - Reactive: `RxBool isLoading`, `RxList<T> items`
 - File: `lib/Controller/<name>_controller.dart`
+- Legacy premium/currency: `lib/Controllers/` — migrate to `Controller/` when touched
+
+## Bindings
+
+- `lib/Bindings/<feature>_bindings.dart` or `app_bindings.dart`
+- Register repositories with `Get.lazyPut(..., fenix: true)` using `Get.find<AppDatabase>()` + `Get.find<SyncService>()`
 
 ## Screens
 
 - Suffix: `Screen` or `Tab` for tab bodies
 - Folder: `lib/Screen/<Feature>Screen/`
+- Feature-scoped widgets: `Screen/<Feature>/widgets/` (e.g. `Insights/widgets/`)
 
 ## Formatting
 
@@ -50,6 +57,11 @@ Use package imports for project files, not relative `../` across layers.
 
 - New code: controller exposes `errorMessage`, `Get.snackbar` for user feedback
 - Services: `debugPrint` + rethrow (avoid new `Fluttertoast` in services)
+
+## Testing hooks
+
+- `@visibleForTesting` on static pure functions (e.g. `SpendingIntelligenceService.calculateHealthScore`)
+- `testIsPremium` parameter on `InsightsProGate` for widget tests without IAP
 
 ## Git
 

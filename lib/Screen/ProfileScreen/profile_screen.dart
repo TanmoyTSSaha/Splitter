@@ -8,11 +8,11 @@ import 'package:splitter/Model/user_details_model.dart';
 import 'package:splitter/Screen/AuthScreens/login_screen.dart';
 import 'package:splitter/Screen/FeatureComingUp/feature_coming_up_next.dart';
 import 'package:splitter/Screen/FriendScreen/friends_screen.dart';
+import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitter/Screen/ProfileScreen/badges_section_widget.dart';
 import 'package:splitter/Screen/ProfileScreen/edit_currency_screen.dart';
 import 'package:splitter/Screen/Insights/expense_insights_screen.dart';
-import 'package:splitter/Screen/ProfileScreen/monthly_recap_screen.dart';
 import 'package:splitter/Widgets/animated_glass_bottom_nav_bar.dart';
-import 'package:splitter/Widgets/premium_gate.dart';
 import 'package:splitter/Screen/ProfileScreen/notifications_screen.dart';
 import 'package:splitter/Screen/ProfileScreen/personal_details_screen.dart';
 import 'package:splitter/Screen/ProfileScreen/premium_plan_screen.dart';
@@ -23,14 +23,10 @@ import 'package:splitter/Services/SupabaseServices/transaction_service.dart';
 import 'package:splitter/Services/supabase_service.dart';
 import 'package:splitter/Widgets/user_avatar.dart';
 
-// ─── Light palette for this screen ───────────────────────────────────────────
-const Color _bg = Color(0xFFF0F0F5);
-const Color _cardBg = Colors.white;
-const Color _sectionLabel = Color(0xFF9E9E9E);
-const Color _titleColor = Color(0xFF1A1A1A);
-const Color _subtitleColor = Color(0xFF9E9E9E);
-const Color _dividerColor = Color(0xFFEEEEEE);
 const Color _logoutRed = Color(0xFFE53935);
+const double _avatarRadius = 54;
+const double _avatarRingRadius = _avatarRadius + 6;
+const double _avatarShadowBleed = 44;
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -40,10 +36,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // ─── Number formatter ───────────────────────────────────────────────────────
   String _formatAmount(double value) {
     String trimDecimal(double v) {
-      // Show one decimal only when needed
       if (v == v.truncateToDouble()) return v.truncate().toString();
       return v.toStringAsFixed(1);
     }
@@ -56,7 +50,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '$sym${abs.toStringAsFixed(0)}';
   }
 
-  // ─── Logout dialog ──────────────────────────────────────────────────────────
   Future<void> _showLogOutDialog() async {
     return showDialog<void>(
       context: context,
@@ -109,10 +102,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ─── Data fetch ──────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> _fetchProfileData() async {
     final userId = SupabaseAuth().supabaseGetUserID();
-    // Run profile + stats fetches in parallel
     final results = await Future.wait([
       SupabaseDatabase().getCurrentUserProfile(userID: userId),
       TransactionService().getLifetimeStats(userID: userId),
@@ -127,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: const Color(0xFFFAFAFA),
         body: FutureBuilder<Map<String, dynamic>>(
           future: _fetchProfileData(),
           builder: (context, snapshot) {
@@ -150,54 +141,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, bottomNavClearance),
+                padding: const EdgeInsets.fromLTRB(
+                  groupGutter,
+                  groupGapLg,
+                  groupGutter,
+                  bottomNavClearance,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    GradientMeshBackground(
-                      child: GlassCard(
-                        margin: EdgeInsets.zero,
-                        opacity: 0.14,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 24),
-                        child: Column(
-                          children: [
-                            _buildAvatar(user),
-                            const SizedBox(height: 16),
-                            Text(
-                              "${user.firstName ?? 'User'} ${user.lastName ?? ''}"
-                                  .trim(),
-                              style: const TextStyle(
-                                fontFamily: 'Albra',
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                                color: _titleColor,
-                                height: 1.1,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              "JUST VIBING",
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _subtitleColor,
-                                letterSpacing: 2.0,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildStatChips(stats),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // ── ACCOUNT INFO ──────────────────────────────────────────
+                    _buildHeroCard(user, stats),
+                    const SizedBox(height: groupGapXl),
+                    const BadgesSectionWidget(),
+                    const SizedBox(height: groupGapLg),
                     _buildSectionHeader("ACCOUNT INFO"),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: groupGapSm),
                     _buildMenuCard([
                       _buildMenuTile(
                         icon: Icons.person_outline_rounded,
@@ -214,23 +172,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onTap: () => Get.to(() => const FriendsScreen()),
                       ),
                       _buildMenuTile(
-                        icon: Icons.calendar_month_outlined,
-                        title: "Monthly Recap",
-                        subtitle: "Your spending summary",
-                        onTap: () => Get.to(() => MonthlyRecapScreen()),
-                      ),
-                      _buildMenuTile(
                         icon: Icons.insights_outlined,
                         title: "Expense Insights",
                         subtitle: "Trends, unusual spends, settle-up health",
-                        onTap: () async {
-                          final ok = await requirePremium(
-                            featureLabel: 'Advanced Analytics',
-                          );
-                          if (ok) {
-                            Get.to(() => const ExpenseInsightsScreen());
-                          }
-                        },
+                        onTap: () => Get.to(() => const ExpenseInsightsScreen()),
                       ),
                       _buildMenuTile(
                         icon: Icons.diamond_outlined,
@@ -240,11 +185,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         isLast: true,
                       ),
                     ]),
-                    const SizedBox(height: 24),
-
-                    // ── APP SETTINGS ──────────────────────────────────────────
+                    const SizedBox(height: groupGapLg),
                     _buildSectionHeader("APP SETTINGS"),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: groupGapSm),
                     _buildMenuCard([
                       _buildBiometricTile(),
                       _buildMenuTile(
@@ -262,11 +205,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         isLast: true,
                       ),
                     ]),
-                    const SizedBox(height: 24),
-
-                    // ── GENEROUS ──────────────────────────────────────────────
+                    const SizedBox(height: groupGapLg),
                     _buildSectionHeader("GENEROUS"),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: groupGapSm),
                     _buildMenuCard([
                       _buildMenuTile(
                         icon: Icons.volunteer_activism_outlined,
@@ -283,9 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         isLast: true,
                       ),
                     ]),
-                    const SizedBox(height: 24),
-
-                    // ── LOGOUT (separated tile) ───────────────────────────────
+                    const SizedBox(height: groupGapLg),
                     _buildMenuCard([
                       _buildMenuTile(
                         icon: Icons.logout_rounded,
@@ -298,7 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         isLast: true,
                       ),
                     ]),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: groupGapXl),
                   ],
                 ),
               ),
@@ -309,137 +248,126 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ─── Avatar: UserAvatar widget + soft diffused glow ──────────────────────
-  Widget _buildAvatar(UserDetails user) {
-    const double avatarRadius = 54;
-    // White ring is slightly larger than avatar — creates visible white border
-    const double ringRadius = avatarRadius + 6;
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // White ring with soft two-tone diffused glow (shadow approach)
-        // The BoxShadows diffuse INTO the background — no hard colored ring.
-        Container(
-          width: ringRadius * 2,
-          height: ringRadius * 2,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [
-              // Green glow — bleeds to the bottom-left into the background
-              BoxShadow(
-                color: const Color(0xFFB5F542).withOpacity(0.75),
-                blurRadius: 32,
-                spreadRadius: 4,
-                offset: const Offset(-6, 6),
-              ),
-              // Purple glow — bleeds to the top-right into the background
-              BoxShadow(
-                color: const Color(0xFF8B5CF6).withOpacity(0.75),
-                blurRadius: 32,
-                spreadRadius: 4,
-                offset: const Offset(6, -6),
-              ),
-            ],
-          ),
-        ),
-        // UserAvatar (DiceBear identicon, same as app bar)
-        UserAvatar(
-          userID: user.userID ?? '',
-          userName: '${user.firstName ?? 'U'} ${user.lastName ?? ''}',
-          imageUrl: user.profilePictureURL,
-          radius: avatarRadius,
-        ),
-        // Edit badge
-        Positioned(
-          bottom: 6,
-          right: 6,
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              color: neopopYellow,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+  Widget _buildHeroCard(UserDetails user, Map<String, double> stats) {
+    return GradientMeshBackground(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: groupGapSm),
+          _buildAvatar(user),
+          const SizedBox(height: groupGapMd),
+          GlassCard(
+            margin: EdgeInsets.zero,
+            opacity: 0.12,
+            padding: const EdgeInsets.fromLTRB(
+              groupGapMd,
+              groupGapLg,
+              groupGapMd,
+              groupGapLg,
+            ),
+            child: Column(
+              children: [
+                Text(
+                  "${user.firstName ?? 'User'} ${user.lastName ?? ''}".trim(),
+                  style: const TextStyle(
+                    fontFamily: 'Albra',
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: groupOnSurface,
+                    height: 1.1,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  "JUST VIBING",
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: groupOnSurfaceMuted,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                const SizedBox(height: groupGapMd),
+                _buildStatChips(stats),
               ],
             ),
-            child: const Icon(
-              Icons.edit_rounded,
-              size: 15,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Stat chips ──────────────────────────────────────────────────────────
-  Widget _buildStatChips(Map<String, double> stats) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildChip(
-              label: "TOTAL SPENT",
-              value: _formatAmount(stats['totalSpent'] ?? 0),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildChip(
-              label: "TOTAL RECEIVED",
-              value: _formatAmount(stats['totalReceived'] ?? 0),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildChip({required String label, required String value}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _dividerColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
+  Widget _buildAvatar(UserDetails user) {
+    final ringSize = _avatarRingRadius * 2;
+    final frameSize = ringSize + _avatarShadowBleed * 2;
+
+    return GestureDetector(
+      onTap: () => Get.to(() => PersonalDetailsScreen(initialData: user)),
+      child: SizedBox(
+        width: frameSize,
+        height: frameSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
           children: [
-            TextSpan(
-              text: "$label: ",
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: _subtitleColor,
-                letterSpacing: 0.8,
+            Container(
+              width: ringSize,
+              height: ringSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFB5F542).withValues(alpha: 0.6),
+                    blurRadius: 42,
+                    spreadRadius: 0,
+                    offset: const Offset(-10, 12),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.55),
+                    blurRadius: 42,
+                    spreadRadius: 0,
+                    offset: const Offset(10, -12),
+                  ),
+                  BoxShadow(
+                    color: neopopAccent.withValues(alpha: 0.14),
+                    blurRadius: 64,
+                    spreadRadius: 8,
+                  ),
+                ],
               ),
             ),
-            TextSpan(
-              text: value,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: _titleColor,
+            UserAvatar(
+              userID: user.userID ?? '',
+              userName: '${user.firstName ?? 'U'} ${user.lastName ?? ''}',
+              imageUrl: user.profilePictureURL,
+              radius: _avatarRadius,
+            ),
+            Positioned(
+              bottom: _avatarShadowBleed + 6,
+              right: _avatarShadowBleed + 6,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  color: neopopYellow,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.edit_rounded,
+                  size: 15,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
@@ -448,42 +376,101 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ─── Section header ──────────────────────────────────────────────────────
+  Widget _buildStatChips(Map<String, double> stats) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildChip(
+            label: "TOTAL SPENT",
+            value: _formatAmount(stats['totalSpent'] ?? 0),
+          ),
+        ),
+        const SizedBox(width: groupCarouselGap),
+        Expanded(
+          child: _buildChip(
+            label: "TOTAL RECEIVED",
+            value: _formatAmount(stats['totalReceived'] ?? 0),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChip({required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFFEEEEEE), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: "$label: ",
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: groupOnSurfaceMuted,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              TextSpan(
+                text: value,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: groupOnSurface,
+                ),
+              ),
+            ],
+          ),
+          maxLines: 1,
+          softWrap: false,
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Poppins',
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: _sectionLabel,
+          color: groupOnSurfaceMuted,
           letterSpacing: 1.8,
         ),
       ),
     );
   }
 
-  // ─── Card wrapper — sharp rectangular, 0 rounded corners ─────────────────
   Widget _buildMenuCard(List<Widget> tiles) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.zero,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return GlassCard(
+      margin: EdgeInsets.zero,
+      opacity: 0.09,
+      padding: EdgeInsets.zero,
       child: Column(children: tiles),
     );
   }
 
-  // ─── Individual menu tile — rectangular, square icon box ─────────────────
   Widget _buildMenuTile({
     required IconData icon,
     required String title,
@@ -494,8 +481,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool showChevron = true,
     bool isLast = false,
   }) {
-    final effectiveIcon = iconColor ?? _titleColor;
-    final effectiveTitle = titleColor ?? _titleColor;
+    final effectiveIcon = iconColor ?? groupOnSurface;
+    final effectiveTitle = titleColor ?? groupOnSurface;
 
     return Column(
       children: [
@@ -505,14 +492,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                // Square icon box: black border, grey bg, black icon
                 Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEEEEEE),
                     border: Border.all(
-                      color: const Color(0xFF1A1A1A),
+                      color: groupOnSurface,
                       width: 1.5,
                     ),
                     borderRadius: BorderRadius.zero,
@@ -524,7 +510,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 14),
-                // Text
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,10 +526,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 1),
                       Text(
                         subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 11,
-                          color: _subtitleColor,
+                          color: groupOnSurfaceMuted,
                           fontStyle: FontStyle.normal,
                         ),
                       ),
@@ -552,9 +537,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 if (showChevron)
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: _subtitleColor,
+                    color: groupOnSurfaceMuted,
                     size: 20,
                   ),
               ],
@@ -565,22 +550,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Divider(
             height: 1,
             thickness: 1,
-            color: _dividerColor,
+            color: const Color(0xFFEEEEEE),
             indent: 70,
           ),
       ],
     );
   }
 
-  // ─── Biometric tile (inline, with toggle) ────────────────────────────────
   Widget _buildBiometricTile() {
     return _BiometricMenuTile();
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Biometric toggle tile (matches card tile style)
-// ─────────────────────────────────────────────────────────────────────────────
 class _BiometricMenuTile extends StatefulWidget {
   @override
   State<_BiometricMenuTile> createState() => _BiometricMenuTileState();
@@ -631,33 +612,31 @@ class _BiometricMenuTileState extends State<_BiometricMenuTile> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              // Icon box
               Container(
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A).withOpacity(0.08),
+                  color: groupOnSurface.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.fingerprint_rounded,
                   size: 20,
-                  color: Color(0xFF1A1A1A),
+                  color: groupOnSurface,
                 ),
               ),
               const SizedBox(width: 14),
-              // Text
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "Biometric Lock",
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
+                        color: groupOnSurface,
                       ),
                     ),
                     const SizedBox(height: 1),
@@ -665,10 +644,10 @@ class _BiometricMenuTileState extends State<_BiometricMenuTile> {
                       _isSupported
                           ? "Require auth on app open"
                           : "Not supported on this device",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 11,
-                        color: Color(0xFF9E9E9E),
+                        color: groupOnSurfaceMuted,
                       ),
                     ),
                   ],
@@ -723,7 +702,6 @@ class _BiometricMenuTileState extends State<_BiometricMenuTile> {
             ],
           ),
         ),
-        // Divider leading into next tile
         Padding(
           padding: const EdgeInsets.only(left: 68),
           child: Divider(

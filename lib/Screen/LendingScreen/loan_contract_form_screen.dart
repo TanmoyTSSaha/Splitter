@@ -33,6 +33,7 @@ class _LoanContractFormScreenState extends State<LoanContractFormScreen> {
   FriendModel? _selectedFriend;
   bool _isSelectingFriend = true;
   String _interestType = 'simple';
+  String _interestPeriod = 'monthly';
   final DateTime _startDate = DateTime.now();
   DateTime? _endDate;
   int _duration = 1;
@@ -150,7 +151,7 @@ class _LoanContractFormScreenState extends State<LoanContractFormScreen> {
       principalAmount: double.parse(_amountController.text),
       interestRate: double.tryParse(_interestController.text) ?? 5.0,
       interestType: _interestType,
-      interestPeriod: 'monthly',
+      interestPeriod: _interestPeriod,
       startDate: _startDate,
       dueDate: _endDate,
       repaymentEndDate: _endDate,
@@ -590,13 +591,14 @@ class _LoanContractFormScreenState extends State<LoanContractFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Interest Rate (Monthly)',
+          'Interest Rate (${_interestPeriod == 'yearly' ? 'Yearly' : 'Monthly'})',
           style: body2_text.copyWith(color: groupOnSurfaceMuted),
         ),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
+              flex: 2,
               child: SmartDecimalTextField(
                 controller: _interestController,
                 maxDecimalPlaces: 2,
@@ -618,6 +620,30 @@ class _LoanContractFormScreenState extends State<LoanContractFormScreen> {
                     color: groupOnSurface,
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _interestPeriod,
+                items: const [
+                  DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                  DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _interestPeriod = val);
+                },
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: neopopSecondaryGrey.withValues(alpha: 0.08),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                dropdownColor: Colors.white,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                    color: groupOnSurface),
               ),
             ),
             const SizedBox(width: 12),

@@ -36,6 +36,12 @@ pubspec dependency policy — what is approved, what is forbidden, and how to ad
 | `avatar_stack` | ^1.2.0 | Member avatars |
 | `flutter_timeline` | ^0.3.0 | Trip timeline |
 | `story_view` | ^0.16.6 | Monthly recap stories |
+| `in_app_purchase` | ^3.2.0 | SplitO Pro subscriptions |
+| `pdf` | ^3.11.1 | Premium PDF export |
+| `flutter_contacts` | ^2.1.0 | Friend contact matching |
+| `app_links` | ^7.0.0 | Deep link handling |
+| `uuid` | ^4.5.3 | ID generation |
+| `timezone` | ^0.9.4 | Reminder scheduling |
 | `path_provider` | ^2.1.3 | DB file path |
 | `path` | ^1.9.0 | Path utilities |
 | `cupertino_icons` | ^1.0.6 | iOS icons |
@@ -130,6 +136,7 @@ Stay within declared SDK range.
 assets:
   - assets/icons/svg/
   - assets/dev_images/
+  - assets/lottie/
 fonts:
   - family: Albra
     # ... weights in pubspec.yaml

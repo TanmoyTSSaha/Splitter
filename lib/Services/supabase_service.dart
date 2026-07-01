@@ -235,6 +235,16 @@ class SupabaseDatabase {
     return _friendService.acceptFriendRequest(requestID: requestID);
   }
 
+  Future<void> cancelFriendRequest({
+    required String requestID,
+    required String fromUserID,
+  }) {
+    return _friendService.cancelFriendRequest(
+      requestID: requestID,
+      fromUserID: fromUserID,
+    );
+  }
+
   Future<List<FriendBalanceModel>> getFriendBalances({
     required String userID,
     required List<FriendModel> friends,

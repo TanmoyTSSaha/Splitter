@@ -11,7 +11,8 @@ Visual design system for SplitO: colors, typography, Material theme, and Neopop 
 | Source | Contents |
 |--------|----------|
 | `lib/Constants/constants.dart` | Colors, text styles, `neopopColorScheme`, `splitter_custom_text_theme` |
-| `lib/main.dart` | `ThemeData` application |
+| `lib/Constants/app_themes.dart` | `AppThemes.light` — applied in `main.dart` |
+| `lib/main.dart` | `GetMaterialApp(theme: AppThemes.light)` |
 | `neopop` package | Card/button components |
 | `pubspec.yaml` fonts | Albra serif family |
 
@@ -22,13 +23,8 @@ Visual design system for SplitO: colors, typography, Material theme, and Neopop 
 ```dart
 // lib/main.dart
 GetMaterialApp(
-  theme: ThemeData(
-    colorScheme: neopopColorScheme,
-    highlightColor: neopopAccent,
-    splashColor: neopopAccent,
-    useMaterial3: true,
-    textTheme: splitter_custom_text_theme,
-  ),
+  theme: AppThemes.light,
+  // AppThemes.light wraps neopopColorScheme + splitter_custom_text_theme
 )
 ```
 

@@ -14,6 +14,7 @@ Use alongside `flutter-rules.md` (general engineering contract) and specialized 
 |-------|--------|----------------|
 | **View** | `lib/Screen/` | UI rendering, user input forwarding to controllers |
 | **Controller** | `lib/Controller/` | UI state, user actions, orchestration of repositories |
+| **Bindings** | `lib/Bindings/` | GetX `Bindings` — register repositories + feature controllers |
 | **Model** | `lib/Model/` | Domain/API data shapes, `fromJSON`/`toJSON` |
 | **Repository** | `lib/Repository/` | Local cache (Drift) + sync queue + remote refresh |
 | **Service** | `lib/Services/` | Domain logic, Supabase access, device capabilities |
@@ -45,10 +46,25 @@ Infrastructure registered once in `main.dart`:
 
 ```dart
 // lib/main.dart — pattern to preserve
+await Supabase.initialize(url: supabaseURL, anonKey: supabaseAnonPublicKey);
 appDatabase = AppDatabase();
 syncService = SyncService(appDatabase);
+syncService.startListening();
+realtimeService = RealtimeService();
+reminderService = ReminderService();
+await reminderService.initialize();
 Get.put(appDatabase, permanent: true);
 Get.put(syncService, permanent: true);
+Get.put(realtimeService, permanent: true);
+Get.put(reminderService, permanent: true);
+Get.put(ReminderSettingsService(), permanent: true);
+Get.put(CurrencyController(), permanent: true);
+Get.put(PremiumSubscriptionController(), permanent: true);
+deepLinkService = DeepLinkService();
+Get.put(deepLinkService, permanent: true);
+await deepLinkService.initialize();
+
+// GetMaterialApp(initialBinding: AppBindings())
 ```
 
 ---
@@ -96,6 +112,7 @@ lib/Screen/
 │   └── SharingTypeTabs/        # split-type tab UIs
 ├── HomeScreen/
 ├── Insights/
+│   └── widgets/               # insights_* cards, score ring, social trust
 ├── LendingScreen/
 ├── NotificationScreen/
 ├── OnboardingScreen/
@@ -113,21 +130,25 @@ lib/Screen/
 - One controller per feature screen or cohesive flow.
 - File naming: `<feature>_controller.dart`, class: `<Feature>Controller`.
 - **All new controllers go in `Controller/`**, not `Controllers/`.
-- `lib/Controllers/currency_controller.dart` is legacy — migrate to `Controller/` when touched.
+- `lib/Controllers/currency_controller.dart` and `premium_subscription_controller.dart` are legacy — migrate to `Controller/` when touched.
 
 Existing controllers (reference):
 
 | Controller | Feature |
 |------------|---------|
 | `AuthController` | Auth |
-| `GroupScreenController` | Group list |
+| `GroupScreenController` | Group list (wired to `GroupRepository`) |
+| `TransactionTabController` | Group transactions tab (wired to `TransactionRepository`) |
 | `AddTransactionScreenController` | Add/edit group expense |
 | `AnalyticsController` | Group analytics tab |
 | `SettleUpController` | Settlement flow |
 | `FriendsController` | Friends list |
 | `CreateGoalController` | Create goal |
 | `GoalDetailsController` | Goal detail |
-| `CurrencyController` | Currency preference |
+| `LendingRefreshController` | Lending tab refresh trigger |
+| `NotificationBadgeController` | Notification badge count |
+| `CurrencyController` | Currency preference (`Controllers/`) |
+| `PremiumSubscriptionController` | SplitO Pro IAP (`Controllers/`) |
 
 ### `lib/Model/` — domain models
 
@@ -150,8 +171,9 @@ New entities needing offline support get a matching repository (e.g. `FriendRepo
 | **Facade** | `supabase_service.dart` → `SupabaseAuth`, `SupabaseDatabase` |
 | **Supabase CRUD** | `SupabaseServices/auth_service.dart`, `group_service.dart`, `transaction_service.dart`, … |
 | **Device / platform** | `biometric_auth_service.dart`, `reminder_service.dart`, `receipt_parser_service.dart` |
-| **Domain** | `trip_service.dart`, `wishlist_service.dart`, `activity_service.dart`, `ai_service.dart` |
-| **Sync / realtime** | `sync_service.dart`, `realtime_service.dart` |
+| **Domain** | `trip_service.dart`, `wishlist_service.dart`, `activity_service.dart`, `ai_service.dart`, `spending_intelligence_service.dart` |
+| **Insights** | `insights_briefing_cache.dart`, `insights_navigation.dart` |
+| **Sync / realtime** | `sync_service.dart`, `realtime_service.dart`, `deep_link_service.dart` |
 | **Local DB** | `local/database.dart`, `local/database.g.dart` (generated — do not edit) |
 
 Domain services that perform remote I/O should eventually be called **only from repositories**, not from screens.
@@ -160,7 +182,7 @@ Domain services that perform remote I/O should eventually be called **only from 
 
 Only widgets used by **two or more features**. Feature-specific UI stays in `Screen/<Feature>/`.
 
-Current shared widgets: `active_group_card`, `custom_big_text_form_field`, `summary_stat_card`, `transaction_tile`, `trip_gradient_card`, `user_avatar`.
+Current shared widgets include: `active_group_card`, `custom_big_text_form_field`, `summary_stat_card`, `transaction_tile`, `trip_gradient_card`, `user_avatar`, `pill_tab_bar`, `animated_glass_bottom_nav_bar`, `insights_pro_gate`, `insights_promo_card`, `premium_gate`, `notification_bell_button`, `badge_unlock_toast`.
 
 ### `lib/Constants/` — theme and legacy helpers
 
@@ -181,9 +203,11 @@ Bottom navigation is defined in `BottomNavigationController`:
 | 2 | Lending | `LendingDashboard` |
 | 3 | Profile | `ProfileScreen` |
 
-Implementation: `IndexedStack` preserves tab state. Uses `StatefulWidget` + `setState` (acceptable for shell only).
+Implementation: `IndexedStack` preserves tab state. Uses `StatefulWidget` + `setState` for tab index (acceptable for shell only). Custom bar: `AnimatedGlassBottomNavBar`.
 
 **Friends** is **not** a bottom tab. Access via `Get.to(() => const FriendsScreen())` from Profile (`profile_screen.dart`). Keep this pattern for Friends.
+
+**Insights** is **not** a bottom tab. Access via `Get.to(() => const ExpenseInsightsScreen())` from Profile and Home (`InsightsPromoCard`).
 
 Auth entry in `main.dart`:
 
@@ -201,15 +225,16 @@ Onboarding (first launch)
 | Domain | Screen folder | Controller | Repository | Supabase service |
 |--------|---------------|------------|------------|------------------|
 | Home / personal tx | `HomeScreen/` | — (needs `HomeController`) | — (needs repo) | `transaction_service` |
-| Groups | `GroupScreen/` | `GroupScreenController`, `AddTransactionScreenController`, `AnalyticsController`, `SettleUpController` | `GroupRepository`, `TransactionRepository` | `group_service`, `transaction_service` |
+| Groups | `GroupScreen/` | `GroupScreenController`, `TransactionTabController`, `AddTransactionScreenController`, `AnalyticsController`, `SettleUpController` | `GroupRepository` ✓, `TransactionRepository` ✓ | `group_service`, `transaction_service` |
 | Friends | `FriendScreen/` | `FriendsController` | — (needs repo) | `friend_service` |
-| Lending | `LendingScreen/` | — | — (needs repo) | `loan_service` |
+| Lending | `LendingScreen/` | `LendingRefreshController` | — (needs repo) | `loan_service` |
 | Goals | `GoalScreen/` | `CreateGoalController`, `GoalDetailsController` | — | `goal_service`, `goal_transaction_service` |
 | Trips | `TripScreen/` | — | — | via `group_service` / `trip_service` |
 | Profile | `ProfileScreen/` | — | — | `user_service` |
 | Auth | `AuthScreens/` | `AuthController` | — | `auth_service` |
-| Notifications | `NotificationScreen/` | — | — | `notification_service` |
-| Insights | `Insights/` | — | — | `spending_intelligence_service` |
+| Notifications | `NotificationScreen/` | `NotificationBadgeController` | — | `notification_service` |
+| Insights | `Insights/` | — (needs `InsightsController`) | — | `spending_intelligence_service`, `ai_service` |
+| Premium | `ProfileScreen/premium_plan_screen` | `PremiumSubscriptionController` | — | `premium_subscriptions` table |
 
 Blank cells indicate migration targets — not permission to call Supabase from screens in new code.
 
@@ -245,7 +270,7 @@ Use `SyncIndicator` / `SyncStatusBanner` from `Constants/sync_indicator_widget.d
 
 1. `lib/Screen/<Feature>/` — screen(s)
 2. `lib/Controller/<feature>_controller.dart` — GetX controller
-3. `lib/Controller/<feature>_binding.dart` — `Bindings` class registering controller + repository
+3. `lib/Bindings/<feature>_binding.dart` or extend `app_bindings.dart` — register controller + repository
 4. `lib/Repository/<entity>_repository.dart` — if entity needs offline or sync
 5. `lib/Model/<entity>_model.dart` — if new entity
 6. `lib/Services/SupabaseServices/<entity>_service.dart` — if new Supabase table cluster
@@ -268,7 +293,7 @@ Feature dependencies: register in `Bindings`, not in `initState`.
 | Anti-pattern | Example in codebase | Correct approach |
 |--------------|--------------------|--------------------|
 | Screen calls Supabase directly | `home_screen.dart` — `SupabaseDatabase()` as field | `HomeController` → repository |
-| Repository exists but unused | `GroupRepository` — zero imports | Wire via Binding + controller |
+| StatefulWidget owns service calls | `expense_insights_screen.dart` — `SpendingIntelligenceService` in `initState` | `InsightsController` |
 | Business logic in screen callbacks | `add_transaction_screen.dart` — `addGroupExpense()` in button handler | Controller method → repository |
 | God screen file | `monthly_recap_screen.dart` (2,479 lines) | Extract widgets + controller |
 | New widget in Constants | `emoji_reaction_widget.dart` in `Constants/` | Place in `Widgets/` or feature folder |
@@ -348,15 +373,16 @@ lib/Screen/GroupScreen/GraphAnalysisWidgets/spending_trends_chart.dart  # charts
 
 ### Phase 2 — Wire offline (high-traffic features)
 
-1. `HomeScreen` → `HomeController` → `PersonalTransactionRepository`
-2. `GroupScreen` / `transaction_tab` → use `GroupRepository` + `TransactionRepository`
+1. ~~`GroupScreen` / `transaction_tab` → `GroupRepository` + `TransactionRepository`~~ **Done** via `AppBindings`, `GroupScreenController`, `TransactionTabController`
+2. `HomeScreen` → `HomeController` → `PersonalTransactionRepository`
 3. Add `SyncStatusBanner` to `GroupScreen` and `HomeScreen` app bars
 
 ### Phase 3 — Consolidate services behind repositories
 
 - `LendingScreen` → `LoanRepository` wrapping `LoanService`
 - `FriendScreen` → `FriendRepository` wrapping `FriendService`
-- Move `RealtimeService` subscriptions into group controller `onInit`/`onClose`
+- ~~Move `RealtimeService` subscriptions into group controllers~~ **Done** in `GroupScreenController` + `TransactionTabController`
+- `ExpenseInsightsScreen` → `InsightsController` (screen still StatefulWidget + direct service calls)
 
 ### Phase 4 — Cleanup
 

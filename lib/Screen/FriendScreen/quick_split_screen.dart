@@ -5,8 +5,11 @@ import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Controllers/currency_controller.dart';
 import 'package:splitter/Model/friend_model.dart';
 import 'package:splitter/Screen/GroupScreen/group_detailed_screen.dart';
-import 'package:splitter/Widgets/dark_surface_theme.dart';
+import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
 import 'package:splitter/Services/supabase_service.dart';
+
+const Color _lightBg = Color(0xFFFAFAFA);
+const Color _cardBorder = Color(0xFFEEEEEE);
 
 /// Lightweight 1:1 expense flow — reuses or creates a 2-member group.
 class QuickSplitScreen extends StatefulWidget {
@@ -35,6 +38,31 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
     _amountController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  InputDecoration _fieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(
+        fontFamily: 'Poppins',
+        color: groupOnSurfaceMuted,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _cardBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _cardBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: neopopBackground, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
   }
 
   Future<void> _submit() async {
@@ -94,91 +122,108 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DarkSurfaceTheme(
-      child: Scaffold(
-      backgroundColor: neopopBackground,
+    return Scaffold(
+      backgroundColor: _lightBg,
       appBar: AppBar(
-        backgroundColor: neopopBackground,
+        backgroundColor: _lightBg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_rounded, color: neopopOnBackground),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              size: 18, color: groupOnSurface),
         ),
-        title: Text('Quick split', style: sub_headline4_text),
+        title: Text(
+          'Quick split',
+          style: headline3_text.copyWith(
+            fontFamily: 'Albra',
+            fontWeight: FontWeight.w600,
+            color: groupOnSurface,
+          ),
+        ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(width_16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'with ${widget.friend.friendName ?? 'friend'}',
-                  style: body1_text.copyWith(color: neopopGrey),
+      body: Padding(
+        padding: const EdgeInsets.all(groupGutter),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'with ${widget.friend.friendName ?? 'friend'}',
+                style: body1_text.copyWith(color: groupOnSurfaceMuted),
+              ),
+              const SizedBox(height: groupGapMd),
+              TextFormField(
+                controller: _amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: body1_text.copyWith(color: groupOnSurface),
+                decoration: _fieldDecoration('Amount').copyWith(
+                  prefixText: '₹ ',
+                  prefixStyle: body1_text.copyWith(color: groupOnSurface),
                 ),
-                SizedBox(height: height_16),
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style: body1_text,
-                  decoration: InputDecoration(
-                    labelText: 'Amount',
-                    prefixText: '₹ ',
-                    labelStyle: body2_text.copyWith(color: neopopGrey),
-                  ),
-                  validator: (v) {
-                    final n = double.tryParse(v?.trim() ?? '');
-                    if (n == null || n <= 0) return 'Enter a valid amount';
-                    return null;
-                  },
+                validator: (v) {
+                  final n = double.tryParse(v?.trim() ?? '');
+                  if (n == null || n <= 0) return 'Enter a valid amount';
+                  return null;
+                },
+              ),
+              const SizedBox(height: groupGapMd),
+              TextFormField(
+                controller: _descriptionController,
+                style: body1_text.copyWith(color: groupOnSurface),
+                decoration: _fieldDecoration('What for?'),
+              ),
+              const SizedBox(height: groupGapSm),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _cardBorder),
                 ),
-                SizedBox(height: height_16),
-                TextFormField(
-                  controller: _descriptionController,
-                  style: body1_text,
-                  decoration: InputDecoration(
-                    labelText: 'What for?',
-                    labelStyle: body2_text.copyWith(color: neopopGrey),
-                  ),
-                ),
-                SizedBox(height: height_16),
-                SwitchListTile(
+                child: SwitchListTile(
                   title: Text(
                     '${widget.friend.friendName} paid',
-                    style: body1_text,
+                    style: body1_text.copyWith(color: groupOnSurface),
                   ),
                   subtitle: Text(
                     _friendPaid ? 'You owe them' : 'They owe you',
-                    style: caption_text.copyWith(color: neopopGrey),
+                    style: caption_text.copyWith(color: groupOnSurfaceMuted),
                   ),
                   value: _friendPaid,
                   activeThumbColor: neopopAccent,
                   onChanged: (v) => setState(() => _friendPaid = v),
                 ),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: neopopAccent,
-                    minimumSize: Size(double.infinity, height_16 * 3),
+              ),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: _isSubmitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: neopopBackground,
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text('Split now',
-                          style: button_text.copyWith(color: neopopOnBackground)),
                 ),
-              ],
-            ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Split now',
+                        style: button_text.copyWith(color: Colors.white),
+                      ),
+              ),
+            ],
           ),
         ),
       ),
-    ),
     );
   }
 }

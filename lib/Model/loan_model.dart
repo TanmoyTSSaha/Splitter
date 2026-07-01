@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'package:splitter/Model/loan_interest.dart';
 
 class LoanModel {
   final String? id;
@@ -166,30 +166,5 @@ class LoanModel {
     return (repaymentAmount / due).clamp(0.0, 1.0);
   }
 
-  double calculateInterest() {
-    if (interestRate == 0 || status != 'active') return 0;
-
-    final now = DateTime.now();
-    double timeUnits = 0;
-    final diff = now.difference(startDate);
-
-    if (interestPeriod == 'monthly') {
-      timeUnits = diff.inDays / 30.0;
-    } else if (interestPeriod == 'yearly') {
-      timeUnits = diff.inDays / 365.0;
-    } else {
-      timeUnits = 1;
-    }
-
-    if (timeUnits < 0) timeUnits = 0;
-
-    if (interestType == 'simple' || interestType == 'flat') {
-      return principalAmount * (interestRate / 100) * timeUnits;
-    }
-    if (interestType == 'compound') {
-      return principalAmount * pow((1 + interestRate / 100), timeUnits) -
-          principalAmount;
-    }
-    return 0;
-  }
+  double calculateInterest() => LoanInterest.accruedInterest(this);
 }

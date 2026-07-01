@@ -9,6 +9,7 @@ import 'package:splitter/Controllers/currency_controller.dart';
 import 'package:splitter/Model/group_invite_model.dart';
 import 'package:splitter/Services/supabase_service.dart';
 import 'package:splitter/Model/loan_model.dart';
+import 'package:splitter/Screen/LendingScreen/loan_detail_screen.dart';
 import 'package:splitter/Services/SupabaseServices/group_service.dart';
 
 const Color _screenBg = Color(0xFFF5F5F7);
@@ -412,26 +413,34 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     side: const BorderSide(color: Colors.redAccent),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text("Refuse"),
+                  child: const Text('Reject'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _handleLoanAction(loan.id!, true),
+                  onPressed: () async {
+                    final result = await Get.to<bool>(
+                      () => LoanDetailScreen(loan: loan),
+                    );
+                    if (result == true) {
+                      _refreshInvites();
+                      await _refreshBadge();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: neopopAccent,
+                    backgroundColor: neopopBackground,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text("Accept"),
+                  child: const Text('View'),
                 ),
               ),
             ],

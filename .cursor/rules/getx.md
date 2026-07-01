@@ -38,7 +38,7 @@ Examples from this repo:
 | `goal_details_controller.dart` | `GoalDetailsController` |
 | `add_transaction_controller.dart` | `AddTransactionScreenController` |
 
-New controllers go in `lib/Controller/`. Do not add to `lib/Controllers/` (legacy: `currency_controller.dart` only).
+New controllers go in `lib/Controller/`. `lib/Controllers/` holds legacy `currency_controller.dart` and `premium_subscription_controller.dart` — migrate when touched.
 
 ### Standard reactive fields
 
@@ -112,12 +112,31 @@ Get.put(appDatabase, permanent: true);
 Get.put(syncService, permanent: true);
 Get.put(realtimeService, permanent: true);
 Get.put(reminderService, permanent: true);
+Get.put(ReminderSettingsService(), permanent: true);
 Get.put(CurrencyController(), permanent: true);
+Get.put(PremiumSubscriptionController(), permanent: true);
+Get.put(deepLinkService, permanent: true);
 ```
 
-Access via `Get.find<SyncService>()`, `Get.find<AppDatabase>()`, etc.
+Access via `Get.find<SyncService>()`, `Get.find<AppDatabase>()`, `Get.find<PremiumSubscriptionController>()`, etc.
 
-### Feature controllers (target — use Bindings)
+### App-wide bindings (`AppBindings`)
+
+`lib/Bindings/app_bindings.dart` — registered via `GetMaterialApp(initialBinding: AppBindings())`:
+
+```dart
+class AppBindings extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut(() => GroupRepository(Get.find<AppDatabase>(), Get.find<SyncService>()), fenix: true);
+    Get.lazyPut(() => TransactionRepository(Get.find<AppDatabase>(), Get.find<SyncService>()), fenix: true);
+    Get.lazyPut(() => GroupScreenController(), fenix: true);
+    Get.lazyPut(() => NotificationBadgeController(), fenix: true);
+  }
+}
+```
+
+### Feature controllers (target — use Bindings for new features)
 
 **New features must provide a Binding:**
 
@@ -220,18 +239,10 @@ Prefer `Rx` for new code. Use `update()` only when migrating legacy `GetBuilder`
 ### Target (new code)
 
 ```dart
+// GroupScreenController — wired pattern
 class GroupScreenController extends GetxController {
-  final GroupRepository _repository;
-  GroupScreenController(this._repository);
-
-  RxList<LocalGroup> groups = <LocalGroup>[].obs;
-
-  @override
-  void onInit() {
-    super.onInit();
-    _repository.watchGroups().listen((data) => groups.value = data);
-    _repository.refreshFromServer(userId);
-  }
+  final GroupRepository _repository = Get.find();
+  // watchGroups() stream + refreshFromServer()
 }
 ```
 
@@ -246,6 +257,7 @@ Direct service/facade calls are present in legacy controllers:
 | `GoalDetailsController` | `GoalService`, `GoalTransactionService` | `GoalRepository` |
 | `CreateGoalController` | `GoalService`, `AIService` | keep `AIService`; goal writes via repository |
 | `AnalyticsController` | `SupabaseDatabase()` | `TransactionRepository` |
+| `ExpenseInsightsScreen` | `SpendingIntelligenceService` directly in StatefulWidget | `InsightsController` |
 
 Do not add new `SupabaseDatabase()` calls inside controllers for entities that have or will have a repository.
 
@@ -445,7 +457,7 @@ class ExampleScreen extends GetView<ExampleController> {
 5. Replace screen `setState` with `Obx`.
 6. Screen keeps only layout and `controller.method()` calls.
 
-Priority screens without controllers: `home_screen.dart`, `profile_screen.dart`, `lending_dashboard.dart`, `group_screen.dart`.
+Priority screens without controllers: `home_screen.dart`, `profile_screen.dart`, `expense_insights_screen.dart`. `group_screen.dart` has `GroupScreenController`; `lending_dashboard.dart` uses `LendingRefreshController` only.
 
 ### When touching an existing controller
 
@@ -455,10 +467,11 @@ Priority screens without controllers: `home_screen.dart`, `profile_screen.dart`,
 
 ### Bindings rollout order
 
-1. Group flow (`GroupScreenController`, `SettleUpController`)
-2. Home (`HomeController` — new)
-3. Lending (`LendingController` — new)
-4. Profile (`ProfileController` — new)
+1. ~~Group flow (`GroupScreenController`, `TransactionTabController`)~~ **Done** via `AppBindings`
+2. Home (`HomeController` + `PersonalTransactionRepository`)
+3. Insights (`InsightsController`)
+4. Lending (`LendingController` — beyond refresh trigger)
+5. Profile (`ProfileController`)
 
 ---
 

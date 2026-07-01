@@ -18,6 +18,7 @@ import 'package:splitter/Services/supabase_service.dart';
 import 'package:splitter/Widgets/animated_glass_bottom_nav_bar.dart';
 import 'package:splitter/Widgets/notification_bell_button.dart';
 import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitter/Widgets/insights_promo_card.dart';
 import 'package:splitter/Widgets/transaction_tile.dart';
 import 'package:splitter/Screen/HomeScreen/all_transactions_screen.dart';
 import 'package:splitter/Screen/HomeScreen/empty_state_widget.dart';
@@ -153,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: _homePadding,
                           child: Column(
                             children: [
+                              const InsightsPromoCard(),
                               GradientMeshBackground(
                                 child: GlassCard(
                                   margin: EdgeInsets.zero,

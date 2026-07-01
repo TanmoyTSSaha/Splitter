@@ -12,7 +12,7 @@ Views do not fetch data. Controllers do not build widgets. Repositories do not s
 
 ## 3. Offline is a feature
 
-Users must use the app without connectivity. Local Drift writes + sync queue are required for core entities (groups, transactions, personal expenses, friends).
+Users must use the app without connectivity. Local Drift writes + sync queue are required for core entities (groups, transactions, personal expenses, friends). Groups and group transactions are wired; extend the pattern to remaining entities.
 
 ## 4. Minimal scope
 
@@ -20,7 +20,7 @@ Change only what the task requires. Do not refactor adjacent legacy `SupabaseDat
 
 ## 5. Reuse before create
 
-Check `Widgets/`, `Constants/shared.dart`, and existing controllers before adding new classes.
+Check `Widgets/`, `Constants/shared.dart`, and existing controllers before adding new classes. Reuse `InsightsProGate`, `PremiumGate`, `PillTabBar`, etc.
 
 ## 6. No parallel architectures
 
@@ -36,8 +36,8 @@ Secrets live in `git_ignore.dart` per project decision. AI should not relocate k
 
 ## 9. Test when it matters
 
-Tests on request. Priority: repository logic, debt simplification algorithm, model parsing — not counter widget smoke tests.
+Tests on request. Priority: repository logic, debt simplification algorithm, model parsing, pure analytics math (`SpendingIntelligenceService`), Pro gate widgets — not counter widget smoke tests.
 
 ## 10. Ship incremental migration
 
-Wire `GroupRepository` before rewriting `monthly_recap_screen.dart`. Architecture improves per-feature, not in one big bang.
+`GroupRepository` and `TransactionRepository` are wired — continue per-feature (`HomeController`, `FriendRepository`, `LoanRepository`) rather than big-bang rewrites.

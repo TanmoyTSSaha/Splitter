@@ -327,23 +327,15 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: const [
-                  Text(
-                    '✦ ',
-                    style: TextStyle(fontSize: 14, color: _neopopYellow),
-                  ),
-                  Text(
-                    'PREMIUM',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
-                      color: _neopopYellow,
-                    ),
-                  ),
-                ],
+              const Text(
+                'PREMIUM',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                  color: _neopopYellow,
+                ),
               ),
               Container(
                 padding:
@@ -389,11 +381,11 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
           Divider(height: 1, color: Colors.white.withOpacity(0.1)),
           const SizedBox(height: 16),
           _buildPremiumFeatureRow('Everything in Basic'),
-          _buildPremiumFeatureRow('🧾  AI Receipt Scanning (OCR)'),
-          _buildPremiumFeatureRow('⚡  UPI Quick Settle Links'),
-          _buildPremiumFeatureRow('📊  Advanced Analytics & Charts'),
-          _buildPremiumFeatureRow('📂  CSV & PDF Export'),
-          _buildPremiumFeatureRow('✦  Elite Splitter Badge'),
+          _buildPremiumFeatureRow('AI Receipt Scanning (OCR)'),
+          _buildPremiumFeatureRow('UPI Quick Settle Links'),
+          _buildPremiumFeatureRow('Advanced Analytics & Charts'),
+          _buildPremiumFeatureRow('CSV & PDF Export'),
+          _buildPremiumFeatureRow('Elite Splitter Badge'),
           const SizedBox(height: 20),
 
           Obx(() {

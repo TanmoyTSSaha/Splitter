@@ -6,11 +6,13 @@ import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
 class PillTabBar extends StatelessWidget {
   final TabController controller;
   final List<String> tabs;
+  final List<int?>? badgeCounts;
 
   const PillTabBar({
     super.key,
     required this.controller,
     required this.tabs,
+    this.badgeCounts,
   });
 
   @override
@@ -36,7 +38,43 @@ class PillTabBar extends StatelessWidget {
         labelColor: Colors.white,
         unselectedLabelColor: neopopBackground.withValues(alpha: 0.5),
         labelStyle: body2_text.copyWith(fontWeight: FontWeight.bold),
-        tabs: tabs.map((t) => Tab(text: t)).toList(),
+        tabs: List.generate(tabs.length, (i) {
+          final count = badgeCounts != null && i < badgeCounts!.length
+              ? badgeCounts![i]
+              : null;
+          return _buildTab(tabs[i], count);
+        }),
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int? badge) {
+    if (badge == null || badge <= 0) {
+      return Tab(text: label);
+    }
+
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: neopopAccent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$badge',
+              style: caption_text.copyWith(
+                color: neopopOnBackground,
+                fontWeight: FontWeight.w700,
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -45,8 +83,14 @@ class PillTabBar extends StatelessWidget {
 /// Pinned sliver header wrapper for [PillTabBar].
 class SliverPillTabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
+  final Color backgroundColor;
+  final Object? rebuildToken;
 
-  SliverPillTabBarDelegate(this.child);
+  SliverPillTabBarDelegate(
+    this.child, {
+    this.backgroundColor = Colors.white,
+    this.rebuildToken,
+  });
 
   @override
   double get minExtent => 60;
@@ -61,24 +105,35 @@ class SliverPillTabBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      color: Colors.white,
+      color: backgroundColor,
       child: child,
     );
   }
 
   @override
-  bool shouldRebuild(SliverPillTabBarDelegate oldDelegate) => false;
+  bool shouldRebuild(SliverPillTabBarDelegate oldDelegate) =>
+      rebuildToken != oldDelegate.rebuildToken ||
+      backgroundColor != oldDelegate.backgroundColor;
 }
 
 /// Convenience sliver for a pinned pill tab bar.
 SliverPersistentHeader sliverPillTabBar({
   required TabController controller,
   required List<String> tabs,
+  List<int?>? badgeCounts,
+  Color backgroundColor = Colors.white,
 }) {
+  final rebuildToken = badgeCounts?.join(',');
   return SliverPersistentHeader(
     pinned: true,
     delegate: SliverPillTabBarDelegate(
-      PillTabBar(controller: controller, tabs: tabs),
+      PillTabBar(
+        controller: controller,
+        tabs: tabs,
+        badgeCounts: badgeCounts,
+      ),
+      backgroundColor: backgroundColor,
+      rebuildToken: rebuildToken,
     ),
   );
 }

@@ -1,8 +1,7 @@
-import 'dart:math';
-
+import 'package:splitter/Model/loan_interest.dart';
 import 'package:splitter/Model/loan_model.dart';
 
-enum InstallmentStatus { upcoming, partial, paid }
+enum InstallmentStatus { upcoming, partial, paid, missed }
 
 class RepaymentInstallment {
   final int index;
@@ -48,11 +47,9 @@ class LoanScheduleCalculator {
     double? paidAggregate,
   }) {
     final principal = loan.principalAmount;
-    final monthCount = _resolveMonthCount(loan);
-    final totalInterest = _fullTermInterest(
-      principal: principal,
-      rate: loan.interestRate,
-      interestType: loan.interestType,
+    final monthCount = LoanInterest.resolveMonthCount(loan);
+    final totalInterest = LoanInterest.fullTermInterest(
+      loan: loan,
       monthCount: monthCount,
     );
     final totalPayable = principal + totalInterest;
@@ -63,8 +60,9 @@ class LoanScheduleCalculator {
     final endDay = loan.repaymentEndDay ?? startDay;
 
     final rawInstallments = <RepaymentInstallment>[];
+    // First repayment window is always the month after loan start.
     for (var i = 0; i < monthCount; i++) {
-      final anchor = _addCalendarMonths(loan.startDate, i);
+      final anchor = _addCalendarMonths(loan.startDate, i + 1);
       final monthAnchor = DateTime(anchor.year, anchor.month, 1);
       final windowStart = _dateWithClampedDay(anchor.year, anchor.month, startDay);
       final windowEnd = _dateWithClampedDay(anchor.year, anchor.month, endDay);
@@ -99,7 +97,10 @@ class LoanScheduleCalculator {
     final aggregate = (paidAggregate ?? loan.repaymentAmount)
         .clamp(0, totalPayable)
         .toDouble();
-    final installments = _markPaidStatus(rawInstallments, aggregate);
+    final installments = _applyCalendarStatus(
+      _markPaidStatus(rawInstallments, aggregate),
+      DateTime.now(),
+    );
 
     return RepaymentSchedule(
       principal: principal,
@@ -109,38 +110,6 @@ class LoanScheduleCalculator {
       monthCount: monthCount,
       installments: installments,
     );
-  }
-
-  static int _resolveMonthCount(LoanModel loan) {
-    final duration = loan.duration;
-    final unit = loan.durationUnit;
-
-    if (duration != null && duration > 0 && unit != null) {
-      if (unit == 'months') return duration;
-      if (unit == 'years') return duration * 12;
-      if (unit == 'days' && loan.dueDate != null) {
-        return _calendarMonthsInclusive(loan.startDate, loan.dueDate!);
-      }
-    }
-
-    if (loan.dueDate != null) {
-      final count = _calendarMonthsInclusive(loan.startDate, loan.dueDate!);
-      if (count > 0) return count;
-    }
-
-    return 1;
-  }
-
-  static int _calendarMonthsInclusive(DateTime start, DateTime end) {
-    if (!end.isAfter(start)) return 1;
-    var count = 0;
-    var cursor = DateTime(start.year, start.month, 1);
-    final endAnchor = DateTime(end.year, end.month, 1);
-    while (!cursor.isAfter(endAnchor)) {
-      count++;
-      cursor = _addCalendarMonths(cursor, 1);
-    }
-    return count > 0 ? count : 1;
   }
 
   static DateTime _addCalendarMonths(DateTime date, int months) {
@@ -158,23 +127,6 @@ class LoanScheduleCalculator {
   static DateTime _dateWithClampedDay(int year, int month, int day) {
     final clamped = day.clamp(1, _daysInMonth(year, month));
     return DateTime(year, month, clamped);
-  }
-
-  static double _fullTermInterest({
-    required double principal,
-    required double rate,
-    required String interestType,
-    required int monthCount,
-  }) {
-    if (rate == 0 || monthCount <= 0) return 0;
-
-    if (interestType == 'compound') {
-      return principal * pow(1 + rate / 100, monthCount) - principal;
-    }
-    if (interestType == 'simple' || interestType == 'flat') {
-      return principal * (rate / 100) * monthCount;
-    }
-    return 0;
   }
 
   static List<RepaymentInstallment> _markPaidStatus(
@@ -209,5 +161,34 @@ class LoanScheduleCalculator {
       }
       return inst;
     }).toList();
+  }
+
+  static List<RepaymentInstallment> _applyCalendarStatus(
+    List<RepaymentInstallment> installments,
+    DateTime today,
+  ) {
+    return installments.map((inst) {
+      if (inst.status == InstallmentStatus.paid ||
+          inst.status == InstallmentStatus.partial) {
+        return inst;
+      }
+      if (_isPastDue(inst.windowEnd, today)) {
+        return RepaymentInstallment(
+          index: inst.index,
+          monthAnchor: inst.monthAnchor,
+          windowStart: inst.windowStart,
+          windowEnd: inst.windowEnd,
+          amount: inst.amount,
+          status: InstallmentStatus.missed,
+        );
+      }
+      return inst;
+    }).toList();
+  }
+
+  static bool _isPastDue(DateTime windowEnd, DateTime today) {
+    final end = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
+    final now = DateTime(today.year, today.month, today.day);
+    return end.isBefore(now);
   }
 }

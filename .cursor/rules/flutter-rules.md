@@ -52,24 +52,22 @@ Avoid unnecessary abstractions.
 
 # Folder Structure
 
-Follow the existing project structure.
-
-Typical feature layout should remain consistent.
-
-Example:
+Follow the existing **layer-by-type** project structure at `lib/` root:
 
 ```
-feature/
-    bindings/
-    controllers/
-    models/
-    repository/
-    services/
-    views/
-    widgets/
+lib/
+  Bindings/       # GetX Bindings (AppBindings)
+  Controller/     # GetX controllers
+  Controllers/    # Legacy: currency, premium
+  Model/
+  Repository/
+  Services/
+  Screen/         # Feature UI by domain
+  Widgets/        # Cross-feature reusable UI
+  Constants/      # Theme + legacy helpers
 ```
 
-Do not create new folders unless there is a strong architectural reason.
+Do not create `feature/data/domain/presentation` subfolders. Feature-specific widgets colocate under `Screen/<Feature>/` (e.g. `Insights/widgets/`).
 
 ---
 

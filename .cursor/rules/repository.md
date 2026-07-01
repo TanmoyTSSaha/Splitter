@@ -133,8 +133,8 @@ Must match `SyncService._getIdField()` cases:
 
 | Repository | Drift tables | Supabase tables | Status |
 |------------|--------------|-----------------|--------|
-| `GroupRepository` | `LocalGroups`, `LocalGroupMembers` | `groups`, `group_members` | Implemented, **not wired to UI** |
-| `TransactionRepository` | `LocalGroupTransactions` | `group_transaction` | Implemented, **not wired to UI** |
+| `GroupRepository` | `LocalGroups`, `LocalGroupMembers` | `groups`, `group_members` | **Wired** — `GroupScreenController` via `AppBindings` |
+| `TransactionRepository` | `LocalGroupTransactions` | `group_transaction` | **Wired** — `TransactionTabController` via `AppBindings` |
 
 ---
 
@@ -203,22 +203,25 @@ Screens show `SyncStatusBanner` from `Constants/sync_indicator_widget.dart` (see
 
 | Anti-pattern | Location |
 |--------------|----------|
-| Repositories exist but zero imports | `group_repository.dart`, `transaction_repository.dart` |
-| Screens write directly to Supabase | `add_transaction_screen.dart` → `addGroupExpense()` |
-| `FutureBuilder` + `SupabaseDatabase` instead of Drift stream | `group_screen.dart`, `transaction_tab.dart` |
+| Screens write directly to Supabase | `add_transaction_screen.dart` → `addGroupExpense()` (transaction tab uses repo; add flow may not) |
+| `FutureBuilder` + `SupabaseDatabase` instead of Drift stream | `home_screen.dart` |
+| `ExpenseInsightsScreen` calls services directly | No `InsightsController` yet |
 | `SyncService.fullSync()` exists but no controller calls it | `sync_service.dart` |
 
 ---
 
 ## Migration Guidance
 
-### Wiring existing repositories (first migration)
+### Wiring existing repositories — **Done for groups + transaction tab**
 
-1. Create `GroupBinding` registering `GroupRepository`.
-2. Update `GroupScreenController` to subscribe to `watchGroups()`.
-3. Call `refreshFromServer(userId)` in `onInit` and on pull-to-refresh.
-4. Replace `SupabaseDatabase().getGroupData()` in `group_screen.dart`.
-5. Repeat for `TransactionRepository` in `transaction_tab.dart`.
+`lib/Bindings/app_bindings.dart` registers both repositories. `GroupScreenController` and `TransactionTabController` subscribe to `watch*()` streams and call `refreshFromServer()`.
+
+When extending:
+
+1. Add repository method.
+2. Register in `AppBindings` (or feature Binding).
+3. Controller subscribes in `onInit`, cancels in `onClose`.
+4. Replace remaining `SupabaseDatabase()` calls in the same flow.
 
 ### New feature with offline
 

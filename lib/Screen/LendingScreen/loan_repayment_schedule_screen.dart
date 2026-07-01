@@ -41,7 +41,7 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
               padding: const EdgeInsets.all(groupGutter),
               children: [
                 _buildSummaryCard(schedule, sym),
-                const SizedBox(height: groupGapMd),
+                const SizedBox(height: groupGapXl+groupGapSm),
                 Text(
                   'Monthly installments',
                   style: body1_text.copyWith(
@@ -72,62 +72,124 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
   }
 
   Widget _buildSummaryCard(RepaymentSchedule schedule, String sym) {
-    return GlassCard(
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(groupGapLg),
-      opacity: 0.08,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Summary',
-            style: body1_text.copyWith(
-              fontWeight: FontWeight.bold,
-              color: groupOnSurface,
+    final periodLabel =
+        loan.interestPeriod == 'yearly' ? 'yearly' : 'monthly';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'REPAYMENT BREAKDOWN',
+          style: caption_text.copyWith(
+            color: groupOnSurfaceMuted,
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        const SizedBox(height: groupGapLg),
+        _breakdownLineItem(
+          title: 'Principal',
+          subtitle: 'Loan amount',
+          amount: '$sym${schedule.principal.toStringAsFixed(2)}',
+        ),
+        const SizedBox(height: groupGapMd),
+        _breakdownLineItem(
+          title: 'Total interest',
+          subtitle:
+              '${loan.interestRate.toStringAsFixed(1)}% $periodLabel · ${loan.interestType}',
+          amount: '$sym${schedule.totalInterest.toStringAsFixed(2)}',
+        ),
+        const SizedBox(height: groupGapMd),
+        _breakdownLineItem(
+          title: 'Monthly EMI',
+          subtitle: 'Per installment',
+          amount: '$sym${schedule.monthlyEmi.toStringAsFixed(2)}',
+        ),
+        const SizedBox(height: groupGapLg),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const dashWidth = 6.0;
+            const dashSpace = 4.0;
+            final dashCount =
+                (constraints.maxWidth / (dashWidth + dashSpace)).floor();
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(
+                dashCount,
+                (_) => Container(
+                  width: dashWidth,
+                  height: 1,
+                  color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: groupGapLg),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text(
+              'Total payable',
+              style: _totalPayableTextStyle,
             ),
-          ),
-          const SizedBox(height: groupGapMd),
-          _summaryRow('Principal', '$sym${schedule.principal.toStringAsFixed(2)}'),
-          _summaryRow(
-            'Total interest',
-            '$sym${schedule.totalInterest.toStringAsFixed(2)}',
-          ),
-          _summaryRow(
-            'Total payable',
-            '$sym${schedule.totalPayable.toStringAsFixed(2)}',
-            emphasized: true,
-          ),
-          const Divider(height: 24),
-          _summaryRow(
-            'Monthly EMI',
-            '$sym${schedule.monthlyEmi.toStringAsFixed(2)}',
-            emphasized: true,
-          ),
-          _summaryRow('Duration', '${schedule.monthCount} months'),
-        ],
-      ),
+            Flexible(
+              child: Text(
+                '$sym${schedule.totalPayable.toStringAsFixed(2)}',
+                style: _totalPayableTextStyle,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool emphasized = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: body2_text.copyWith(color: groupOnSurfaceMuted)),
-          Flexible(
-            child: Text(
-              value,
-              style: body2_text.copyWith(
-                fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
-                color: groupOnSurface,
+  static const TextStyle _totalPayableTextStyle = TextStyle(
+    fontFamily: 'Albra',
+    fontSize: 28,
+    height: 1.2,
+    fontWeight: FontWeight.w500,
+    color: groupOnSurface,
+  );
+
+  Widget _breakdownLineItem({
+    required String title,
+    required String subtitle,
+    required String amount,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: body1_text.copyWith(
+                  fontWeight: FontWeight.normal,
+                  color: groupOnSurface,
+                ),
               ),
-              textAlign: TextAlign.end,
-            ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: caption_text.copyWith(color: groupOnSurfaceMuted),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        Text(
+          amount,
+          style: body1_text.copyWith(
+            fontWeight: FontWeight.normal,
+            color: groupOnSurface,
+          ),
+        ),
+      ],
     );
   }
 
@@ -201,6 +263,9 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
       case InstallmentStatus.partial:
         color = Colors.orange;
         label = 'Partial';
+      case InstallmentStatus.missed:
+        color = Colors.redAccent;
+        label = 'Missed';
       case InstallmentStatus.upcoming:
         color = groupOnSurfaceMuted;
         label = 'Upcoming';

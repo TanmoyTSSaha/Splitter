@@ -3,14 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:splitter/Constants/constants.dart';
 import 'package:splitter/Model/user_details_model.dart';
+import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
 import 'package:splitter/Services/supabase_service.dart';
 
-// ─── Screen palette (matches profile_screen.dart) ─────────────────────────────
-const Color _bg = Color(0xFFF0F0F5);
-const Color _cardBg = Colors.white;
-const Color _sectionLabel = Color(0xFF9E9E9E);
-const Color _titleColor = Color(0xFF1A1A1A);
-const Color _borderColor = Color(0xFFEEEEEE);
+const Color _cardBorder = Color(0xFFEEEEEE);
 const Color _lockedField = Color(0xFFC8C8C8);
 
 class PersonalDetailsScreen extends StatefulWidget {
@@ -39,7 +35,6 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     _phoneCtrl = TextEditingController(text: widget.initialData.phone);
     _emailCtrl = TextEditingController(text: widget.initialData.email);
 
-    // Listen for changes to set dirty flag
     for (final c in [_firstNameCtrl, _lastNameCtrl, _phoneCtrl]) {
       c.addListener(_checkDirty);
     }
@@ -101,7 +96,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            margin: const EdgeInsets.all(16),
+            margin: const EdgeInsets.all(groupGutter),
           ),
         );
         Get.back();
@@ -122,7 +117,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            margin: const EdgeInsets.all(16),
+            margin: const EdgeInsets.all(groupGutter),
           ),
         );
       }
@@ -134,24 +129,22 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: const Color(0xFFFAFAFA),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: _titleColor),
+              size: 18, color: groupOnSurface),
           onPressed: () => Get.back(),
         ),
-        title: const Text(
+        title: Text(
           'Personal Details',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: _titleColor,
-            letterSpacing: 0.2,
+          style: headline3_text.copyWith(
+            fontFamily: 'Albra',
+            fontWeight: FontWeight.w600,
+            color: groupOnSurface,
           ),
         ),
         centerTitle: false,
@@ -160,13 +153,18 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                groupGutter,
+                groupGapSm,
+                groupGutter,
+                groupGapLg,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── IDENTITY SECTION ──────────────────────────────────────────
                   _buildSectionHeader('IDENTITY'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: groupGapSm),
                   _buildFieldCard([
                     _buildField(
                       label: 'First Name',
@@ -180,11 +178,9 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                       hint: 'Enter your last name',
                     ),
                   ]),
-                  const SizedBox(height: 24),
-
-                  // ── CONTACT SECTION ───────────────────────────────────────────
+                  const SizedBox(height: groupGapLg),
                   _buildSectionHeader('CONTACT'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: groupGapSm),
                   _buildFieldCard([
                     _buildLockedField(
                       label: 'Email',
@@ -201,15 +197,13 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                         LengthLimitingTextInputFormatter(10),
                       ],
                       errorText: _phoneError,
+                      showCounter: true,
                     ),
                   ]),
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
-
-          // ── SAVE BUTTON (sticky bottom) ────────────────────────────────────
           _buildSaveButton(),
         ],
       ),
@@ -224,17 +218,25 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.6,
-        color: _sectionLabel,
+        color: groupOnSurfaceMuted,
       ),
     );
   }
 
   Widget _buildFieldCard(List<Widget> children) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor, width: 1),
+        border: Border.all(color: _cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(children: children),
     );
@@ -247,77 +249,91 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     String? errorText,
+    bool showCounter = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.fromLTRB(
+        groupGapMd,
+        groupGapMd,
+        groupGapMd,
+        groupGapMd,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Label
-              SizedBox(
-                width: 90,
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _sectionLabel,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Input
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  keyboardType: keyboardType,
-                  inputFormatters: inputFormatters,
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: errorText != null
-                        ? const Color(0xFFE53935)
-                        : _titleColor,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: hint,
-                    hintStyle: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
-                      color: _sectionLabel.withOpacity(0.6),
-                    ),
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              // Digit counter for phone
-              if (inputFormatters != null)
-                Text(
-                  '${controller.text.length}/10',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 11,
-                    color: controller.text.length == 10
-                        ? const Color(0xFF4CAF50)
-                        : _sectionLabel,
-                  ),
-                ),
-            ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+              color: groupOnSurfaceMuted,
+            ),
           ),
+          const SizedBox(height: groupGapSm),
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: errorText != null
+                  ? const Color(0xFFE53935)
+                  : groupOnSurface,
+            ),
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _cardBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _cardBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: neopopBackground, width: 1.5),
+              ),
+              hintText: hint,
+              hintStyle: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: groupOnSurfaceMuted.withValues(alpha: 0.7),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+              isDense: true,
+            ),
+          ),
+          if (showCounter) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${controller.text.length}/10',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 11,
+                  color: controller.text.length == 10
+                      ? const Color(0xFF4CAF50)
+                      : groupOnSurfaceMuted,
+                ),
+              ),
+            ),
+          ],
           if (errorText != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               errorText,
               style: const TextStyle(
                 fontFamily: 'Poppins',
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFFE53935),
               ),
@@ -333,37 +349,52 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     required TextEditingController controller,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.fromLTRB(
+        groupGapMd,
+        groupGapMd,
+        groupGapMd,
+        groupGapMd,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: _sectionLabel,
-              ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+              color: groupOnSurfaceMuted,
             ),
           ),
-          const SizedBox(width: 12),
-          // Value (non-editable)
-          Expanded(
-            child: Text(
-              controller.text.isEmpty ? 'Not set' : controller.text,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: _lockedField,
-              ),
+          const SizedBox(height: groupGapSm),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _cardBorder),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    controller.text.isEmpty ? 'Not set' : controller.text,
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: _lockedField,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.lock_outline_rounded,
+                    size: 16, color: _lockedField),
+              ],
             ),
           ),
-          const Icon(Icons.lock_outline_rounded, size: 15, color: _lockedField),
         ],
       ),
     );
@@ -371,17 +402,18 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
 
   Widget _buildDivider() {
     return const Divider(
-        height: 1,
-        thickness: 1,
-        color: _borderColor,
-        indent: 18,
-        endIndent: 18);
+      height: 1,
+      thickness: 1,
+      color: _cardBorder,
+      indent: groupGapMd,
+      endIndent: groupGapMd,
+    );
   }
 
   Widget _buildSaveButton() {
     return Container(
-      color: _bg,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      color: const Color(0xFFFAFAFA),
+      padding: const EdgeInsets.fromLTRB(groupGutter, groupGapSm, groupGutter, 32),
       child: GestureDetector(
         onTap: _isDirty ? _save : null,
         child: AnimatedContainer(
