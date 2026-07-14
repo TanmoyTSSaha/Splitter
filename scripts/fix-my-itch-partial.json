@@ -1,0 +1,50 @@
+{
+  "B2B Services": [
+    {"problem": "Why can't SMEs negotiate favorable payment terms with large buyers?", "score": 82.8, "industry": "B2B Services"},
+    {"problem": "Why can't manufacturers rely on guaranteed, accountable pickup logistics for outbound deliveries?", "score": 79, "industry": "B2B Services"},
+    {"problem": "Why do factory owners wait days for industrial repair technicians?", "score": 78.5, "industry": "B2B Services"},
+    {"problem": "Why do freelancers ghost projects after partial payments without accountability systems?", "score": 76, "industry": "B2B Services"},
+    {"problem": "Why can't businesses verify new suppliers before purchasing?", "score": 76, "industry": "B2B Services"},
+    {"problem": "Why do businesses struggle finding reliable contract manufacturers for small batches?", "score": 75.2, "industry": "B2B Services"},
+    {"problem": "Why can't small restaurants access wholesale ingredient pricing without large minimum orders?", "score": 71.5, "industry": "B2B Services"},
+    {"problem": "Why are small retailers forced into distributor margins without direct brand access?", "score": 68.5, "industry": "B2B Services"},
+    {"problem": "Why do micro-SMEs waste 10+ hours weekly on invoice management?", "score": 67.5, "industry": "B2B Services"},
+    {"problem": "Why can't shops see real-time supplier stock levels?", "score": 67.5, "industry": "B2B Services"}
+  ],
+  "Beauty & Personal Care": [
+    {"problem": "Why do makeup artists ignore diverse skin tones?", "score": 75, "industry": "Beauty & Personal Care"},
+    {"problem": "Why can't elderly people find at-home beautician services?", "score": 75, "industry": "Beauty & Personal Care"},
+    {"problem": "Why do hair color treatments damage hair despite salon promises?", "score": 69.8, "industry": "Beauty & Personal Care"},
+    {"problem": "Why do skincare products fail in India's humidity and pollution?", "score": 66.5, "industry": "Beauty & Personal Care"},
+    {"problem": "Why do confirmed salon appointments still involve 30-minute waits?", "score": 66, "industry": "Beauty & Personal Care"},
+    {"problem": "Why don't salon bookings guarantee your preferred stylist?", "score": 62, "industry": "Beauty & Personal Care"},
+    {"problem": "Where can working women find on-call saree draping professionals?", "score": 60.5, "industry": "Beauty & Personal Care"},
+    {"problem": "Where can men find affordable specialized beard grooming services?", "score": 58.5, "industry": "Beauty & Personal Care"},
+    {"problem": "Where can DIY skincare makers source lab-grade raw ingredients?", "score": 57.5, "industry": "Beauty & Personal Care"},
+    {"problem": "Why is finding affordable mehendi artists so difficult for small home celebrations?", "score": 57.3, "industry": "Beauty & Personal Care"}
+  ],
+  "Consumer Services": [
+    {"problem": "How do parents find trustworthy evening childcare for short hours?", "score": 81, "industry": "Consumer Services"},
+    {"problem": "Why do drivers circle markets for 20 minutes finding parking?", "score": 81, "industry": "Consumer Services"},
+    {"problem": "Why can't citizens quickly find the right animal rescue help during emergencies?", "score": 76, "industry": "Consumer Services"},
+    {"problem": "Why do households lack emergency backup services when domestic help quits suddenly?", "score": 74.3, "industry": "Consumer Services"},
+    {"problem": "Why do valet customers lack car parking visibility?", "score": 70, "industry": "Consumer Services"},
+    {"problem": "Why can't pet owners find trusted home-stay alternatives to boarding kennels?", "score": 70, "industry": "Consumer Services"},
+    {"problem": "Why is specialized care missing for silk, embroidery and designer clothing?", "score": 69.5, "industry": "Consumer Services"},
+    {"problem": "Why do appliance technicians overcharge for parts and inspections?", "score": 68.3, "industry": "Consumer Services"},
+    {"problem": "Why can't households easily access digital proof for in-warranty product repairs?", "score": 65.5, "industry": "Consumer Services"},
+    {"problem": "Why is there no reliable same-day personalized gifting for last-minute occasions?", "score": 65.5, "industry": "Consumer Services"}
+  ],
+  "E-commerce": [
+    {"problem": "How do beauty buyers verify product authenticity on e-commerce?", "score": 87, "industry": "E-commerce"},
+    {"problem": "Why do shoppers visit stores only to find items unavailable?", "score": 83, "industry": "E-commerce"},
+    {"problem": "Why do quick-delivery apps send bruised fruits and vegetables?", "score": 81, "industry": "E-commerce"},
+    {"problem": "Why can't working professionals return online purchases outside of business hours?", "score": 80, "industry": "E-commerce"},
+    {"problem": "Why can't rural residents receive doorstep deliveries despite ordering products online?", "score": 80, "industry": "E-commerce"},
+    {"problem": "Why do fashion products look different in reality?", "score": 79, "industry": "E-commerce"},
+    {"problem": "How can online platforms enable price negotiation and bulk discounts?", "score": 78, "industry": "E-commerce"},
+    {"problem": "Why do small online orders arrive in oversized wasteful packaging?", "score": 76.5, "industry": "E-commerce"},
+    {"problem": "Why do hidden shipping fees inflate affordable product prices?", "score": 76.5, "industry": "E-commerce"},
+    {"problem": "Why can't large families get wholesale grocery pricing online?", "score": 75.5, "industry": "E-commerce"}
+  ]
+}

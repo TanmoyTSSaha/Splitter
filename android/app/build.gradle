@@ -3,6 +3,7 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()
@@ -10,6 +11,36 @@ def localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withReader("UTF-8") { reader ->
         localProperties.load(reader)
+    }
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+def releaseKeystoreReady = false
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader("UTF-8") { reader ->
+        keystoreProperties.load(reader)
+    }
+    def requiredKeystoreKeys = ["keyAlias", "keyPassword", "storeFile", "storePassword"]
+    def missingKeystoreKeys = requiredKeystoreKeys.findAll { key ->
+        def value = keystoreProperties.getProperty(key)
+        value == null || value.trim().isEmpty()
+    }
+    if (!missingKeystoreKeys.isEmpty()) {
+        logger.warn(
+            "key.properties exists but is incomplete; missing or empty: " +
+            "${missingKeystoreKeys.join(', ')}. Release builds will use debug signing."
+        )
+    } else {
+        def keystoreFile = file(keystoreProperties.getProperty("storeFile"))
+        if (!keystoreFile.exists()) {
+            logger.warn(
+                "key.properties storeFile does not exist: ${keystoreFile}. " +
+                "Release builds will use debug signing."
+            )
+        } else {
+            releaseKeystoreReady = true
+        }
     }
 }
 
@@ -24,35 +55,66 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace = "com.example.splitter"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "money.splitr.app"
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
     }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.splitter"
+        applicationId = "money.splitr.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
     }
 
+    signingConfigs {
+        release {
+            if (releaseKeystoreReady) {
+                keyAlias keystoreProperties.getProperty("keyAlias")
+                keyPassword keystoreProperties.getProperty("keyPassword")
+                storeFile file(keystoreProperties.getProperty("storeFile"))
+                storePassword keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = releaseKeystoreReady
+                    ? signingConfigs.release
+                    : signingConfigs.debug
+            proguardFiles 'proguard-rules.pro'
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.browser:browser:1.8.0'
+        force 'androidx.activity:activity-ktx:1.9.3'
+        force 'androidx.activity:activity:1.9.3'
+        force 'androidx.core:core-ktx:1.13.1'
+        force 'androidx.core:core:1.13.1'
+    }
 }

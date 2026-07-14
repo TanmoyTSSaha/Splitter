@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
 
 import '../../../Constants/constants.dart';
 import '../../../Constants/shared.dart';
 import '../../../Controller/add_transaction_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+
 import '../../../Model/group_model.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
 
 class UnevenShareTab extends StatelessWidget {
   final List<GroupMembersWithNameModel> groupMembersWithNameModel;
@@ -27,49 +34,53 @@ class UnevenShareTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(
       () {
+        final addedAmount =
+            _addTransactionScreenController.totalAddedAmount.value;
+        final remaining = totalAmount - addedAmount;
+
         return Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              "Split Unevenly",
-              style: sub_headline4_text.copyWith(color: neopopOnBackground),
+              SharingMode.byUnevenly.tabTitle,
+              style: sub_headline4_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16 / 2),
+            const SizedBox(height: groupGapSm),
             Text(
-              "Split exactly how much each person owes",
-              style: body1_text.copyWith(color: neopopOnBackground),
+              SharingMode.byUnevenly.tabSubtitle,
+              style: body1_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16 * 2),
-            Container(
-              width: devSysWidth - (height_16 * 2),
+            const SizedBox(height: groupGapXl),
+            SizedBox(
+              width: devSysWidth - (groupGutter * 2),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    "₹${_addTransactionScreenController.totalAddedAmount.value} of ₹$totalAmount",
+                    AppStringFormat.amountOfTotal(
+                      userCurrencySymbol(),
+                      addedAmount.toString(),
+                      totalAmount.toString(),
+                    ),
                     style: sub_headline5_text.copyWith(
-                        color: _addTransactionScreenController
-                                    .totalAddedAmount.value ==
-                                totalAmount
+                        color: addedAmount == totalAmount
                             ? neopopAccent
-                            : neopopOnBackground),
+                            : groupOnSurface),
                   ),
                   Text(
-                    "₹${totalAmount - _addTransactionScreenController.totalAddedAmount.value} left",
+                    AppStringFormat.amountLeft(
+                      userCurrencySymbol(),
+                      remaining.toString(),
+                    ),
                     style: body1_text.copyWith(
-                        color: totalAmount -
-                                    _addTransactionScreenController
-                                        .totalAddedAmount.value <
-                                0
-                            ? neopopError
-                            : neopopOnBackground),
+                        color: remaining < 0 ? neopopError : groupOnSurface),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: height_16 * 2),
+            const SizedBox(height: groupGapXl),
             ListView.separated(
               physics: const NeverScrollableScrollPhysics(),
               shrinkWrap: true,
@@ -85,34 +96,18 @@ class UnevenShareTab extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.start,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Container(
-                          height: height_16 * 2.5,
-                          width: height_16 * 2.5,
-                          decoration: BoxDecoration(
-                            color: neopopAccent,
-                            borderRadius:
-                                BorderRadius.circular(height_16 * 2.5),
-                          ),
-                          child: ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(height_16 * 2.5),
-                            child: Image.network(
-                              groupMembersWithNameModel[index]
-                                      .userPic
-                                      .toString()
-                                      .trim()
-                                      .isNotEmpty
-                                  ? groupMembersWithNameModel[index].userPic!
-                                  : "https://odlzzaroffbgbmiwvcqr.supabase.co/storage/v1/object/sign/splitter_bucket/user_profile_pictures/default_profile_picture_avatar.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJzcGxpdHRlcl9idWNrZXQvdXNlcl9wcm9maWxlX3BpY3R1cmVzL2RlZmF1bHRfcHJvZmlsZV9waWN0dXJlX2F2YXRhci5wbmciLCJpYXQiOjE3MzI5NTk1NDQsImV4cCI6MTc2NDQ5NTU0NH0.W1G8X4v_3kcqo2IMUCphY3EnOvxD077foLBfoaIOaPc&t=2024-11-30T09%3A39%3A04.548Z",
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                        UserAvatar(
+                          userID: groupMembersWithNameModel[index].userID ?? "",
+                          userName: groupMembersWithNameModel[index].userName ??
+                              DisplayFallbacks.user,
+                          imageUrl: groupMembersWithNameModel[index].userPic,
+                          radius: AppDimensions.groupIconMd,
                         ),
-                        SizedBox(width: width_10),
+                        const SizedBox(width: groupGap10),
                         Text(
                           groupMembersWithNameModel[index].userName!,
                           style: sub_headline5_text.copyWith(
-                              color: neopopOnBackground),
+                              color: groupOnSurface),
                         ),
                       ],
                     ),
@@ -123,19 +118,11 @@ class UnevenShareTab extends StatelessWidget {
                         if (value != null && value.isNumericOnly) {
                           return null;
                         } else if (value == null) {
-                          Fluttertoast.showToast(
-                            msg: "Need amount here!",
-                            textColor: neopopBackground,
-                            backgroundColor: neopopYellow,
-                          );
-                          return "Need amount here!";
+                          SplitrToast.show(AppStrings.validation.needAmount);
+                          return AppStrings.validation.needAmount;
                         } else if (!value.isNumericOnly) {
-                          Fluttertoast.showToast(
-                            msg: "Only numbers are allowed here!",
-                            textColor: neopopBackground,
-                            backgroundColor: neopopYellow,
-                          );
-                          return "Only numbers are allowed here!";
+                          SplitrToast.show(AppStrings.validation.numbersOnly);
+                          return AppStrings.validation.numbersOnly;
                         }
 
                         return null;
@@ -150,7 +137,7 @@ class UnevenShareTab extends StatelessWidget {
                 );
               },
               separatorBuilder: (context, index) {
-                return SizedBox(height: height_10);
+                return const SizedBox(height: groupGap10);
               },
             ),
           ],

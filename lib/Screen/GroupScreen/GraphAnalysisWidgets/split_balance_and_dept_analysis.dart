@@ -1,10 +1,22 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/shared.dart';
-import '../../../Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
 
+/// Bar chart showing per-member net balance from group_balance.
 class SplitBalanceAndDeptAnalysis extends StatefulWidget {
-  const SplitBalanceAndDeptAnalysis({super.key});
+  final List<Map<String, dynamic>> memberBalances;
+
+  const SplitBalanceAndDeptAnalysis({
+    required this.memberBalances,
+    super.key,
+  });
 
   @override
   State<SplitBalanceAndDeptAnalysis> createState() =>
@@ -13,301 +25,57 @@ class SplitBalanceAndDeptAnalysis extends StatefulWidget {
 
 class _SplitBalanceAndDeptAnalysisState
     extends State<SplitBalanceAndDeptAnalysis> {
-  final pilateColor = neopopAccent;
-  final cyclingColor = neopopAccent.withOpacity(0.66);
-  final quickWorkoutColor = neopopAccent.withOpacity(0.33);
-  final betweenSpace = 0.2;
-
-  final participentOneColor = getRandomBrightColor();
-  final participentTwoColor = getRandomBrightColor();
-  final participentThreeColor = getRandomBrightColor();
-  final participentFourColor = getRandomBrightColor();
-  final participentFiveColor = getRandomBrightColor();
-
-  final List<Map<String, dynamic>> splitData = [
-    {
-      "name": "Tanmoy",
-      "splits": [
-        {
-          "name": "Hardik",
-          "price": 100,
-        },
-        {
-          "name": "Deepesh",
-          "price": 300,
-        },
-        {
-          "name": "Gourav",
-          "price": 0,
-        },
-        {
-          "name": "Durgesh",
-          "price": 500,
-        },
-      ],
-    },
-    {
-      "name": "Hardik",
-      "splits": [
-        {
-          "name": "Tanmoy",
-          "price": 400,
-        },
-        {
-          "name": "Deepesh",
-          "price": 0,
-        },
-        {
-          "name": "Gourav",
-          "price": 200,
-        },
-        {
-          "name": "Durgesh",
-          "price": 700,
-        },
-      ],
-    },
-    {
-      "name": "Deepesh",
-      "splits": [
-        {
-          "name": "Tanmoy",
-          "price": 400,
-        },
-        {
-          "name": "Hardik",
-          "price": 0,
-        },
-        {
-          "name": "Gourav",
-          "price": 200,
-        },
-        {
-          "name": "Durgesh",
-          "price": 700,
-        },
-      ],
-    },
-    {
-      "name": "Gourav",
-      "splits": [
-        {
-          "name": "Tanmoy",
-          "price": 500,
-        },
-        {
-          "name": "Hardik",
-          "price": 100,
-        },
-        {
-          "name": "Deepesh",
-          "price": 200,
-        },
-        {
-          "name": "Durgesh",
-          "price": 500,
-        },
-      ],
-    },
-    {
-      "name": "Gourav",
-      "splits": [
-        {
-          "name": "Tanmoy",
-          "price": 900,
-        },
-        {
-          "name": "Hardik",
-          "price": 200,
-        },
-        {
-          "name": "Deepesh",
-          "price": 300,
-        },
-        {
-          "name": "Gourav",
-          "price": 200,
-        },
-      ],
-    },
-  ];
-
-  List<BarChartGroupData> barChartGroup = [];
-
-  BarChartGroupData generateGroupData2(
-    int x,
-    Map<String, dynamic> splitDetails,
-  ) {
-    List<BarChartRodData> barRods = [];
-    double previousY = 0; // Tracks the previous bar's ending point
-
-    // Loop through each split in the splits list
-    List<Map<String, dynamic>> splits = splitDetails['splits'];
-    for (int i = 0; i < splits.length; i++) {
-      var split = splits[i];
-      double price = split['price'].toDouble();
-      Color color;
-
-      // Dynamically assign a color, e.g., based on the index or a predefined set of colors
-      switch (i) {
-        case 0:
-          color = Colors.red;
-          break;
-        case 1:
-          color = Colors.green;
-          break;
-        case 2:
-          color = Colors.blue;
-          break;
-        case 3:
-          color = Colors.orange;
-          break;
-        default:
-          color = Colors.purple;
-      }
-
-      // Create a new BarChartRodData for each split
-      barRods.add(
-        BarChartRodData(
-          fromY: previousY,
-          toY: previousY + price,
-          color: color,
-          width: 5,
-        ),
-      );
-
-      // Update previousY for the next rod, with spacing
-      previousY += price + betweenSpace;
-    }
-
-    return BarChartGroupData(
-      x: x,
-      groupVertically: true,
-      barRods: barRods,
-    );
-  }
-
-  BarChartGroupData generateGroupData(
-    int x,
-    double participentOne,
-    double participentTwo,
-    double participentThree,
-    double participentFour,
-    double participentFive,
-  ) {
-    return BarChartGroupData(
-      x: x,
-      groupVertically: true,
-      barRods: [
-        BarChartRodData(
-          fromY: 0,
-          toY: participentOne,
-          color: participentOneColor,
-          width: 5,
-        ),
-        BarChartRodData(
-          fromY: participentOne + betweenSpace + participentTwo + betweenSpace,
-          toY: participentOne +
-              betweenSpace +
-              participentTwo +
-              betweenSpace +
-              participentFour,
-          color: participentTwoColor,
-          width: 5,
-        ),
-        BarChartRodData(
-          fromY: participentOne + betweenSpace + participentTwo + betweenSpace,
-          toY: participentOne +
-              betweenSpace +
-              participentTwo +
-              betweenSpace +
-              participentThree,
-          color: participentThreeColor,
-          width: 5,
-        ),
-        BarChartRodData(
-          fromY: participentOne +
-              betweenSpace +
-              participentTwo +
-              betweenSpace +
-              participentThree +
-              betweenSpace,
-          toY: participentOne +
-              betweenSpace +
-              participentTwo +
-              betweenSpace +
-              participentThree +
-              betweenSpace +
-              participentFour,
-          color: participentFourColor,
-          width: 5,
-        ),
-        BarChartRodData(
-          fromY: participentOne +
-              betweenSpace +
-              participentTwo +
-              betweenSpace +
-              participentThree +
-              betweenSpace,
-          toY: participentOne +
-              betweenSpace +
-              participentTwo +
-              betweenSpace +
-              participentThree +
-              betweenSpace +
-              participentFive,
-          color: participentFiveColor,
-          width: 5,
-        ),
-      ],
-    );
-  }
-
-  Widget bottomTitles(double value, TitleMeta meta) {
-    const style = TextStyle(fontSize: 10);
-
-    // Ensure that the value is within the valid range of the list
-    if (value.toInt() >= 0 && value.toInt() < splitData.length) {
-      // Get the corresponding string based on the index
-      String text = splitData[value.toInt()]["name"];
-
-      return SideTitleWidget(
-        axisSide: meta.axisSide,
-        child: Text(text, style: style),
-      );
-    } else {
-      return SideTitleWidget(
-        axisSide: meta.axisSide,
-        child: const Text('',
-            style: style), // Return empty text for invalid indices
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    for (var i = 0; i < splitData.length; i++) {
-      barChartGroup.add(generateGroupData2(i, splitData[i]));
+    if (widget.memberBalances.isEmpty) {
+      return TabEmptyState(
+        variant: TabEmptyVariant.analytics,
+        title: AppStrings.analytics.noBalanceData,
+        compact: true,
+      );
     }
-    return Container(
-      width: devSysWidth,
+
+    final data = widget.memberBalances;
+    final maxVal = data.fold<double>(0.0, (prev, e) {
+      final net = (e[AnalyticsKeys.netBalance] as num?)?.toDouble() ?? 0.0;
+      return net.abs() > prev ? net.abs() : prev;
+    });
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // LegendsListWidget(
-          //   legends: [
-          //     Legend('Pilates', pilateColor),
-          //     Legend('Quick workouts', quickWorkoutColor),
-          //     Legend('Cycling', cyclingColor),
-          //   ],
-          // ),
-          SizedBox(height: height_16),
+          Text(
+            AppStrings.analytics.splitBalancesAndDebt,
+            style: body1_text.copyWith(
+              fontWeight: FontWeight.w600,
+              color: groupOnSurface,
+            ),
+          ),
+          const SizedBox(height: groupGapSm),
+          Text(
+            AppStrings.analytics.netBalanceSubtitle,
+            style: caption_text.copyWith(color: groupOnSurfaceMuted),
+          ),
+          const SizedBox(height: groupGapSm),
+          Row(
+            children: [
+              _legendDot(neopopIsOwed, AppStrings.analytics.isOwed),
+              const SizedBox(width: groupGapMd),
+              _legendDot(neopopError, AppStrings.analytics.owes),
+            ],
+          ),
+          const SizedBox(height: groupGapMd),
           AspectRatio(
-            aspectRatio: 2,
+            aspectRatio: AppDimensions.chartAspectRatio,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
+                maxY: maxVal > 0
+                    ? maxVal * ChartScaleFactors.maxY120
+                    : ChartScaleFactors.axisIntervalUnit.toDouble(),
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(),
                   rightTitles: const AxisTitles(),
@@ -315,43 +83,136 @@ class _SplitBalanceAndDeptAnalysisState
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      getTitlesWidget: bottomTitles,
-                      reservedSize: 24,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx >= 0 && idx < data.length) {
+                          final name = AppStringFormat.truncateChartLabel(
+                            data[idx][AnalyticsKeys.name]?.toString() ?? '',
+                            ChartTruncateLengths.name8,
+                          );
+                          return SideTitleWidget(
+                            axisSide: meta.axisSide,
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: groupFontMicro,
+                                color: groupOnSurface,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                      reservedSize: AppDimensions.chartReservedSize,
                     ),
                   ),
                 ),
-                barTouchData: BarTouchData(enabled: false),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => neopopOnPrimary,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final net =
+                          (data[groupIndex][AnalyticsKeys.netBalance] as num?)
+                                  ?.toDouble() ??
+                              0.0;
+                      final label = net >= 0
+                          ? AppStrings.analytics.isOwed
+                          : AppStrings.analytics.owes;
+                      return BarTooltipItem(
+                        AppStringFormat.chartTooltip(
+                          label,
+                          userCurrencySymbol(),
+                          net.abs().toStringAsFixed(0),
+                        ),
+                        body2_text.copyWith(color: neopopBackground),
+                      );
+                    },
+                  ),
+                ),
                 borderData: FlBorderData(show: false),
                 gridData: const FlGridData(show: false),
-                barGroups: barChartGroup,
-                maxY: 1500 + (betweenSpace * 3),
-                extraLinesData: ExtraLinesData(
-                  horizontalLines: [
-                    HorizontalLine(
-                      y: 3.3,
-                      color: pilateColor,
-                      strokeWidth: 1,
-                      dashArray: [20, 4],
-                    ),
-                    HorizontalLine(
-                      y: 8,
-                      color: quickWorkoutColor,
-                      strokeWidth: 1,
-                      dashArray: [20, 4],
-                    ),
-                    HorizontalLine(
-                      y: 11,
-                      color: cyclingColor,
-                      strokeWidth: 1,
-                      dashArray: [20, 4],
-                    ),
-                  ],
-                ),
+                barGroups: data.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final member = entry.value;
+                  final net =
+                      (member[AnalyticsKeys.netBalance] as num?)?.toDouble() ??
+                          0.0;
+                  final isOwed = net >= 0;
+
+                  return BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(
+                        toY: net.abs(),
+                        color: isOwed ? neopopIsOwed : neopopError,
+                        width: AppDimensions.chartBarWidthLg,
+                        borderRadius: const BorderRadius.only(
+                          topLeft:
+                              Radius.circular(AppDimensions.chartBarRadius),
+                          topRight:
+                              Radius.circular(AppDimensions.chartBarRadius),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
               ),
             ),
           ),
+          const SizedBox(height: groupGapMd),
+          ...data.map((member) {
+            final net =
+                (member[AnalyticsKeys.netBalance] as num?)?.toDouble() ?? 0.0;
+            final isOwed = net >= 0;
+            final symbol = userCurrencySymbol();
+            final amount = net.abs().toStringAsFixed(0);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: groupGapSm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      member[AnalyticsKeys.name]?.toString() ?? '',
+                      style: body2_text.copyWith(color: groupOnSurface),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    isOwed
+                        ? AppStringFormat.isOwedAmount(symbol, amount)
+                        : AppStringFormat.owesAmount(symbol, amount),
+                    style: caption_text.copyWith(
+                      color: isOwed ? neopopIsOwed : neopopError,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
+    );
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: AppDimensions.chartLegendDot,
+          height: AppDimensions.chartLegendDot,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(groupRadiusXs),
+          ),
+        ),
+        const SizedBox(width: groupGapSm),
+        Text(label, style: caption_text.copyWith(color: groupOnSurface)),
+      ],
     );
   }
 }

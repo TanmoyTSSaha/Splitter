@@ -1,6 +1,6 @@
 {
-    "name": "splitter",
-    "short_name": "splitter",
+    "name": "Splitr",
+    "short_name": "Splitr",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

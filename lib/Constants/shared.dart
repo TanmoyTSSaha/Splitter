@@ -1,9 +1,19 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/category_style.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
+
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
 import '../Model/group_model.dart';
 
@@ -31,10 +41,10 @@ class PrimaryTextFormField extends StatefulWidget {
     required this.fieldName,
     required this.isObscure,
     required this.validator,
-    this.labelColor = const Color(0xFF91919F),
+    this.labelColor = AppPalette.labelMuted,
     this.errorTextStyle = const TextStyle(
       fontWeight: FontWeight.w500,
-      fontSize: 12,
+      fontSize: splitrFontCaption,
     ),
   });
 
@@ -53,71 +63,66 @@ class _PrimaryTextFormFieldState extends State<PrimaryTextFormField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: widget.textEditingController,
-      obscureText: isObscure,
-      validator: widget.validator,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: neopopSecondaryGrey,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(
-            width: 1,
-            color: neopopSecondaryGrey,
+    final borderColor = groupMutedBorderHairline;
+    final mutedFill = groupMutedFillFaint;
+    final inputStyle = body1_text.copyWith(color: groupOnSurface);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.fieldName.isNotEmpty) ...[
+          Text(
+            widget.fieldName,
+            style: body2_text.copyWith(
+              color: widget.labelColor == AppPalette.labelMuted
+                  ? groupOnSurfaceMuted
+                  : widget.labelColor,
+            ),
+          ),
+          const SizedBox(height: groupGapSm),
+        ],
+        Container(
+          decoration: BoxDecoration(
+            color: mutedFill,
+            borderRadius: BorderRadius.circular(groupControlRadius),
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(
+              horizontal: groupGap14, vertical: groupGapXxs),
+          child: TextFormField(
+            controller: widget.textEditingController,
+            obscureText: isObscure,
+            validator: widget.validator,
+            style: inputStyle,
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: groupGap10),
+              errorStyle: widget.errorTextStyle,
+              suffixIcon: widget.isObscure
+                  ? IconButton(
+                      onPressed: () {
+                        setState(() {
+                          isObscure = !isObscure;
+                        });
+                      },
+                      icon: Icon(
+                        isObscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: groupOnSurfaceMuted,
+                        size: AppDimensions.loadingIndicatorMd,
+                      ),
+                    )
+                  : null,
+            ),
           ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(
-            width: 1,
-            color: neopopSecondaryGrey,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(
-            width: 1,
-            color: neopopSecondaryGrey,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(
-            width: 1,
-            color: neopopSecondaryGrey,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(
-            width: 1,
-            color: neopopError,
-          ),
-        ),
-        labelText: widget.fieldName,
-        labelStyle: body2_text.copyWith(
-          color: widget.labelColor,
-        ),
-        errorStyle: widget.errorTextStyle,
-        suffixIcon: widget.isObscure
-            ? IconButton(
-                onPressed: () {
-                  setState(() {
-                    isObscure = !isObscure;
-                  });
-                },
-                icon: const Icon(
-                  Icons.visibility_outlined,
-                  color: neopopOnBackground,
-                  size: 24,
-                ),
-              )
-            : const SizedBox(
-                height: 0,
-                width: 0,
-              ),
-      ),
+      ],
     );
   }
 }
@@ -146,10 +151,10 @@ class NeoPopCustomTextButton extends StatelessWidget {
       style: TextButton.styleFrom(
         shape: RoundedRectangleBorder(
           side: BorderSide(
-            color: borderColor ?? Colors.transparent,
-            width: isBorder ? 0.5 : 0,
+            color: borderColor ?? groupTransparent,
+            width: isBorder ? AppDimensions.borderWidthHalf : groupGapNone,
           ),
-          borderRadius: BorderRadius.circular(0),
+          borderRadius: BorderRadius.zero,
         ),
         foregroundColor: buttonForegroundColor,
       ),
@@ -179,13 +184,22 @@ class GroupCard extends StatelessWidget {
     List<GroupBalanceModel> donorList = [];
     List<GroupBalanceModel> receiverList = [];
 
+    double totalReceived = 0;
+    double totalPaid = 0;
+
     for (var element in groupModel.groupBalance!) {
       if (element.donorID == userID) {
         donorList.add(element);
+        totalPaid += element.amount ?? 0;
       } else if (element.receiverID == userID) {
         receiverList.add(element);
+        totalReceived += element.amount ?? 0;
       }
     }
+
+    double netBalance = totalReceived - totalPaid;
+    final bool isPositive = netBalance >= 0;
+    final double absBalance = netBalance.abs();
 
     GroupBalanceModel? maxDonation;
     if (donorList.isNotEmpty) {
@@ -214,96 +228,116 @@ class GroupCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: devSysWidth,
-        padding: EdgeInsets.all(height_16),
+        padding: const EdgeInsets.all(groupGutter),
         decoration: BoxDecoration(
           border: Border.all(
-            color: neopopGrey.withOpacity(0.5),
+            color: neopopGreyIconMuted,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(groupControlRadiusSm),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: height_10 * 8,
-                  height: height_10 * 8,
-                  decoration: BoxDecoration(
-                    color: getRandomBrightColor(),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  alignment: Alignment.center,
-                  padding: EdgeInsets.all(width_16 / 2),
-                  child: Text(
-                    getInitials(groupModel.groupName!),
-                    style: headline2_text.copyWith(
-                      color: neopopBackground,
+                Row(
+                  children: [
+                    UserAvatar(
+                      userID: groupModel.groupID!,
+                      userName: groupModel.groupName!,
+                      radius: AppDimensions.loadingIndicatorLg,
+                      shape: BoxShape.rectangle,
+                      customBorderRadius: BorderRadius.circular(groupRadiusSm),
+                      fontSize:
+                          splitrFontHeadline3, // Estimate for headline2_text
                     ),
-                  ),
+                    const SizedBox(width: groupGutter),
+                    SizedBox(
+                      width: devSysWidth * 0.45, // Constrain middle column
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            groupModel.groupName!,
+                            style: sub_headline5_text,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          const SizedBox(
+                            height: groupGap5,
+                          ),
+                          if (maxDonation != null)
+                            Text(
+                              AppStringFormat.owesYou(
+                                maxDonation.receiver!.split(" ")[0],
+                                '${userCurrencySymbol()}${maxDonation.amount!.toStringAsFixed(0)}',
+                              ),
+                              style: caption_text.copyWith(
+                                color: neopopPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          if (maxReceived != null)
+                            Text(
+                              AppStringFormat.youOwe(
+                                maxReceived.donor!.split(" ")[0],
+                                '${userCurrencySymbol()}${maxReceived.amount!.toStringAsFixed(0)}',
+                              ),
+                              style: caption_text.copyWith(
+                                color: neopopAccent,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          if (maxDonation == null && maxReceived == null)
+                            Text(
+                              AppStrings.settle.noTransactions,
+                              style: caption_text.copyWith(
+                                color: neopopAccent,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: width_16,
-                ),
-                SizedBox(
-                  width: width_10 * 20,
+                Flexible(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        groupModel.groupName!,
-                        style: sub_headline5_text,
-                      ),
-                      SizedBox(
-                        height: height_10 / 2,
-                      ),
-                      if (maxDonation != null)
-                        Text(
-                          "You owe ${maxDonation.receiver!.split(" ")[0]} ₹${maxDonation.amount!}",
-                          style: caption_text.copyWith(
-                            color: neopopPrimary,
-                          ),
+                        absBalance < 0.01
+                            ? AppStrings.settle.settledUp
+                            : (isPositive
+                                ? AppStrings.settle.youllPay
+                                : AppStrings.settle.youllGet),
+                        textAlign: TextAlign.right,
+                        style: body2_text.copyWith(
+                          color: absBalance < 0.01
+                              ? neopopGrey
+                              : (isPositive ? neopopPrimary : neopopAccent),
                         ),
-                      if (maxReceived != null)
-                        Text(
-                          "${maxReceived.donor!.split(" ")[0]} owe's you ₹${maxReceived.amount!}",
-                          style: caption_text.copyWith(
-                            color: neopopAccent,
-                          ),
-                        ),
-                      if (maxDonation == null && maxReceived == null)
-                        Text(
-                          "There are no transactions with you in the group.",
-                          style: caption_text.copyWith(
-                            color: neopopAccent,
+                      ),
+                      if (absBalance >= 0.01)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "${userCurrencySymbol()}${absBalance.toStringAsFixed(0)}",
+                            textAlign: TextAlign.right,
+                            style: headline3_text.copyWith(
+                              color: isPositive ? neopopPrimary : neopopAccent,
+                            ),
                           ),
                         ),
                     ],
-                  ),
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: width_10 * 7.5,
-                  child: RichText(
-                    textAlign: TextAlign.right,
-                    text: TextSpan(
-                      text: "You'll get\n",
-                      style: body2_text.copyWith(
-                        color: neopopAccent,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: "₹200\n",
-                          style: headline3_text.copyWith(
-                            color: neopopAccent,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -354,28 +388,30 @@ class SettleUpBalanceWidget extends StatelessWidget {
             slNo.toString(),
             style: headline1_text,
           ),
-          SizedBox(width: width_10),
+          const SizedBox(width: groupGap10),
           Container(
-            height: height_16 * 4,
-            width: height_16 * 4,
-            margin: EdgeInsets.only(left: height_16),
+            height: groupGutter * 4,
+            width: groupGutter * 4,
+            margin: const EdgeInsets.only(left: groupGutter),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Colors.transparent,
-                width: 6,
+                color: groupTransparent,
+                width: groupGapXs,
               ),
-              borderRadius: BorderRadius.circular(height_10 * 3.6),
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.biometricIconSize),
             ),
-            padding: EdgeInsets.all(height_10 * 0.2),
+            padding: EdgeInsets.all(groupRadiusHairline),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(height_10 * 4),
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.loadingIndicatorLg),
               child: Image.network(
                 balanceHolderImage,
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          SizedBox(width: width_10),
+          const SizedBox(width: groupGap10),
           Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,15 +424,15 @@ class SettleUpBalanceWidget extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(height: height_10),
+              const SizedBox(height: groupGap10),
               SizedBox(
                 width: devSysWidth * 0.4,
                 child: LinearProgressIndicator(
                   value: sharePercentage,
                   color: neopopAccent,
-                  backgroundColor: neopopAccent.withOpacity(0.25),
-                  minHeight: 5,
-                  borderRadius: BorderRadius.circular(height_10),
+                  backgroundColor: neopopAccentBorderHairline,
+                  minHeight: groupGap5,
+                  borderRadius: BorderRadius.circular(groupRadiusMd),
                 ),
               ),
             ],
@@ -407,7 +443,7 @@ class SettleUpBalanceWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "₹$totalShare",
+                "${userCurrencySymbol()}$totalShare",
                 style: sub_headline4_text,
               )
             ],
@@ -431,6 +467,7 @@ class TransactionCard extends StatelessWidget {
   final DateTime cardDateTime;
   final double cardPrice;
   final String categoryLogoURL;
+  final String category;
   const TransactionCard({
     required this.index,
     required this.cardTitle,
@@ -438,104 +475,95 @@ class TransactionCard extends StatelessWidget {
     required this.cardDateTime,
     required this.cardPrice,
     required this.categoryLogoURL,
+    this.category = '',
+    this.amountColor,
+    this.forLightSurface = false,
     super.key,
   });
 
+  final Color? amountColor;
+  final bool forLightSurface;
+
   @override
   Widget build(BuildContext context) {
+    final textColor = forLightSurface ? neopopBackground : neopopOnBackground;
     return Container(
-      padding: EdgeInsets.symmetric(vertical: height_10 * 2.4),
+      padding: const EdgeInsets.symmetric(vertical: groupGapLg),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(56),
+              borderRadius: BorderRadius.circular(groupRadiusFull),
               color: neopopSecondaryGrey,
             ),
-            padding: EdgeInsets.all(height_10 / 2),
+            padding: EdgeInsets.all(groupGap5),
             alignment: Alignment.center,
-            height: height_16 * 3,
-            width: width_16 * 3,
-            child: SvgPicture.network(
-              categoryLogoURL,
-              fit: BoxFit.contain,
+            height: groupCtaHeightCompact,
+            width: groupCtaHeightCompact,
+            child: buildCategoryLogo(
+              categoryLogo: categoryLogoURL,
+              category: category,
               color: neopopAccent,
+              size: groupGapXl,
             ),
           ),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: 0,
-              horizontal: width_10 * 2,
-            ),
+          const SizedBox(width: AppDimensions.groupIconMd),
+          Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: (devSysWidth * 0.4),
-                  child: Text(
-                    cardTitle, //[index % 6],
-                    overflow: TextOverflow.ellipsis,
-                    style: body1_text.copyWith(
-                      color: neopopOnBackground,
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  cardTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: body1_text.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: height_10),
-                SizedBox(
-                  width: (devSysWidth * 0.4),
-                  child: Text(
-                    cardSubTitle,
-                    overflow: TextOverflow.ellipsis,
-                    style: caption_text.copyWith(
-                      color: neopopGrey,
-                    ),
+                const SizedBox(height: groupGap10),
+                Text(
+                  cardSubTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: caption_text.copyWith(
+                    color: neopopGrey,
                   ),
                 ),
               ],
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: groupGap10),
           Column(
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                alignment: Alignment.centerRight,
-                width: devSysWidth * 0.25,
-                child: Text(
-                  DateFormat('HH:mm \t EEE d MMM').format(cardDateTime),
-                  overflow: TextOverflow.ellipsis,
-                  style: caption_text.copyWith(
-                    color: neopopOnBackground,
-                  ),
+              Text(
+                TransactionDateFormatter.formatTime(cardDateTime),
+                overflow: TextOverflow.ellipsis,
+                style: caption_text.copyWith(
+                  color: textColor,
                 ),
               ),
-              SizedBox(height: height_10),
-              Container(
-                alignment: Alignment.centerRight,
-                width: devSysWidth * 0.25,
-                child: cardPrice != 0
-                    ? Text(
-                        "₹$cardPrice",
-                        overflow: TextOverflow.ellipsis,
-                        style: body1_text.copyWith(
-                          color: neopopAccent,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
-                    : Text(
-                        "You're not in",
-                        overflow: TextOverflow.ellipsis,
-                        style: caption_text.copyWith(
-                          color: neopopAccent,
-                          fontWeight: FontWeight.w500,
-                        ),
+              const SizedBox(height: groupGap10),
+              cardPrice != 0
+                  ? Text(
+                      "${userCurrencySymbol()}$cardPrice",
+                      overflow: TextOverflow.ellipsis,
+                      style: body1_text.copyWith(
+                        color: amountColor ?? neopopAccent,
+                        fontWeight: FontWeight.w500,
                       ),
-              ),
+                    )
+                  : Text(
+                      AppStrings.settle.notInTransaction,
+                      overflow: TextOverflow.ellipsis,
+                      style: caption_text.copyWith(
+                        color: neopopAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
             ],
           ),
         ],
@@ -578,9 +606,9 @@ class ElevatedCustomTextAndIconButton extends StatelessWidget {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.zero,
         ),
-        padding: EdgeInsets.symmetric(
-          vertical: height_16,
-          horizontal: height_16,
+        padding: const EdgeInsets.symmetric(
+          vertical: groupGutter,
+          horizontal: groupGutter,
         ),
         backgroundColor: buttonBackgroundColor,
         foregroundColor: buttonForegroundColor,
@@ -591,11 +619,11 @@ class ElevatedCustomTextAndIconButton extends StatelessWidget {
         children: [
           SvgPicture.asset(
             iconPath,
-            height: height_10 * 2.4,
-            width: height_10 * 2.4,
+            height: groupGapLg,
+            width: groupGapLg,
             color: neopopBackground,
           ),
-          SizedBox(width: width_16),
+          const SizedBox(width: groupGutter),
           Text(
             buttonName,
             style: button_text.copyWith(
@@ -615,17 +643,17 @@ class LoadingWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        height: height_16 * 7,
-        width: height_16 * 7,
-        padding: EdgeInsets.all(height_16 * 1.5),
+        height: groupGutter * 7,
+        width: groupGutter * 7,
+        padding: EdgeInsets.all(groupGapLg),
         decoration: BoxDecoration(
           color: neopopOnPrimary,
-          borderRadius: BorderRadius.circular(height_16 / 2),
+          borderRadius: BorderRadius.circular(groupGapSm),
         ),
         alignment: Alignment.center,
         child: LoadingAnimationWidget.staggeredDotsWave(
           color: neopopAccent,
-          size: height_16 * 3.5,
+          size: groupCtaHeight,
         ),
       ),
     );
@@ -667,17 +695,17 @@ class SuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        height: height_16 * 7,
-        width: height_16 * 7,
-        padding: EdgeInsets.all(height_16 * 1.5),
+        height: groupGutter * 7,
+        width: groupGutter * 7,
+        padding: EdgeInsets.all(groupGapLg),
         decoration: BoxDecoration(
           color: neopopOnPrimary,
-          borderRadius: BorderRadius.circular(height_16 / 2),
+          borderRadius: BorderRadius.circular(groupGapSm),
         ),
         alignment: Alignment.center,
         child: LoadingAnimationWidget.inkDrop(
           color: neopopAccent,
-          size: height_16 * 3.5,
+          size: groupCtaHeight,
         ),
       ),
     );
@@ -692,8 +720,8 @@ class CustomSecondaryButton extends StatelessWidget {
   CustomSecondaryButton({
     required this.buttonText,
     required this.onPressed,
-    this.buttonHeight = 16 * 3,
-    this.buttonWidth = 16 * 8,
+    this.buttonHeight = groupCtaHeightCompact,
+    this.buttonWidth = groupGutter * 8,
     super.key,
   });
 
@@ -705,13 +733,48 @@ class CustomSecondaryButton extends StatelessWidget {
         backgroundColor: neopopBackground,
         minimumSize: Size(buttonWidth, buttonHeight),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
+          borderRadius: BorderRadius.zero,
         ),
       ),
       child: Text(
         buttonText,
         style: button_text.copyWith(
           color: neopopOnBackground,
+        ),
+      ),
+    );
+  }
+}
+
+class CustomPrimaryButton extends StatelessWidget {
+  final String buttonText;
+  final void Function()? onPressed;
+  final double buttonHeight;
+  final double buttonWidth;
+
+  const CustomPrimaryButton({
+    required this.buttonText,
+    required this.onPressed,
+    this.buttonHeight = groupCtaHeightCompact,
+    this.buttonWidth = groupGutter * 8,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: neopopAccent,
+        minimumSize: Size(buttonWidth, buttonHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+        ),
+      ),
+      child: Text(
+        buttonText,
+        style: button_text.copyWith(
+          color: neopopOnPrimary,
         ),
       ),
     );
@@ -735,84 +798,15 @@ class CustomTextFormFieldWithPrefixIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          height: height_10 * 5,
-          width: height_10 * 5,
-          padding: EdgeInsets.all(height_10 / 2),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            border: Border.all(
-              color: neopopGrey,
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(height_16 / 4),
-          ),
-          child: SvgPicture.asset(
-            prefixIconString,
-            height: 20,
-            width: 20,
-            color: neopopGrey,
-          ),
-        ),
-        SizedBox(
-          width: devSysWidth * 0.79,
-          height: height_10 * 5.25,
-          child: TextFormField(
-            obscureText: false,
-            controller: customTextFormFieldTextEditingController,
-            validator: validator,
-            keyboardType: keyboardType,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopGrey,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopGrey,
-                  width: 2,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopGrey,
-                  width: 1,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopError,
-                  width: 2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopError,
-                  width: 2,
-                ),
-              ),
-              errorStyle: const TextStyle(
-                fontSize: 0,
-              ),
-              hintText: hintText,
-              hintStyle: sub_headline5_text.copyWith(
-                color: neopopGrey,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return BorderedInputField.withSvgIcon(
+      controller: customTextFormFieldTextEditingController,
+      svgAssetPath: prefixIconString,
+      hintText: hintText,
+      validator: validator,
+      keyboardType: keyboardType,
+      style: sub_headline5_text.copyWith(
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
     );
   }
 }
@@ -821,97 +815,34 @@ class CustomBigTextFormFieldWithPrefixIcon extends StatelessWidget {
   final TextEditingController customBigTextFormFieldTextEditingController;
   final String prefixIconString;
   final String hintText;
+  final TextStyle? style;
+
   const CustomBigTextFormFieldWithPrefixIcon({
     super.key,
     required this.customBigTextFormFieldTextEditingController,
     required this.prefixIconString,
     required this.hintText,
+    this.style,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: height_10 * 5,
-          width: height_10 * 5,
-          padding: EdgeInsets.all(height_10 / 2),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            border: Border.all(
-              color: neopopGrey,
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(height_16 / 4),
+    return BorderedInputField.withSvgIcon(
+      controller: customBigTextFormFieldTextEditingController,
+      svgAssetPath: prefixIconString,
+      hintText: hintText,
+      keyboardType: TextInputType.multiline,
+      maxLines: 5,
+      style: style ??
+          sub_headline5_text.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
           ),
-          child: SvgPicture.asset(
-            prefixIconString,
-            height: 20,
-            width: 20,
-            color: neopopGrey,
-          ),
-        ),
-        SizedBox(
-          width: devSysWidth * 0.79,
-          height: devSysHeight * 0.175,
-          child: TextFormField(
-            obscureText: false,
-            maxLines: 5,
-            controller: customBigTextFormFieldTextEditingController,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopGrey,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopGrey,
-                  width: 2,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopGrey,
-                  width: 1,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopError,
-                  width: 2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(height_16 / 4),
-                borderSide: const BorderSide(
-                  color: neopopError,
-                  width: 2,
-                ),
-              ),
-              hintText: hintText,
-              hintStyle: sub_headline5_text.copyWith(
-                color: neopopGrey,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
 
-RegExp _numeric = RegExp(r'^-?[0-9]+$');
-
 bool isNumeric(String str) {
-  return _numeric.hasMatch(str);
+  return double.tryParse(str) != null;
 }
 
 class ExtraSmallTextFormField extends StatelessWidget {
@@ -929,9 +860,11 @@ class ExtraSmallTextFormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inputStyle = sub_headline5_text.copyWith(
+        color: Theme.of(context).colorScheme.onSurface);
     return SizedBox(
-      height: height_10 * 5,
-      width: height_16 * 5,
+      height: groupGap10 * 5,
+      width: groupGap80,
       child: TextFormField(
         obscureText: false,
         // onEditingComplete: onEditingComplete,
@@ -939,46 +872,47 @@ class ExtraSmallTextFormField extends StatelessWidget {
         controller: extraSmallTextFieldTextEditingController,
         validator: validator,
         keyboardType: keyboardType,
+        style: inputStyle,
         decoration: InputDecoration(
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderRadius: BorderRadius.circular(groupRadiusSm),
             borderSide: const BorderSide(
               color: neopopGrey,
-              width: 1,
+              width: AppDimensions.borderWidthHairline,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderRadius: BorderRadius.circular(groupRadiusSm),
             borderSide: const BorderSide(
               color: neopopGrey,
-              width: 2,
+              width: AppDimensions.borderWidthFocus,
             ),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderRadius: BorderRadius.circular(groupRadiusSm),
             borderSide: const BorderSide(
               color: neopopGrey,
-              width: 1,
+              width: AppDimensions.borderWidthHairline,
             ),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderRadius: BorderRadius.circular(groupRadiusSm),
             borderSide: const BorderSide(
               color: neopopError,
-              width: 2,
+              width: AppDimensions.borderWidthFocus,
             ),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(height_16 / 4),
+            borderRadius: BorderRadius.circular(groupRadiusSm),
             borderSide: const BorderSide(
               color: neopopError,
-              width: 2,
+              width: AppDimensions.borderWidthFocus,
             ),
           ),
           errorStyle: const TextStyle(
-            fontSize: 0,
+            fontSize: DefaultDecimalPlaces.hiddenErrorFontSize,
           ),
-          hintText: "₹0.00",
+          hintText: '${userCurrencySymbol()}${AppAmountHints.decimal}',
           hintStyle: sub_headline5_text.copyWith(
             color: neopopGrey,
           ),

@@ -44,3 +44,8 @@ app.*.map.json
 
 #lib files
 /lib/git_ignore.dart
+.env
+env.json
+android/key.properties
+*.jks
+*.keystore
