@@ -16,8 +16,32 @@ if (localPropertiesFile.exists()) {
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
+def releaseKeystoreReady = false
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.withReader("UTF-8") { reader ->
+        keystoreProperties.load(reader)
+    }
+    def requiredKeystoreKeys = ["keyAlias", "keyPassword", "storeFile", "storePassword"]
+    def missingKeystoreKeys = requiredKeystoreKeys.findAll { key ->
+        def value = keystoreProperties.getProperty(key)
+        value == null || value.trim().isEmpty()
+    }
+    if (!missingKeystoreKeys.isEmpty()) {
+        logger.warn(
+            "key.properties exists but is incomplete; missing or empty: " +
+            "${missingKeystoreKeys.join(', ')}. Release builds will use debug signing."
+        )
+    } else {
+        def keystoreFile = file(keystoreProperties.getProperty("storeFile"))
+        if (!keystoreFile.exists()) {
+            logger.warn(
+                "key.properties storeFile does not exist: ${keystoreFile}. " +
+                "Release builds will use debug signing."
+            )
+        } else {
+            releaseKeystoreReady = true
+        }
+    }
 }
 
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
@@ -58,18 +82,18 @@ android {
 
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                storePassword keystoreProperties['storePassword']
+            if (releaseKeystoreReady) {
+                keyAlias keystoreProperties.getProperty("keyAlias")
+                keyPassword keystoreProperties.getProperty("keyPassword")
+                storeFile file(keystoreProperties.getProperty("storeFile"))
+                storePassword keystoreProperties.getProperty("storePassword")
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = keystorePropertiesFile.exists()
+            signingConfig = releaseKeystoreReady
                     ? signingConfigs.release
                     : signingConfigs.debug
             proguardFiles 'proguard-rules.pro'
