@@ -1,53 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
 
 Color categoryColor(String category) {
   switch (category.toLowerCase()) {
-    case 'shopping':
-      return Colors.purpleAccent;
-    case 'food':
+    case CategorySlugValues.shopping:
+      return CategoryMaterialColors.purple;
+    case CategorySlugValues.food:
       return neopopAccent;
-    case 'travel':
-      return Colors.blueAccent;
-    case 'entertainment':
-      return Colors.orangeAccent;
-    case 'bills':
-      return Colors.redAccent;
-    case 'health':
-      return Colors.greenAccent;
-    case 'education':
-      return Colors.yellowAccent;
-    case 'groceries':
-      return Colors.tealAccent;
+    case CategorySlugValues.travel:
+      return CategoryMaterialColors.blue;
+    case CategorySlugValues.entertainment:
+      return CategoryMaterialColors.orange;
+    case CategorySlugValues.bills:
+      return neopopError;
+    case CategorySlugValues.health:
+      return CategoryMaterialColors.green;
+    case CategorySlugValues.education:
+      return CategoryMaterialColors.yellow;
+    case CategorySlugValues.groceries:
+      return CategoryMaterialColors.teal;
     default:
-      return Colors.grey;
+      return CategoryMaterialColors.grey;
   }
 }
 
 IconData categoryIcon(String category) {
   switch (category.toLowerCase()) {
-    case 'shopping':
+    case CategorySlugValues.shopping:
       return Icons.shopping_bag_outlined;
-    case 'food':
+    case CategorySlugValues.food:
       return Icons.restaurant;
-    case 'transport':
+    case CategorySlugValues.transport:
       return Icons.directions_car_outlined;
-    case 'travel':
+    case CategorySlugValues.travel:
       return Icons.flight;
-    case 'entertainment':
+    case CategorySlugValues.entertainment:
       return Icons.movie_outlined;
-    case 'bills':
+    case CategorySlugValues.bills:
       return Icons.receipt_long;
-    case 'health':
+    case CategorySlugValues.health:
       return Icons.medical_services_outlined;
-    case 'education':
+    case CategorySlugValues.education:
       return Icons.school_outlined;
-    case 'groceries':
+    case CategorySlugValues.groceries:
       return Icons.local_grocery_store_outlined;
-    case 'rent':
+    case CategorySlugValues.rent:
       return Icons.home_outlined;
-    case 'other':
+    case CategorySlugValues.other:
       return Icons.more_horiz;
     default:
       return Icons.category_outlined;
@@ -59,11 +62,11 @@ Widget buildCategoryLogo({
   required String? categoryLogo,
   required String category,
   required Color color,
-  double size = 24,
+  double size = AppDimensions.groupIconLg,
 }) {
   final logo = categoryLogo?.trim() ?? '';
 
-  if (logo.startsWith('<svg')) {
+  if (logo.startsWith(LogoUrlPrefixes.svg)) {
     return SvgPicture.string(
       logo,
       width: size,
@@ -73,7 +76,7 @@ Widget buildCategoryLogo({
     );
   }
 
-  if (logo.startsWith('http')) {
+  if (logo.startsWith(LogoUrlPrefixes.http)) {
     return SvgPicture.network(
       logo,
       width: size,
@@ -83,5 +86,6 @@ Widget buildCategoryLogo({
     );
   }
 
-  return Icon(categoryIcon(logo.isNotEmpty ? logo : category), color: color, size: size);
+  return Icon(categoryIcon(logo.isNotEmpty ? logo : category),
+      color: color, size: size);
 }

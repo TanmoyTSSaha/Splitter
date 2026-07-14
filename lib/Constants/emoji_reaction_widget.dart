@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Model/activity_model.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Model/activity_model.dart';
+import 'package:splitr/Services/supabase_service.dart';
 
 /// Interactive emoji reaction row.
 /// Shows existing reaction counts and allows toggling your own reaction.
@@ -37,30 +39,28 @@ class EmojiReactionWidget extends StatelessWidget {
           return GestureDetector(
             onTap: () => onReactionSelected(emoji),
             child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(right: groupGapSm),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGapSm, vertical: groupGapXxs),
               decoration: BoxDecoration(
                 color: userReacted
-                    ? neopopAccent.withOpacity(0.2)
-                    : neopopOnPrimary.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
+                    ? neopopAccentFillStrong
+                    : neopopOnPrimaryFillWhisper,
+                borderRadius: BorderRadius.circular(groupControlRadius),
                 border: Border.all(
-                  color: userReacted
-                      ? neopopAccent.withOpacity(0.5)
-                      : Colors.transparent,
+                  color: userReacted ? neopopAccentIconMuted : groupTransparent,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(width: 4),
+                  Text(emoji, style: const TextStyle(fontSize: splitrFontBody)),
+                  const SizedBox(width: groupGapXxs),
                   Text(
                     '$count',
                     style: caption_text.copyWith(
-                      color: userReacted
-                          ? neopopAccent
-                          : neopopOnPrimary.withOpacity(0.6),
+                      color:
+                          userReacted ? neopopAccent : neopopOnPrimaryIconDim,
                       fontWeight:
                           userReacted ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -69,21 +69,22 @@ class EmojiReactionWidget extends StatelessWidget {
               ),
             ),
           );
-        }).toList(),
+        }),
 
         // Add Reaction Button
         GestureDetector(
           onTap: () => _showEmojiPicker(context),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+                horizontal: groupGapSm, vertical: groupGapXxs),
             decoration: BoxDecoration(
-              color: neopopOnPrimary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
+              color: neopopOnPrimaryFillWhisper,
+              borderRadius: BorderRadius.circular(groupControlRadius),
             ),
             child: Icon(
               Icons.add_reaction_outlined,
-              size: 16,
-              color: neopopOnPrimary.withOpacity(0.6),
+              size: groupIconMd,
+              color: neopopOnPrimaryIconDim,
             ),
           ),
         ),
@@ -93,18 +94,18 @@ class EmojiReactionWidget extends StatelessWidget {
 
   void _showEmojiPicker(BuildContext context) {
     // Simple overlay with common reactions
-    final commonEmojis = ['👍', '❤️', '😂', '😮', '😢', '💸'];
+    const commonEmojis = DefaultReactionEmojis.list;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: neopopBackground,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: groupSheetTopBorderRadius,
       ),
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(height_16),
-          height: 120,
+          padding: const EdgeInsets.all(groupGutter),
+          height: groupEmojiPickerHeight,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: commonEmojis.map((emoji) {
@@ -115,7 +116,7 @@ class EmojiReactionWidget extends StatelessWidget {
                 },
                 child: Text(
                   emoji,
-                  style: const TextStyle(fontSize: 32),
+                  style: const TextStyle(fontSize: splitrFontHeadline1),
                 ),
               );
             }).toList(),

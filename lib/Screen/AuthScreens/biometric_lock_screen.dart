@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/BottomNavigationController/bottom_navigation_controller.dart';
-import 'package:splitter/Services/biometric_auth_service.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Screen/BottomNavigationController/bottom_navigation_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/biometric_auth_service.dart';
 
 /// Full-screen biometric lock shown on cold start when biometric lock is enabled.
 class BiometricLockScreen extends StatefulWidget {
@@ -21,7 +27,7 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(AppMotion.biometricDelay);
       if (mounted) _authenticate();
     });
   }
@@ -48,17 +54,22 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
       if (result.status == BiometricAuthStatus.cancelled) {
         _errorMessage = null;
       } else {
-        _errorMessage =
-            result.message ?? 'Authentication failed. Tap to retry.';
+        _errorMessage = AppStrings.errors.biometricFailed;
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+
     return Scaffold(
-      backgroundColor: neopopBackground,
-      body: SafeArea(
+      backgroundColor: surface,
+      body: Padding(
+        padding: EdgeInsets.only(
+          top: MediaQuery.paddingOf(context).top,
+          bottom: MediaQuery.paddingOf(context).bottom,
+        ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -67,8 +78,8 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
 
               // ── App Icon ──
               Container(
-                width: 100,
-                height: 100,
+                width: AppDimensions.biometricIconContainer,
+                height: AppDimensions.biometricIconContainer,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
@@ -76,47 +87,47 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
                     end: Alignment.bottomRight,
                     colors: [
                       neopopAccent,
-                      neopopAccent.withOpacity(0.6),
+                      neopopAccentIconDim,
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: neopopAccent.withOpacity(0.3),
-                      blurRadius: 30,
-                      spreadRadius: 5,
+                      color: neopopAccentBorderSoft,
+                      blurRadius: AppDimensions.biometricIconBlur,
+                      spreadRadius: AppDimensions.biometricIconSpread,
                     ),
                   ],
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'S',
+                    AppStrings.biometric.brandMonogram,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 42,
+                      color: neopopOnPrimary,
+                      fontSize: splitrFontHero,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -1,
+                      letterSpacing: AppDimensions.letterSpacingTight,
                     ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: groupGapLg),
 
               // ── Title ──
               Text(
-                'SplitO',
+                AppBranding.brandLogo,
                 style: headline1_text.copyWith(
-                  color: neopopOnPrimary,
+                  color: groupOnSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: groupGapSm),
 
               Text(
-                'Locked',
+                AppStrings.biometric.locked,
                 style: body1_text.copyWith(
-                  color: neopopOnPrimary.withOpacity(0.4),
+                  color: groupOnSurfaceMuted,
                 ),
               ),
 
@@ -126,26 +137,26 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
               GestureDetector(
                 onTap: _isAuthenticating ? null : _authenticate,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: 72,
-                  height: 72,
+                  duration: AppMotion.nav,
+                  width: AppDimensions.biometricButtonSize,
+                  height: AppDimensions.biometricButtonSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: _isAuthenticating
-                        ? neopopAccent.withOpacity(0.1)
-                        : neopopAccent.withOpacity(0.15),
+                        ? neopopAccentFillSoft
+                        : neopopAccentFillMedium,
                     border: Border.all(
-                      color: neopopAccent.withOpacity(0.3),
+                      color: neopopAccentBorderSoft,
                       width: 2,
                     ),
                   ),
                   child: _isAuthenticating
                       ? const Center(
                           child: SizedBox(
-                            width: 28,
-                            height: 28,
+                            width: AppDimensions.groupIconLg,
+                            height: AppDimensions.groupIconLg,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
+                              strokeWidth: groupProgressStrokeWidthMedium,
                               color: neopopAccent,
                             ),
                           ),
@@ -153,36 +164,38 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
                       : const Icon(
                           Icons.fingerprint_rounded,
                           color: neopopAccent,
-                          size: 36,
+                          size: AppDimensions.biometricIconSize,
                         ),
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: groupGutter),
 
               Text(
-                _isAuthenticating ? 'Authenticating...' : 'Tap to unlock',
+                _isAuthenticating
+                    ? AppStrings.biometric.authenticating
+                    : AppStrings.biometric.tapToUnlock,
                 style: caption_text.copyWith(
-                  color: neopopOnPrimary.withOpacity(0.5),
+                  color: groupOnSurfaceMuted,
                 ),
               ),
 
               // ── Error Message ──
               if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: groupCarouselGap),
                 GestureDetector(
                   onTap: _authenticate,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: groupGutter, vertical: groupGapSm),
                     decoration: BoxDecoration(
-                      color: neopopYellow.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      color: neopopYellow.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(groupControlRadius),
                     ),
                     child: Text(
                       _errorMessage!,
                       style: caption_text.copyWith(
-                        color: neopopYellow,
+                        color: ThemeAccentColors.oweWarning(context),
                       ),
                     ),
                   ),

@@ -7,12 +7,14 @@ list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   file_selector_windows
   local_auth_windows
+  sentry_flutter
   share_plus
   sqlite3_flutter_libs
   url_launcher_windows
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

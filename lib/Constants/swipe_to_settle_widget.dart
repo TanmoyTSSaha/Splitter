@@ -1,10 +1,16 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:flutter/services.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 /// Iconic swipe-to-settle gesture with spring physics, shimmer, haptics,
-/// and confetti burst on completion. SplitO's brand signature interaction.
+/// and confetti burst on completion. Splitr's brand signature interaction.
 class SwipeToSettleWidget extends StatefulWidget {
   final double amount;
   final String fromName;
@@ -46,21 +52,21 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
 
     _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: AppMotion.settleSwipePrimary,
     )..repeat();
 
     _confettiController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: AppMotion.settleSwipeSecondary,
     );
 
     _springController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: AppMotion.settleSwipeReset,
     );
 
     _springAnimation = _springController.drive(
-      CurveTween(curve: Curves.elasticOut),
+      CurveTween(curve: AppCurves.settleSpring),
     );
 
     _springController.addListener(() {
@@ -72,14 +78,7 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
     // Generate confetti particles
     for (int i = 0; i < 60; i++) {
       _particles.add(_ConfettiParticle(
-        color: [
-          neopopAccent,
-          neopopYellow,
-          Colors.cyan,
-          Colors.pinkAccent,
-          Colors.purpleAccent,
-          Colors.greenAccent
-        ][i % 6],
+        color: SettleConfettiColors.list[i % SettleConfettiColors.list.length],
         x: _random.nextDouble(),
         y: _random.nextDouble(),
         size: _random.nextDouble() * 8 + 4,
@@ -130,7 +129,7 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
       HapticFeedback.heavyImpact();
       _confettiController.forward();
 
-      Future.delayed(const Duration(milliseconds: 800), () {
+      Future.delayed(AppMotion.settleSwipeDelay, () {
         widget.onSettled();
       });
     } else {
@@ -140,7 +139,7 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
       _springAnimation =
           Tween<double>(begin: startPos, end: 0.0).animate(CurvedAnimation(
         parent: _springController,
-        curve: Curves.elasticOut,
+        curve: AppCurves.settleSpring,
       ));
       _springController.addListener(() {
         if (mounted) {
@@ -157,7 +156,7 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black87,
+      color: AppScrimColors.dark,
       child: SafeArea(
         child: Stack(
           children: [
@@ -166,17 +165,19 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
               children: [
                 // Top bar with cancel
                 Padding(
-                  padding: EdgeInsets.all(width_16),
+                  padding: const EdgeInsets.all(groupGutter),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
                         onPressed: widget.onCancel,
                         icon: const Icon(Icons.close_rounded,
-                            color: neopopOnBackground, size: 28),
+                            color: neopopOnBackground,
+                            size: AppDimensions.groupIconLg),
                       ),
-                      Text("Settle Up", style: sub_headline4_text),
-                      const SizedBox(width: 48),
+                      Text(AppStrings.settle.title, style: sub_headline4_text),
+                      const SizedBox(
+                          width: AppDimensions.swipeSettleCancelSpacer),
                     ],
                   ),
                 ),
@@ -185,16 +186,16 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
 
                 // Amount display
                 Text(
-                  "₹${widget.amount.toStringAsFixed(2)}",
+                  "${userCurrencySymbol()}${widget.amount.toStringAsFixed(2)}",
                   style: TextStyle(
-                    fontSize: 56,
+                    fontSize: splitrFontSwipeHero,
                     fontWeight: FontWeight.w700,
                     color: _settled ? neopopAccent : neopopOnBackground,
-                    fontFamily: 'Albra',
-                    letterSpacing: -2,
+                    fontFamily: kFontAlbra,
+                    letterSpacing: AppDimensions.letterSpacingSwipeHero,
                   ),
                 ),
-                SizedBox(height: height_10),
+                const SizedBox(height: groupGapSm),
                 RichText(
                   textAlign: TextAlign.center,
                   text: TextSpan(
@@ -205,7 +206,7 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
                         style: body1_text.copyWith(
                             color: neopopYellow, fontWeight: FontWeight.w600),
                       ),
-                      const TextSpan(text: "  →  "),
+                      TextSpan(text: AppStrings.settle.flowArrow),
                       TextSpan(
                         text: widget.toName,
                         style: body1_text.copyWith(
@@ -220,33 +221,43 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
                 // Swipe track
                 if (!_settled)
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: width_16 * 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: groupGutter * 2),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        _maxDrag = constraints.maxWidth - 64;
+                        _maxDrag = constraints.maxWidth -
+                            AppDimensions.swipeSettleIconPadding;
                         return Container(
-                          height: 64,
+                          height: AppDimensions.swipeSettleTrackHeight,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(32),
-                            color: neopopOnPrimary.withOpacity(0.08),
+                            borderRadius:
+                                BorderRadius.circular(groupPillRadius),
+                            color: neopopOnPrimaryFillFaint,
                             border: Border.all(
-                              color: Color.lerp(neopopGrey.withOpacity(0.2),
-                                  neopopAccent, _progress)!,
+                              color: Color.lerp(
+                                neopopGreyBorder,
+                                neopopAccent,
+                                _progress,
+                              )!,
                             ),
                           ),
                           child: Stack(
                             children: [
                               // Progress fill
                               AnimatedContainer(
-                                duration: const Duration(milliseconds: 50),
-                                width: _dragPosition + 64,
-                                height: 64,
+                                duration: AppMotion.micro,
+                                width: _dragPosition +
+                                    AppDimensions.swipeSettleIconPadding,
+                                height: AppDimensions.swipeSettleTrackHeight,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(32),
+                                  borderRadius:
+                                      BorderRadius.circular(groupPillRadius),
                                   gradient: LinearGradient(
                                     colors: [
-                                      neopopAccent.withOpacity(0.3 * _progress),
-                                      neopopAccent.withOpacity(0.1 * _progress),
+                                      neopopAccent.withValues(
+                                          alpha: 0.3 * _progress),
+                                      neopopAccent.withValues(
+                                          alpha: 0.1 * _progress),
                                     ],
                                   ),
                                 ),
@@ -269,17 +280,17 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
                                                   2 * _shimmerController.value,
                                               0),
                                           colors: [
-                                            neopopGrey.withOpacity(0.3),
+                                            neopopGreyBorderSoft,
                                             neopopOnBackground,
-                                            neopopGrey.withOpacity(0.3),
+                                            neopopGreyBorderSoft,
                                           ],
                                           stops: const [0.0, 0.5, 1.0],
                                         ).createShader(bounds);
                                       },
                                       child: Text(
-                                        "Swipe to settle →",
+                                        AppStrings.settle.swipeHint,
                                         style: body1_text.copyWith(
-                                          color: Colors.white,
+                                          color: neopopOnPrimary,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -291,23 +302,25 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
                               // Draggable thumb
                               Positioned(
                                 left: _dragPosition,
-                                top: 4,
+                                top: AppDimensions.swipeSettleThumbTop,
                                 child: GestureDetector(
                                   onHorizontalDragUpdate: _onDragUpdate,
                                   onHorizontalDragEnd: _onDragEnd,
                                   child: Container(
-                                    width: 56,
-                                    height: 56,
+                                    width: AppDimensions.swipeSettleThumbSize,
+                                    height: groupCtaHeight,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: Color.lerp(neopopOnBackground,
                                           neopopAccent, _progress),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: neopopAccent
-                                              .withOpacity(0.3 * _progress),
-                                          blurRadius: 12,
-                                          spreadRadius: 2,
+                                          color: neopopAccent.withValues(
+                                              alpha: 0.3 * _progress),
+                                          blurRadius: AppDimensions
+                                              .swipeSettleThumbShadowBlur,
+                                          spreadRadius: AppDimensions
+                                              .swipeSettleThumbShadowSpread,
                                         ),
                                       ],
                                     ),
@@ -316,7 +329,7 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
                                           ? Icons.check_rounded
                                           : Icons.arrow_forward_rounded,
                                       color: neopopBackground,
-                                      size: 24,
+                                      size: AppDimensions.swipeSettleIconSize,
                                     ),
                                   ),
                                 ),
@@ -332,15 +345,16 @@ class _SwipeToSettleWidgetState extends State<SwipeToSettleWidget>
                 if (_settled)
                   Column(
                     children: [
-                      Icon(Icons.check_circle_rounded,
-                          color: neopopAccent, size: 64),
-                      SizedBox(height: height_10),
-                      Text("Settled! 🎉",
+                      const Icon(Icons.check_circle_rounded,
+                          color: neopopAccent,
+                          size: AppDimensions.swipeSettleTrackHeight),
+                      const SizedBox(height: groupGapSm),
+                      Text(AppStrings.settle.settled,
                           style: headline2_text.copyWith(color: neopopAccent)),
                     ],
                   ),
 
-                SizedBox(height: height_16 * 4),
+                const SizedBox(height: groupGapXl * 2),
               ],
             ),
 
@@ -388,7 +402,7 @@ class _ConfettiPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (var p in particles) {
       final paint = Paint()
-        ..color = p.color.withOpacity((1 - progress).clamp(0.0, 1.0));
+        ..color = p.color.withValues(alpha: (1 - progress).clamp(0.0, 1.0));
 
       final x = size.width * p.x + p.speedX * progress * 80;
       final y = size.height * 0.4 +

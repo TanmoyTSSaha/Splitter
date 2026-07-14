@@ -1,8 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
 
 /// Animated donut chart showing top 5 expense categories by amount.
 class TopCategoriesChart extends StatefulWidget {
@@ -23,9 +28,9 @@ class _TopCategoriesChartState extends State<TopCategoriesChart> {
   @override
   Widget build(BuildContext context) {
     if (widget.topCategories.isEmpty) {
-      return const TabEmptyState(
+      return TabEmptyState(
         variant: TabEmptyVariant.analytics,
-        title: 'No category data yet',
+        title: AppStrings.analytics.noCategoryData,
         compact: true,
       );
     }
@@ -39,15 +44,15 @@ class _TopCategoriesChartState extends State<TopCategoriesChart> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Top Shared Expense Categories",
+            AppStrings.analytics.topSharedExpenseCategories,
             style: body1_text.copyWith(
               fontWeight: FontWeight.w600,
               color: groupOnSurface,
             ),
           ),
-          SizedBox(height: height_16),
+          const SizedBox(height: groupGapMd),
           SizedBox(
-            height: devSysWidth * 0.7,
+            height: devSysWidth * AppDimensions.chartDonutHeightFactor,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -67,23 +72,23 @@ class _TopCategoriesChartState extends State<TopCategoriesChart> {
                         });
                       },
                     ),
-                    startDegreeOffset: -90,
+                    startDegreeOffset: ChartScaleFactors.pieStartDegreeTop,
                     borderData: FlBorderData(show: false),
-                    sectionsSpace: 2,
-                    centerSpaceRadius: devSysWidth * 0.15,
+                    sectionsSpace: AppDimensions.chartPieSectionsSpace,
+                    centerSpaceRadius:
+                        devSysWidth * AppDimensions.chartPieCenterRadiusFactor,
                     sections: _buildSections(total),
                   ),
                 ),
-                // Center text
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      "Total",
-                      style: caption_text.copyWith(color: neopopGrey),
+                      AppStrings.analytics.total,
+                      style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                     Text(
-                      "₹${total.toStringAsFixed(0)}",
+                      "${userCurrencySymbol()}${total.toStringAsFixed(0)}",
                       style: sub_headline4_text.copyWith(
                         color: neopopAccent,
                         fontWeight: FontWeight.w700,
@@ -94,28 +99,29 @@ class _TopCategoriesChartState extends State<TopCategoriesChart> {
               ],
             ),
           ),
-          SizedBox(height: height_16),
-          // Legend list
+          const SizedBox(height: groupGapMd),
           ...widget.topCategories.asMap().entries.map((entry) {
-            int i = entry.key;
-            var cat = entry.value;
-            double percentage = total > 0 ? (cat.value / total) * 100 : 0;
-            double opacity = 1.0 - (i * 0.15);
-            if (opacity < 0.3) opacity = 0.3;
+            final i = entry.key;
+            final cat = entry.value;
+            final percentage = total > 0 ? (cat.value / total) * 100 : 0;
+            var opacity = 1.0 - (i * ChartOpacityRules.pieFadeStep);
+            if (opacity < ChartOpacityRules.pieFadeMin) {
+              opacity = ChartOpacityRules.pieFadeMin;
+            }
 
             return Padding(
-              padding: EdgeInsets.only(bottom: height_10),
+              padding: const EdgeInsets.only(bottom: groupGapSm),
               child: Row(
                 children: [
                   Container(
-                    width: 14,
-                    height: 14,
+                    width: AppDimensions.chartLegendSwatch,
+                    height: AppDimensions.chartLegendSwatch,
                     decoration: BoxDecoration(
-                      color: neopopAccent.withOpacity(opacity),
-                      borderRadius: BorderRadius.circular(3),
+                      color: neopopAccent.withValues(alpha: opacity),
+                      borderRadius: BorderRadius.circular(groupRadiusXs),
                     ),
                   ),
-                  SizedBox(width: width_10),
+                  const SizedBox(width: groupGapSm),
                   Expanded(
                     child: Text(
                       cat.key,
@@ -124,18 +130,18 @@ class _TopCategoriesChartState extends State<TopCategoriesChart> {
                     ),
                   ),
                   Text(
-                    "₹${cat.value.toStringAsFixed(0)}",
+                    "${userCurrencySymbol()}${cat.value.toStringAsFixed(0)}",
                     style: body2_text.copyWith(
                       fontWeight: FontWeight.w600,
                       color: groupOnSurface,
                     ),
                   ),
-                  SizedBox(width: width_10),
+                  const SizedBox(width: groupGapSm),
                   SizedBox(
-                    width: 45,
+                    width: AppDimensions.chartPercentColumnWidth,
                     child: Text(
-                      "${percentage.toStringAsFixed(1)}%",
-                      style: caption_text.copyWith(color: neopopGrey),
+                      "${percentage.toStringAsFixed(1)}${AppDisplaySymbols.percent}",
+                      style: caption_text.copyWith(color: groupOnSurfaceMuted),
                       textAlign: TextAlign.end,
                     ),
                   ),
@@ -150,26 +156,34 @@ class _TopCategoriesChartState extends State<TopCategoriesChart> {
 
   List<PieChartSectionData> _buildSections(double total) {
     return widget.topCategories.asMap().entries.map((entry) {
-      int i = entry.key;
-      var cat = entry.value;
+      final i = entry.key;
+      final cat = entry.value;
       final isTouched = i == touchIndex;
-      double opacity = 1.0 - (i * 0.15);
-      if (opacity < 0.3) opacity = 0.3;
+      var opacity = 1.0 - (i * ChartOpacityRules.pieFadeStep);
+      if (opacity < ChartOpacityRules.pieFadeMin) {
+        opacity = ChartOpacityRules.pieFadeMin;
+      }
 
       return PieChartSectionData(
-        color: neopopAccent.withOpacity(opacity),
+        color: neopopAccent.withValues(alpha: opacity),
         value: cat.value,
-        title:
-            isTouched ? "${(cat.value / total * 100).toStringAsFixed(1)}%" : '',
-        radius: isTouched ? 70 : 60,
+        title: isTouched
+            ? "${(cat.value / total * 100).toStringAsFixed(1)}${AppDisplaySymbols.percent}"
+            : '',
+        radius: isTouched
+            ? AppDimensions.chartPieRadiusLg
+            : AppDimensions.chartPieRadiusMd,
         titleStyle: body2_text.copyWith(
           color: groupOnSurface,
           fontWeight: FontWeight.w700,
         ),
-        titlePositionPercentageOffset: 0.55,
+        titlePositionPercentageOffset: ChartScaleFactors.pieTitleOffset,
         borderSide: isTouched
-            ? const BorderSide(color: groupOnSurface, width: 1)
-            : BorderSide(color: groupOnSurface.withOpacity(0)),
+            ? const BorderSide(
+                color: groupOnSurface,
+                width: AppDimensions.borderWidthHairline,
+              )
+            : BorderSide(color: groupOnSurface.withValues(alpha: 0)),
       );
     }).toList();
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/spending_intelligence_service.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Services/spending_intelligence_service.dart';
 
 class InsightsScoreRing extends StatelessWidget {
   final String label;
@@ -28,7 +30,7 @@ class InsightsScoreRing extends StatelessWidget {
       opacity: 0.06,
       padding: const EdgeInsets.all(groupGapSm),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(groupControlRadius),
         onTap: () => _showBreakdown(context),
         child: Column(
           children: [
@@ -37,21 +39,21 @@ class InsightsScoreRing extends StatelessWidget {
               children: [
                 Text(label,
                     style: caption_text.copyWith(color: groupOnSurfaceMuted)),
-                const SizedBox(width: 4),
+                const SizedBox(width: groupGapXxs),
                 Icon(Icons.help_outline,
-                    size: 12, color: groupOnSurfaceMuted.withValues(alpha: 0.7)),
+                    size: 12, color: groupMutedTextSecondary),
               ],
             ),
             const SizedBox(height: 8),
             SizedBox(
-              width: 52,
-              height: 52,
+              width: AppDimensions.insightsScoreRingSize,
+              height: AppDimensions.insightsScoreRingSize,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   CircularProgressIndicator(
                     value: progress,
-                    strokeWidth: 5,
+                    strokeWidth: AppDimensions.insightsScoreRingStroke,
                     backgroundColor: accent.withValues(alpha: 0.15),
                     valueColor: AlwaysStoppedAnimation(accent),
                   ),
@@ -60,7 +62,7 @@ class InsightsScoreRing extends StatelessWidget {
                     style: caption_text.copyWith(
                       color: accent,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: splitrFontBodySm,
                     ),
                   ),
                 ],
@@ -72,7 +74,7 @@ class InsightsScoreRing extends StatelessWidget {
               style: caption_text.copyWith(
                 color: groupOnSurface,
                 fontWeight: FontWeight.w600,
-                fontSize: 11,
+                fontSize: splitrFontCaptionSm,
               ),
             ),
           ],
@@ -84,9 +86,9 @@ class InsightsScoreRing extends StatelessWidget {
   void _showBreakdown(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: groupSheetTopBorderRadius,
       ),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(groupGapLg),
@@ -94,8 +96,10 @@ class InsightsScoreRing extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$label score: $score',
-                style: sub_headline4_text.copyWith(color: groupOnSurface)),
+            Text(
+              AppStringFormat.insightsScoreBreakdown(label, score),
+              style: sub_headline4_text.copyWith(color: groupOnSurface),
+            ),
             const SizedBox(height: groupGapSm),
             Text(
               explanation,

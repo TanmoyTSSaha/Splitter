@@ -1,52 +1,64 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Model/badge_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/gamification_service.dart';
+import 'package:get/get.dart';
+import 'package:splitr/Constants/achievement_icon_map.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Controller/achievement_controller.dart';
+import 'package:splitr/Model/achievement_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/app_strings.dart';
 
 class BadgesSectionWidget extends StatelessWidget {
   const BadgesSectionWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<BadgeModel>>(
-      future: GamificationService().getBadges(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
+    if (!Get.isRegistered<AchievementController>()) {
+      return const SizedBox.shrink();
+    }
+    final controller = Get.find<AchievementController>();
 
-        final badges = snapshot.data!;
-
-        return SizedBox(
-          width: double.infinity,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Achievements",
-                style: headline3_text.copyWith(
-                  fontFamily: 'Albra',
-                  fontWeight: FontWeight.w600,
-                  color: groupOnSurface,
-                ),
-              ),
-              const SizedBox(height: groupGapSm),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: badges.map((badge) => _buildBadge(badge)).toList(),
-                ),
-              ),
-            ],
-          ),
+    return Obx(() {
+      if (controller.isLoading.value && controller.achievements.isEmpty) {
+        return const SizedBox(
+          height: 120,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
         );
-      },
-    );
+      }
+
+      final badges = controller.achievements;
+      if (badges.isEmpty) {
+        return const SizedBox.shrink();
+      }
+
+      return SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppStrings.profile.achievements,
+              style: headline3_text.copyWith(
+                fontFamily: kFontAlbra,
+                fontWeight: FontWeight.w600,
+                color: groupOnSurface,
+              ),
+            ),
+            const SizedBox(height: groupGapSm),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: badges.map(_buildBadge).toList(),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
-  Widget _buildBadge(BadgeModel badge) {
+  Widget _buildBadge(AchievementModel badge) {
+    final assetPath = AchievementIconMap.assetFor(badge.iconKey);
     return Container(
       margin: const EdgeInsets.only(right: groupGapMd),
       width: 100,
@@ -56,23 +68,35 @@ class BadgesSectionWidget extends StatelessWidget {
             height: 70,
             width: 70,
             decoration: BoxDecoration(
-              color: badge.isUnlocked
-                  ? neopopAccent.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(35),
+              color:
+                  badge.isUnlocked ? neopopAccentFillSoft : groupMutedFillSoft,
+              borderRadius: BorderRadius.circular(groupRadiusBadge),
               border: Border.all(
-                color: badge.isUnlocked ? neopopAccent : Colors.grey,
+                color: badge.isUnlocked ? neopopAccent : groupOnSurfaceMuted,
                 width: 2,
               ),
             ),
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(groupCarouselGap),
             child: Opacity(
               opacity: badge.isUnlocked ? 1.0 : 0.4,
-              child: Icon(
-                _getIconData(badge.id),
-                size: 32,
-                color: badge.isUnlocked ? neopopAccent : Colors.grey,
-              ),
+              child: assetPath != null
+                  ? Image.asset(
+                      assetPath,
+                      errorBuilder: (_, __, ___) => Icon(
+                        AchievementIconMap.iconFor(badge.iconKey),
+                        size: 32,
+                        color: badge.isUnlocked
+                            ? neopopAccent
+                            : groupOnSurfaceMuted,
+                      ),
+                    )
+                  : Icon(
+                      AchievementIconMap.iconFor(badge.iconKey),
+                      size: 32,
+                      color: badge.isUnlocked
+                          ? neopopAccent
+                          : groupOnSurfaceMuted,
+                    ),
             ),
           ),
           const SizedBox(height: groupGapSm),
@@ -81,7 +105,7 @@ class BadgesSectionWidget extends StatelessWidget {
             style: body2_text.copyWith(
               color: badge.isUnlocked ? groupOnSurface : groupOnSurfaceMuted,
               fontWeight: FontWeight.w600,
-              fontSize: 12,
+              fontSize: splitrFontCaption,
             ),
             textAlign: TextAlign.center,
             maxLines: 1,
@@ -90,20 +114,5 @@ class BadgesSectionWidget extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  IconData _getIconData(String badgeId) {
-    switch (badgeId) {
-      case 'first_trip':
-        return Icons.explore;
-      case 'big_spender':
-        return Icons.attach_money;
-      case 'settlement_hero':
-        return Icons.handshake;
-      case 'early_bird':
-        return Icons.wb_sunny;
-      default:
-        return Icons.star;
-    }
   }
 }

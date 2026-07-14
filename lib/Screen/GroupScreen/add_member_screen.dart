@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
 
 class AddMemberScreen extends StatefulWidget {
   final String userID;
@@ -57,14 +65,17 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
           await _supabaseDatabase.getFriends(userID: widget.userID);
 
       _friends = allFriends.where((f) {
-        final isAccepted = f.status == 'accepted';
+        final isAccepted = f.status == GroupInviteStatusValues.accepted;
         final friendID = f.friendUserID;
         final isNotMember = !_existingMemberIDs.contains(friendID);
         return isAccepted && isNotMember && friendID != null;
       }).toList();
-    } catch (e) {
-      debugPrint("FETCH DATA ERROR: $e");
-      Fluttertoast.showToast(msg: "Failed to load data.");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        AppStrings.errors.failedToLoadData,
+        error: e,
+        stack: stack,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -88,14 +99,18 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       setState(() {
         _searchResults.clear();
         for (var user in results) {
-          final uid = user['user_id']?.toString();
+          final uid = user[UserSearchResultKeys.userId]?.toString();
           if (uid != widget.userID && !_existingMemberIDs.contains(uid)) {
             _searchResults.add(user);
           }
         }
       });
-    } catch (e) {
-      debugPrint("SEARCH ERROR: $e");
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        'User search failed',
+        error: e,
+        stack: stack,
+      );
     } finally {
       if (mounted) setState(() => _isSearching = false);
     }
@@ -103,7 +118,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
 
   Future<void> _addSelectedMembers() async {
     if (_selectedUserIDs.isEmpty) {
-      Fluttertoast.showToast(msg: "Select at least one member.");
+      SplitrToast.show(AppStrings.groups.selectAtLeastOneMember);
       return;
     }
 
@@ -116,11 +131,14 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         );
       }
 
-      Fluttertoast.showToast(msg: "Invites sent successfully!");
+      SplitrToast.show(AppStrings.groups.invitesSent);
       if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      debugPrint("ADD API ERROR: $e");
-      Fluttertoast.showToast(msg: "Failed to send invites: ${e.toString()}");
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.groups.failedToSendInvitesPrefix,
+        error: e,
+        stack: stack,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -148,11 +166,11 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       if (_searchResults.isEmpty) {
         return Center(
           child: Padding(
-            padding: EdgeInsets.only(top: height_16 * 4),
+            padding: const EdgeInsets.only(top: groupGapXl * 2),
             child: Text(
-              'No users found for "${_searchController.text.trim()}".',
+              AppStringFormat.noUsersFoundFor(_searchController.text.trim()),
               textAlign: TextAlign.center,
-              style: body2_text.copyWith(color: neopopGrey),
+              style: body2_text.copyWith(color: groupOnSurfaceMuted),
             ),
           ),
         );
@@ -161,16 +179,17 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         physics: const BouncingScrollPhysics(),
         children: [
           Text(
-            'Search Results',
-            style: sub_headline5_text.copyWith(color: neopopBackground),
+            AppStrings.friends.searchResults,
+            style: sub_headline5_text.copyWith(color: groupOnSurface),
           ),
-          SizedBox(height: height_10),
+          const SizedBox(height: groupGapSm),
           ..._searchResults.map((user) {
-            final uid = user['user_id'].toString();
+            final uid = user[UserSearchResultKeys.userId].toString();
             return _buildUserTile(
               uid: uid,
-              name: user['user_name'] ?? 'Unknown',
-              email: user['user_email'] ?? '',
+              name: user[UserSearchResultKeys.userName] ??
+                  DisplayFallbacks.unknownUser,
+              email: user[UserSearchResultKeys.userEmail] ?? '',
               isSelected: _selectedUserIDs.contains(uid),
             );
           }),
@@ -181,11 +200,11 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     if (_friends.isEmpty) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.only(top: height_16 * 4),
+          padding: const EdgeInsets.only(top: groupGapXl * 2),
           child: Text(
-            'No friends available to add.\nTry searching by email.',
+            AppStrings.groups.noFriendsAvailableToAdd,
             textAlign: TextAlign.center,
-            style: body2_text.copyWith(color: neopopGrey),
+            style: body2_text.copyWith(color: groupOnSurfaceMuted),
           ),
         ),
       );
@@ -195,14 +214,14 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       physics: const BouncingScrollPhysics(),
       children: [
         Text(
-          'Your Friends',
+          AppStrings.friends.yourFriends,
           style: sub_headline5_text.copyWith(color: neopopBackground),
         ),
-        SizedBox(height: height_10),
+        SizedBox(height: groupGap10),
         ..._friends.map((friend) {
           return _buildUserTile(
             uid: friend.friendUserID!,
-            name: friend.friendName ?? 'Unknown',
+            name: friend.friendName ?? DisplayFallbacks.unknownUser,
             email: friend.friendEmail ?? '',
             isSelected: _selectedUserIDs.contains(friend.friendUserID),
           );
@@ -213,18 +232,13 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(
-          'Invite Members',
-          style: sub_headline4_text.copyWith(color: neopopBackground),
-        ),
-        backgroundColor: Colors.white,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: neopopBackground),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: neopopBackground),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.friends.inviteMembers,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -232,7 +246,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
             TextButton(
               onPressed: _isLoading ? null : _addSelectedMembers,
               child: Text(
-                'Invite (${_selectedUserIDs.length})',
+                AppStringFormat.inviteCount(_selectedUserIDs.length),
                 style: body2_text.copyWith(
                   color: neopopAccent,
                   fontWeight: FontWeight.w600,
@@ -241,45 +255,29 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(width_16),
-          child: Column(
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(
+          groupGutter,
+          groupGutter,
+          groupGutter,
+          groupGutter + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: Column(
             children: [
-              TextField(
+              BorderedInputField(
                 controller: _searchController,
-                style: body1_text.copyWith(color: neopopBackground),
+                hintText: AppStrings.groups.searchFriendsOrEmail,
                 onChanged: _searchUsers,
-                decoration: InputDecoration(
-                  hintText: 'Search friends or by email...',
-                  hintStyle: body2_text.copyWith(color: neopopGrey),
-                  prefixIcon: const Icon(Icons.search, color: neopopGrey),
-                  filled: true,
-                  fillColor: neopopBackground.withValues(alpha: 0.04),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: neopopGrey.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: neopopGrey.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: neopopAccent),
-                  ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: groupOnSurfaceMuted,
                 ),
               ),
-              SizedBox(height: height_16),
+              const SizedBox(height: groupGapMd),
               Expanded(child: _buildListContent()),
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -290,34 +288,33 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     required bool isSelected,
   }) {
     return Container(
-      margin: EdgeInsets.only(bottom: height_10),
-      padding: EdgeInsets.symmetric(horizontal: width_16, vertical: height_10),
+      margin: const EdgeInsets.only(bottom: groupGapSm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: groupGutter,
+        vertical: groupGapSm,
+      ),
       decoration: BoxDecoration(
-        color: isSelected
-            ? neopopAccent.withValues(alpha: 0.1)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: isSelected ? neopopAccentFillSoft : groupCardFill,
+        borderRadius: BorderRadius.circular(groupControlRadius),
         border: Border.all(
-          color: isSelected
-              ? neopopAccent
-              : neopopGrey.withValues(alpha: 0.3),
+          color: isSelected ? neopopAccent : groupMutedBorderSoft,
         ),
         boxShadow: [
           BoxShadow(
-            color: neopopBackground.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: groupSurfaceFillWhisper,
+            blurRadius: AppDimensions.groupCardShadowBlur,
+            offset: const Offset(0, AppDimensions.groupCardShadowOffsetSmY),
           ),
         ],
       ),
       child: InkWell(
         onTap: () => _toggleSelection(uid),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(groupControlRadius),
         child: Row(
           children: [
             Container(
-              width: height_10 * 4,
-              height: height_10 * 4,
+              width: groupGap10 * 4,
+              height: groupGap10 * 4,
               decoration: BoxDecoration(
                 color: getRandomBrightColor(),
                 shape: BoxShape.circle,
@@ -331,7 +328,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                 ),
               ),
             ),
-            SizedBox(width: width_16),
+            SizedBox(width: groupGutter),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

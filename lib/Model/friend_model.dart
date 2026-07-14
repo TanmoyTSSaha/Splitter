@@ -1,18 +1,23 @@
+import 'package:splitr/Constants/app_keys.dart';
+
 /// Model for a friend relationship record.
 class FriendModel {
   final String? id;
   final String? userID;
   final String? friendUserID;
+  /// `friends.friend_id` column from Supabase (not always the other user).
+  final String? tableFriendId;
   final String? friendName;
   final String? friendEmail;
   final String? friendPic;
-  final String? status; // 'pending', 'accepted', 'rejected'
+  final String? status; // pending, accepted, rejected
   final DateTime? createdAt;
 
   FriendModel({
     this.id,
     this.userID,
     this.friendUserID,
+    this.tableFriendId,
     this.friendName,
     this.friendEmail,
     this.friendPic,
@@ -22,15 +27,16 @@ class FriendModel {
 
   factory FriendModel.fromJSON(Map<String, dynamic> json) {
     return FriendModel(
-      id: json['id']?.toString(),
-      userID: json['user_id']?.toString(),
-      friendUserID: json['friend_id']?.toString(),
-      friendName: json['friend_name']?.toString(),
-      friendEmail: json['friend_email']?.toString(),
-      friendPic: json['friend_pic']?.toString(),
-      status: json['status']?.toString(),
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString())
+      id: json[SupabaseColumns.id]?.toString(),
+      userID: json[SupabaseColumns.userId]?.toString(),
+      friendUserID: json[SupabaseColumns.friendId]?.toString(),
+      tableFriendId: json[SupabaseColumns.friendId]?.toString(),
+      friendName: json[FriendJoinKeys.friendName]?.toString(),
+      friendEmail: json[FriendJoinKeys.friendEmail]?.toString(),
+      friendPic: json[FriendJoinKeys.friendPic]?.toString(),
+      status: json[SupabaseColumns.status]?.toString(),
+      createdAt: json[SupabaseColumns.createdAt] != null
+          ? DateTime.tryParse(json[SupabaseColumns.createdAt].toString())
           : null,
     );
   }

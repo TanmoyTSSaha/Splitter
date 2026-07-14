@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:splitter/Model/receipt_model.dart';
+import 'package:splitr/Model/receipt_model.dart';
 
 /// On-device receipt parser using Google ML Kit text recognition.
 /// No API calls, no privacy concerns — all processing runs locally.

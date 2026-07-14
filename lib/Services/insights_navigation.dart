@@ -1,13 +1,17 @@
-import 'package:flutter/foundation.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Model/financial_goal_model.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Screen/GoalScreen/goal_details_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_detailed_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen.dart';
-import 'package:splitter/Screen/HomeScreen/all_transactions_screen.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Model/financial_goal_model.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Screen/GoalScreen/goal_details_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_detailed_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen.dart';
+import 'package:splitr/Screen/HomeScreen/all_transactions_screen.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Deep links from insight action cards.
@@ -19,30 +23,27 @@ class InsightsNavigation {
     final type = action['action_type'] as String? ?? '';
 
     switch (type) {
-      case 'settle_up':
+      case InsightActionTypes.settleUp:
         await _openSettleUp(
           groupId: action['group_id'] as String?,
           groupName: action['group_name'] as String?,
         );
         break;
-      case 'review_category':
+      case InsightActionTypes.reviewCategory:
         Get.to(() => const AllTransactionsScreen());
         break;
-      case 'view_goal':
+      case InsightActionTypes.viewGoal:
         final goal = action['goal'];
         if (goal is FinancialGoalModel) {
           Get.to(() => const GoalDetailsScreen(), arguments: goal);
         }
         break;
-      case 'view_expense':
+      case InsightActionTypes.viewExpense:
         Get.to(() => const AllTransactionsScreen());
         break;
       default:
-        Get.snackbar(
-          'Insights',
-          action['reason'] as String? ?? 'No action available',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        SplitrToast.show(SplitrToast.join(AppStrings.insights.screenTitle, action['reason'] as String? ??
+              AppStrings.services.insights.noActionAvailable));
     }
   }
 
@@ -57,7 +58,7 @@ class InsightsNavigation {
 
     try {
       final row = await _supabase
-          .from('groups')
+          .from(SupabaseTables.groups)
           .select()
           .eq('group_id', groupId)
           .maybeSingle();
@@ -68,7 +69,7 @@ class InsightsNavigation {
       }
 
       final tripRow = await _supabase
-          .from('trip_metadata')
+          .from(SupabaseTables.tripMetadata)
           .select('group_id')
           .eq('group_id', groupId)
           .maybeSingle();
@@ -93,8 +94,13 @@ class InsightsNavigation {
             groupModel: group,
             userID: _userId,
           ));
-    } catch (e) {
-      debugPrint('insights settle_up nav: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'InsightsNavigation settle_up navigation failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'insights', 'operation': 'settleUpNav'},
+      );
       Get.to(() => const GroupScreen());
     }
   }

@@ -1,8 +1,8 @@
-# GetX Rules — SplitO (Splitter)
+# GetX Rules — Splitr
 
 ## Purpose
 
-Operational GetX conventions for the SplitO app. Extends `flutter-rules.md` and `architecture.md` with **repo-specific** controller, reactive state, dependency injection, and lifecycle patterns.
+Operational GetX conventions for the Splitr app. Extends `flutter-rules.md` and `architecture.md` with **repo-specific** controller, reactive state, dependency injection, and lifecycle patterns.
 
 ---
 
@@ -343,7 +343,7 @@ Get.snackbar("Error", "Failed to add transaction",
   backgroundColor: neopopError, colorText: Colors.white);
 ```
 
-Import colors from `package:splitter/Constants/constants.dart`.
+Import colors from `package:splitr/Constants/constants.dart`.
 
 ---
 

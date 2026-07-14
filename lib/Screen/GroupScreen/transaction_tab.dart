@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/staggered_list_animation.dart';
-import 'package:splitter/Constants/sync_indicator_widget.dart';
-import 'package:splitter/Controller/group_screen_controller.dart';
-import 'package:splitter/Controller/transaction_tab_controller.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/staggered_list_animation.dart';
+import 'package:splitr/Constants/sync_indicator_widget.dart';
+import 'package:splitr/Controller/group_screen_controller.dart';
+import 'package:splitr/Controller/transaction_tab_controller.dart';
+import 'package:splitr/Repository/transaction_repository.dart';
+import 'package:splitr/Services/supabase_service.dart';
 
-import 'package:splitter/Screen/GroupScreen/add_transaction_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
+import 'package:splitr/Screen/GroupScreen/add_transaction_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
 import '../../Constants/shared.dart';
 import '../../Model/group_model.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class TransactionTab extends StatefulWidget {
   final String userID;
@@ -50,19 +55,19 @@ class _TransactionTabState extends State<TransactionTab> {
       ConsolidatedGroupTransactionModel transactionModel) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: groupSheetTopBorderRadius,
       ),
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(height_16),
+          padding: EdgeInsets.all(groupGutter),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
                 leading: const Icon(Icons.edit, color: neopopAccent),
-                title: Text("Edit",
+                title: Text(AppStrings.actions.edit,
                     style: body1_text.copyWith(color: groupOnSurface)),
                 onTap: () async {
                   Navigator.pop(context);
@@ -81,24 +86,28 @@ class _TransactionTabState extends State<TransactionTab> {
                     await Get.to(() => AddTransactionScreen(
                           userID: widget.userID,
                           groupMembersDetails: members,
-                          groupDetails: {"group_id": widget.groupID},
+                          groupDetails: {
+                            UnifiedTxnKeys.groupId: widget.groupID
+                          },
                           transactionToEdit: transactionModel,
                         ));
 
                     _controller.refresh();
-                  } catch (e) {
+                  } catch (e, stack) {
                     Get.back();
-                    Get.snackbar("Error", "Failed to load group details: $e",
-                        backgroundColor: Colors.redAccent,
-                        colorText: Colors.white);
+                    AppErrorReporter.report(
+                      AppStrings.errors.loadGroupDetailsPrefix,
+                      error: e,
+                      stack: stack,
+                    );
                   }
                 },
               ),
-              Divider(color: groupOnSurfaceMuted.withOpacity(0.3)),
+              Divider(color: groupMutedBorderSoft),
               ListTile(
-                leading: const Icon(Icons.delete, color: Colors.redAccent),
-                title: Text("Delete",
-                    style: body1_text.copyWith(color: Colors.redAccent)),
+                leading: const Icon(Icons.delete, color: neopopError),
+                title: Text(AppStrings.actions.delete,
+                    style: body1_text.copyWith(color: neopopError)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirmationDialog(context, transactionGroupID);
@@ -122,25 +131,25 @@ class _TransactionTabState extends State<TransactionTab> {
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.zero,
           ),
-          titlePadding: EdgeInsets.all(height_16),
-          actionsPadding: EdgeInsets.all(height_16),
+          titlePadding: EdgeInsets.all(groupGutter),
+          actionsPadding: EdgeInsets.all(groupGutter),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           title: Text(
-            "Delete Transaction?",
+            AppStrings.groups.deleteTransactionTitle,
             style: sub_headline5_text.copyWith(
               color: neopopBackground,
               fontWeight: FontWeight.w500,
             ),
           ),
           content: Text(
-            "This will delete the transaction and update balances for all members.",
+            AppStrings.groups.deleteTransactionGroupConfirm,
             style: caption_text.copyWith(
               color: neopopBackground,
             ),
           ),
           actions: [
             CustomSecondaryButton(
-              buttonText: "Yes",
+              buttonText: AppStrings.actions.yes,
               onPressed: () async {
                 Get.back();
                 Get.dialog(
@@ -149,29 +158,31 @@ class _TransactionTabState extends State<TransactionTab> {
                 );
 
                 try {
-                  await SupabaseDatabase().deleteGroupTransaction(
-                      transactionGroupID: transactionGroupID);
+                  await Get.find<TransactionRepository>()
+                      .deleteGroupTransaction(
+                          transactionGroupID: transactionGroupID,
+                          groupID: widget.groupID);
                   Get.back();
                   await _controller.refresh();
-                  Get.snackbar("Success", "Transaction deleted successfully",
-                      backgroundColor: neopopAccent,
-                      colorText: groupOnSurface);
-                } catch (e) {
+                  SplitrToast.show(SplitrToast.join(AppStrings.notifications.inviteSuccess, AppStrings.groups.transactionDeletedSuccess));
+                } catch (e, stack) {
                   Get.back();
-                  Get.snackbar("Error", "Failed to delete transaction",
-                      backgroundColor: Colors.redAccent,
-                      colorText: Colors.white);
+                  AppErrorReporter.report(
+                    AppStrings.home.transactionDeleteFailed,
+                    error: e,
+                    stack: stack,
+                  );
                 }
               },
-              buttonHeight: height_16 * 2.5,
+              buttonHeight: groupGutter * 2.5,
               buttonWidth: devSysWidth * 0.26,
             ),
             CustomSecondaryButton(
-              buttonText: "No",
+              buttonText: AppStrings.actions.no,
               onPressed: () {
                 Get.back();
               },
-              buttonHeight: height_16 * 2.5,
+              buttonHeight: groupGutter * 2.5,
               buttonWidth: devSysWidth * 0.26,
             ),
           ],
@@ -182,24 +193,22 @@ class _TransactionTabState extends State<TransactionTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Obx(() {
-        return Column(
-          children: [
-            SyncStatusBanner(status: _controller.syncStatus.value),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _controller.refresh,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: _buildTransactionList(),
-                ),
+    return Obx(() {
+      return Column(
+        children: [
+          SyncStatusBanner(status: _controller.syncStatus.value),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _controller.refresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: _buildTransactionList(),
               ),
             ),
-          ],
-        );
-      }),
-    );
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildTransactionList() {
@@ -230,22 +239,22 @@ class _TransactionTabState extends State<TransactionTab> {
       return SizedBox(
         height: devSysHeight * 0.55,
         width: double.infinity,
-        child: const TabEmptyState(
+        child: TabEmptyState(
           variant: TabEmptyVariant.transactions,
-          title: 'No transactions yet',
-          subtitle: 'Add an expense to start splitting.',
+          title: AppStrings.groups.noTransactionsYet,
+          subtitle: AppStrings.groups.addExpenseToStart,
         ),
       );
     }
 
     return Container(
       width: devSysWidth,
-      padding: EdgeInsets.symmetric(horizontal: height_16),
+      padding: EdgeInsets.symmetric(horizontal: groupGutter),
       decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
+        color: groupTransparent,
+        borderRadius: BorderRadius.circular(groupRadiusSm),
         border: Border.all(
-          color: neopopGrey.withOpacity(0.5),
+          color: neopopGreyIconMuted,
           width: 1,
         ),
       ),
@@ -286,8 +295,8 @@ class _TransactionTabState extends State<TransactionTab> {
                 forLightSurface: true,
                 cardTitle: cnsGrpTrns[index].description!,
                 cardSubTitle: widget.userID == cnsGrpTrns[index].paidByUUID
-                    ? "Paid by You"
-                    : "Paid by ${cnsGrpTrns[index].paidByName!}",
+                    ? GroupCopy.paidByYou
+                    : AppStringFormat.paidBy(cnsGrpTrns[index].paidByName!),
                 cardDateTime: cnsGrpTrns[index].transactionDate!,
                 cardPrice: cardPrice,
                 categoryLogoURL: cnsGrpTrns[index].categoryLogo ?? '',
@@ -298,11 +307,12 @@ class _TransactionTabState extends State<TransactionTab> {
           );
         },
         separatorBuilder: (context, index) => Padding(
-          padding: EdgeInsets.symmetric(horizontal: height_10, vertical: 0),
-          child: const Divider(
+          padding: EdgeInsets.symmetric(
+              horizontal: groupGap10, vertical: groupGapNone),
+          child: Divider(
             height: 1,
             thickness: 2,
-            color: neopopSecondaryGrey,
+            color: groupMutedBorderHairline,
           ),
         ),
       ),

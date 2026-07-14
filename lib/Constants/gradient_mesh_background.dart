@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/constants.dart';
 
 /// Animated 4-point gradient mesh background.
 /// Creates a premium ambient motion effect (Apple/CRED-inspired).
@@ -22,7 +24,7 @@ class _GradientMeshBackgroundState extends State<GradientMeshBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: AppMotion.meshBackground,
     )..repeat();
   }
 
@@ -75,10 +77,10 @@ class _MeshPainter extends CustomPainter {
     ];
 
     final colors = [
-      neopopAccent.withOpacity(0.08),
-      neopopPrimary.withOpacity(0.06),
-      const Color(0xFF18C595).withOpacity(0.05),
-      neopopYellow.withOpacity(0.04),
+      neopopAccentFillFaint,
+      neopopPrimaryFillSubtle,
+      neopopAccentFillWhisper,
+      neopopYellow.withValues(alpha: AppDimensions.meshYellowOpacity),
     ];
 
     final radii = [

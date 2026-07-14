@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
-import 'package:splitter/Model/wishlist_model.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Model/wishlist_model.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Service for managing group wishlists / planned expenses.
@@ -15,7 +17,7 @@ class WishlistService {
   }) async {
     try {
       final items = await _supabase
-          .from('group_wishlists')
+          .from(SupabaseTables.groupWishlists)
           .select('*')
           .eq('group_id', groupId)
           .order('created_at', ascending: false);
@@ -28,11 +30,11 @@ class WishlistService {
 
       final results = await Future.wait([
         _supabase
-            .from('wishlist_upvotes')
+            .from(SupabaseTables.wishlistUpvotes)
             .select('wishlist_item_id, user_id')
             .inFilter('wishlist_item_id', itemIds),
         _supabase
-            .from('users')
+            .from(SupabaseTables.users)
             .select('user_id, firstname, lastname')
             .inFilter('user_id', userIds),
       ]);
@@ -65,11 +67,16 @@ class WishlistService {
           json,
           upvotes: upvoteCountMap[itemId] ?? 0,
           currentUserUpvoted: userUpvotedSet.contains(itemId),
-          addedByName: userNameMap[addedBy] ?? 'Unknown',
+          addedByName: userNameMap[addedBy] ?? DisplayFallbacks.unknown,
         );
       }).toList();
-    } catch (e) {
-      debugPrint('WishlistService.getWishlistItems error: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'WishlistService.getWishlistItems failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'wishlist', 'operation': 'getWishlistItems'},
+      );
       return [];
     }
   }
@@ -82,15 +89,20 @@ class WishlistService {
     double? estimatedAmount,
   }) async {
     try {
-      await _supabase.from('group_wishlists').insert({
+      await _supabase.from(SupabaseTables.groupWishlists).insert({
         'group_id': groupId,
         'title': title,
         'estimated_amount': estimatedAmount,
         'added_by': userId,
       });
       return true;
-    } catch (e) {
-      debugPrint('WishlistService.addWishlistItem error: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'WishlistService.addWishlistItem failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'wishlist', 'operation': 'addWishlistItem'},
+      );
       return false;
     }
   }
@@ -103,27 +115,32 @@ class WishlistService {
   }) async {
     try {
       final existing = await _supabase
-          .from('wishlist_upvotes')
+          .from(SupabaseTables.wishlistUpvotes)
           .select()
           .eq('wishlist_item_id', itemId)
           .eq('user_id', userId);
 
       if (existing.isNotEmpty) {
         await _supabase
-            .from('wishlist_upvotes')
+            .from(SupabaseTables.wishlistUpvotes)
             .delete()
             .eq('wishlist_item_id', itemId)
             .eq('user_id', userId);
         return false;
       } else {
-        await _supabase.from('wishlist_upvotes').insert({
+        await _supabase.from(SupabaseTables.wishlistUpvotes).insert({
           'wishlist_item_id': itemId,
           'user_id': userId,
         });
         return true;
       }
-    } catch (e) {
-      debugPrint('WishlistService.toggleUpvote error: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'WishlistService.toggleUpvote failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'wishlist', 'operation': 'toggleUpvote'},
+      );
       return null;
     }
   }
@@ -132,11 +149,16 @@ class WishlistService {
   Future<bool> markAsAdded({required String itemId}) async {
     try {
       await _supabase
-          .from('group_wishlists')
+          .from(SupabaseTables.groupWishlists)
           .update({'is_added_to_expenses': true}).eq('id', itemId);
       return true;
-    } catch (e) {
-      debugPrint('WishlistService.markAsAdded error: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'WishlistService.markAsAdded failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'wishlist', 'operation': 'markAsAdded'},
+      );
       return false;
     }
   }
@@ -144,10 +166,18 @@ class WishlistService {
   /// Deletes a wishlist item (only the creator can delete).
   Future<bool> deleteItem({required String itemId}) async {
     try {
-      await _supabase.from('group_wishlists').delete().eq('id', itemId);
+      await _supabase
+          .from(SupabaseTables.groupWishlists)
+          .delete()
+          .eq('id', itemId);
       return true;
-    } catch (e) {
-      debugPrint('WishlistService.deleteItem error: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'WishlistService.deleteItem failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'wishlist', 'operation': 'deleteItem'},
+      );
       return false;
     }
   }

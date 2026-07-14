@@ -1,6 +1,6 @@
-# SplitO Architecture Overview
+# Splitr Architecture Overview
 
-SplitO (`package:splitter`) is a Flutter expense-splitting and personal finance app backed by Supabase with an offline-first Drift layer.
+Splitr (`package:splitr`) is a Flutter expense-splitting and personal finance app backed by Supabase with an offline-first Drift layer.
 
 ## Layers
 

@@ -1,15 +1,32 @@
-import 'package:flutter/material.dart';
-import 'package:splitter/Model/loan_model.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Model/repayment_schedule.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoanService {
   final supabase = Supabase.instance.client;
 
-  Future<void> createLoan(LoanModel loan) async {
+  Future<LoanModel> createLoan(LoanModel loan) async {
     try {
-      await supabase.from('loans').insert(loan.toJson());
-    } catch (e) {
-      throw Exception('Failed to create loan: $e');
+      final response = await supabase
+          .from(SupabaseTables.loans)
+          .insert(loan.toJson())
+          .select()
+          .single();
+      final enriched = await _enrichLoansWithProfiles([response]);
+      return enriched.first;
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'LoanService.createLoan failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'lending', 'operation': 'createLoan'},
+      );
+      throw Exception(AppStrings.errors.actionHumorous);
     }
   }
 
@@ -23,7 +40,7 @@ class LoanService {
     }
 
     final profilesResponse = await supabase
-        .from('users')
+        .from(SupabaseTables.users)
         .select('user_id, firstname, lastname, profile_picture_url')
         .inFilter('user_id', userIds.toList());
 
@@ -45,27 +62,41 @@ class LoanService {
   Future<List<LoanModel>> getLoans({required String userID}) async {
     try {
       final response = await supabase
-          .from('loans')
+          .from(SupabaseTables.loans)
           .select()
           .or('lender_id.eq.$userID,borrower_id.eq.$userID')
           .order('created_at', ascending: false);
 
       return _enrichLoansWithProfiles(response as List<dynamic>);
-    } catch (e) {
-      debugPrint("DEBUG: Error in getLoans: $e");
-      throw Exception('Failed to fetch loans: $e');
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'LoanService.getLoans failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'lending', 'operation': 'getLoans'},
+      );
+      throw Exception(AppStrings.errors.loadHumorous);
     }
   }
 
   Future<LoanModel?> getLoanById(String loanID) async {
     try {
-      final response =
-          await supabase.from('loans').select().eq('id', loanID).single();
+      final response = await supabase
+          .from(SupabaseTables.loans)
+          .select()
+          .eq('id', loanID)
+          .single();
 
       final loans = await _enrichLoansWithProfiles([response]);
       return loans.isEmpty ? null : loans.first;
-    } catch (e) {
-      throw Exception('Failed to fetch loan: $e');
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'LoanService.getLoanById failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'lending', 'operation': 'getLoanById'},
+      );
+      throw Exception(AppStrings.errors.loadHumorous);
     }
   }
 
@@ -75,10 +106,16 @@ class LoanService {
   }) async {
     try {
       await supabase
-          .from('loans')
+          .from(SupabaseTables.loans)
           .update({'repayment_amount': newAmount}).eq('id', loanID);
-    } catch (e) {
-      throw Exception('Failed to update repayment: $e');
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'LoanService.updateRepayment failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'lending', 'operation': 'updateRepayment'},
+      );
+      throw Exception(AppStrings.errors.actionHumorous);
     }
   }
 
@@ -87,9 +124,17 @@ class LoanService {
     required String status,
   }) async {
     try {
-      await supabase.from('loans').update({'status': status}).eq('id', loanID);
-    } catch (e) {
-      throw Exception('Failed to update loan status: $e');
+      await supabase
+          .from(SupabaseTables.loans)
+          .update({'status': status}).eq('id', loanID);
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'LoanService.updateLoanStatus failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'lending', 'operation': 'updateLoanStatus'},
+      );
+      throw Exception(AppStrings.errors.actionHumorous);
     }
   }
 
@@ -98,16 +143,22 @@ class LoanService {
   }) async {
     try {
       final response = await supabase
-          .from('loans')
+          .from(SupabaseTables.loans)
           .select()
-          .eq('status', 'pending')
+          .eq(SupabaseColumns.status, FriendStatusValues.pending)
           .neq('created_by', userID)
           .or('lender_id.eq.$userID,borrower_id.eq.$userID')
           .order('created_at', ascending: false);
 
       return _enrichLoansWithProfiles(response as List<dynamic>);
-    } catch (e) {
-      throw Exception('Failed to fetch pending loans: $e');
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'LoanService.getPendingLoansAwaitingAction failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'lending', 'operation': 'getPendingLoans'},
+      );
+      throw Exception(AppStrings.errors.loadHumorous);
     }
   }
 
@@ -117,26 +168,37 @@ class LoanService {
   }) async {
     final loan = await getLoanById(loanID);
     if (loan == null) {
-      throw Exception('Loan not found');
+      throw Exception(LoanServiceErrors.notFound);
     }
-    if (loan.status != 'active') {
-      throw Exception('Payments can only be recorded on active loans');
+    if (loan.status != LoanStatusValues.active) {
+      throw Exception(LoanServiceErrors.paymentsActiveOnly);
     }
 
     final remaining = loan.currentAmountOwed;
     if (paymentAmount <= 0) {
-      throw Exception('Payment amount must be greater than zero');
+      throw Exception(LoanServiceErrors.paymentMustBePositive);
     }
     if (paymentAmount > remaining) {
-      throw Exception('Payment exceeds remaining balance');
+      throw Exception(AppStrings.validation.paymentExceedsBalance);
     }
 
-    final newRepayment = loan.repaymentAmount + paymentAmount;
+    final newRepayment = LoanScheduleCalculator.roundMoney(
+      loan.repaymentAmount + paymentAmount,
+    );
     await updateRepayment(loanID: loanID, newAmount: newRepayment);
 
     final updatedLoan = await getLoanById(loanID);
-    if (updatedLoan != null && updatedLoan.currentAmountOwed <= 0) {
-      await updateLoanStatus(loanID: loanID, status: 'completed');
+    if (updatedLoan != null) {
+      final schedule = LoanScheduleCalculator.build(updatedLoan);
+      const tolerance = SplitValidationTolerance.amount;
+      final fullyRepaid = updatedLoan.currentAmountOwed <= tolerance ||
+          updatedLoan.repaymentAmount >=
+              schedule.totalPayable - tolerance ||
+          LoanScheduleCalculator.isScheduleFullySettled(schedule);
+      if (fullyRepaid) {
+        await updateLoanStatus(
+            loanID: loanID, status: LoanStatusValues.completed);
+      }
     }
   }
 }

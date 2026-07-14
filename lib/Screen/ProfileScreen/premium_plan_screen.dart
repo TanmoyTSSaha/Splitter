@@ -1,18 +1,25 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:splitter/Controllers/premium_subscription_controller.dart';
 
-// ─── Screen palette (matches profile_screen.dart) ─────────────────────────────
-const Color _bg = Color(0xFFF0F0F5);
-const Color _cardBg = Colors.white;
-const Color _sectionLabel = Color(0xFF9E9E9E);
-const Color _titleColor = Color(0xFF1A1A1A);
-const Color _borderColor = Color(0xFFEEEEEE);
-const Color _premiumDark = Color(0xFF0F0F0F);
-const Color _accentGreen = Color(0xFFB5F542);
-const Color _accentPurple = Color(0xFF8B5CF6);
-const Color _neopopYellow = Color(0xFFEAFF41);
+import 'package:splitr/Widgets/splitr_toast.dart';
+
+import 'package:flutter/material.dart';
+
+import 'package:get/get.dart';
+
+import 'package:splitr/Constants/constants.dart';
+
+import 'package:splitr/Controllers/premium_subscription_controller.dart';
+
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+
+import 'package:splitr/Constants/app_motion.dart';
+
+import 'package:splitr/Constants/app_palette.dart';
+
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class PremiumPlanScreen extends StatefulWidget {
   final String? highlightFeature;
@@ -25,151 +32,197 @@ class PremiumPlanScreen extends StatefulWidget {
 
 class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
   bool _isYearly = false;
+
   late final PremiumSubscriptionController _premium;
 
   @override
   void initState() {
     super.initState();
+
     _premium = Get.find<PremiumSubscriptionController>();
+  }
+
+  Future<void> _confirmCancelSubscription() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppStrings.premium.cancelSubscription),
+        content: Text(AppStrings.premium.cancelSubscriptionConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppStrings.actions.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppStrings.actions.confirm),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _premium.cancelSubscription();
+
+      if (mounted) {
+        SplitrToast.showFromContext(
+          context,
+          AppStrings.premium.cancelSubscription,
+        );
+      }
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.premium.cancelSubscriptionFailedPrefix,
+        error: e,
+        stack: stack,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: _titleColor),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.premium.plansTitle,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Get.back(),
         ),
-        title: const Text(
-          'Premium Plans',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: _titleColor,
-            letterSpacing: 0.2,
-          ),
-        ),
-        centerTitle: false,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        padding: const EdgeInsets.fromLTRB(
+          groupGutter,
+          groupGapSm,
+          groupGutter,
+          groupGapXl + groupGapSm,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── HEADER ─────────────────────────────────────────────────────────
-            const Text(
-              'unlock the full\npotential.',
+            Text(
+              AppStrings.premium.headline,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 32,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontHeadline1,
                 fontWeight: FontWeight.w400,
                 height: 1.2,
-                color: _titleColor,
+                color: groupOnSurface,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Charge for convenience, not your right to split.',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
+            const SizedBox(height: groupGapSm),
+            Text(
+              AppStrings.premium.tagline,
+              style: body2_text.copyWith(
+                fontSize: splitrFontBodySm,
                 fontWeight: FontWeight.w400,
-                color: _sectionLabel,
+                color: groupOnSurfaceMuted,
               ),
             ),
-            const SizedBox(height: 28),
-
+            const SizedBox(height: groupGapLg + groupGapSm),
             if (widget.highlightFeature != null) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(groupGap14),
                 decoration: BoxDecoration(
-                  color: _neopopYellow.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _neopopYellow.withOpacity(0.4)),
+                  color: neopopYellowFillMedium,
+                  borderRadius: BorderRadius.circular(groupControlRadius),
+                  border: Border.all(color: neopopYellowBorderStrong),
                 ),
                 child: Text(
-                  'Unlock ${widget.highlightFeature} with Pro',
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 13,
+                  AppStringFormat.unlockFeature(widget.highlightFeature!),
+                  style: body2_text.copyWith(
+                    fontSize: splitrFontBodySm,
                     fontWeight: FontWeight.w600,
-                    color: _titleColor,
+                    color: groupOnSurface,
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: groupCarouselGap + groupGapSm),
             ],
-
-            // ── BILLING TOGGLE ─────────────────────────────────────────────────
-            _buildBillingToggle(),
-            const SizedBox(height: 28),
-
-            // ── BASIC CARD ──────────────────────────────────────────────────────
-            _buildBasicCard(),
-            const SizedBox(height: 16),
-
-            // ── PREMIUM CARD ────────────────────────────────────────────────────
+            _buildBillingToggle(context),
+            const SizedBox(height: groupGapLg + groupGapSm),
+            _buildBasicCard(context),
+            const SizedBox(height: groupGapMd),
             _buildPremiumCard(),
-            const SizedBox(height: 24),
-
-            // ── FOOTER NOTE ─────────────────────────────────────────────────────
+            const SizedBox(height: groupGapLg),
             Center(
               child: Text(
-                'Cancel anytime. No questions asked.',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 11,
-                  color: _sectionLabel.withOpacity(0.7),
+                AppStrings.premium.cancelAnytime,
+                style: caption_text.copyWith(
+                  fontSize: splitrFontCaptionSm,
+                  fontStyle: FontStyle.normal,
+                  color: groupMutedTextSecondary,
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: groupCarouselGap),
             Center(
               child: TextButton(
                 onPressed: () async {
                   try {
-                    await _premium.restorePurchases();
+                    await _premium.refreshStatus();
+
                     if (_premium.isPremium.value && mounted) {
                       Get.back(result: true);
                     }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Restore failed: $e')),
-                      );
-                    }
+                  } catch (e, stack) {
+                    AppErrorReporter.reportActionFailure(
+                      AppStrings.premium.refreshFailedPrefix,
+                      error: e,
+                      stack: stack,
+                    );
                   }
                 },
-                child: const Text(
-                  'Restore purchases',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: _sectionLabel,
+                child: Text(
+                  AppStrings.premium.refreshStatus,
+                  style: caption_text.copyWith(
+                    fontStyle: FontStyle.normal,
+                    color: groupOnSurfaceMuted,
                     decoration: TextDecoration.underline,
                   ),
                 ),
               ),
             ),
+            Obx(() {
+              if (!_premium.isPremium.value) return const SizedBox.shrink();
+
+              return Center(
+                child: TextButton(
+                  onPressed: _premium.isLoading.value
+                      ? null
+                      : _confirmCancelSubscription,
+                  child: Text(
+                    AppStrings.premium.cancelSubscription,
+                    style: caption_text.copyWith(
+                      fontStyle: FontStyle.normal,
+                      color: groupOnSurfaceMuted,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              );
+            }),
             if (kDebugMode) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: groupGapSm),
               Center(
                 child: TextButton(
                   onPressed: () async {
                     await _premium.enableDevPremium();
+
                     if (mounted) Get.back(result: true);
                   },
-                  child: const Text(
-                    'Enable dev Pro (debug only)',
-                    style: TextStyle(fontSize: 11, color: _accentPurple),
+                  child: Text(
+                    AppStrings.premium.devPro,
+                    style: caption_text.copyWith(
+                      fontSize: splitrFontCaptionSm,
+                      fontStyle: FontStyle.normal,
+                      color: AppPalette.accentPurple,
+                    ),
                   ),
                 ),
               ),
@@ -180,19 +233,22 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
     );
   }
 
-  // ─── Billing Toggle ──────────────────────────────────────────────────────────
-  Widget _buildBillingToggle() {
+  Widget _buildBillingToggle(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+
+    final borderColor = groupMutedBorderHairline;
+
     return Container(
       decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _borderColor),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupControlRadius),
+        border: Border.all(color: borderColor),
       ),
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(groupGapXxs),
       child: Row(
         children: [
-          _buildToggleOption('Monthly', !_isYearly),
-          _buildToggleOption('Yearly  (Save 25%)', _isYearly),
+          _buildToggleOption(AppStrings.premium.monthly, !_isYearly),
+          _buildToggleOption(AppStrings.premium.yearlySave, _isYearly),
         ],
       ),
     );
@@ -201,22 +257,22 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
   Widget _buildToggleOption(String label, bool isActive) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _isYearly = label.startsWith('Yearly')),
+        onTap: () => setState(
+            () => _isYearly = label.startsWith(AppStrings.durations.yearly)),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          duration: AppMotion.standard,
+          padding: const EdgeInsets.symmetric(vertical: groupGap10),
           decoration: BoxDecoration(
-            color: isActive ? _titleColor : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
+            color: isActive ? groupOnSurface : groupTransparent,
+            borderRadius: BorderRadius.circular(groupRadiusChip),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 12,
+            style: caption_text.copyWith(
+              fontStyle: FontStyle.normal,
               fontWeight: FontWeight.w600,
-              color: isActive ? Colors.white : _sectionLabel,
+              color: isActive ? Colors.white : groupOnSurfaceMuted,
             ),
           ),
         ),
@@ -224,146 +280,142 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
     );
   }
 
-  // ─── Basic Card ──────────────────────────────────────────────────────────────
-  Widget _buildBasicCard() {
+  Widget _buildBasicCard(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+
+    final borderColor = groupMutedBorderHairline;
+
     return Container(
       decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _borderColor),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupCardRadiusLg),
+        border: Border.all(color: borderColor),
       ),
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(groupGap22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'BASIC',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 12,
+              Text(
+                AppStrings.premium.basic,
+                style: caption_text.copyWith(
+                  fontStyle: FontStyle.normal,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.4,
-                  color: _sectionLabel,
+                  color: groupOnSurfaceMuted,
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: groupGap10, vertical: groupGapXxs),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEEEEE),
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppPalette.surfaceMuted,
+                  borderRadius: BorderRadius.circular(groupCardRadiusLg),
                 ),
-                child: const Text(
-                  'CURRENT PLAN',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 10,
+                child: Text(
+                  AppStrings.premium.currentPlan,
+                  style: caption_text.copyWith(
+                    fontSize: splitrFontMicro,
+                    fontStyle: FontStyle.normal,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.8,
-                    color: _sectionLabel,
+                    color: groupOnSurfaceMuted,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Free',
+          const SizedBox(height: groupGapSm),
+          Text(
+            AppStrings.premium.free,
             style: TextStyle(
-              fontFamily: 'Albra',
-              fontSize: 28,
+              fontFamily: kFontAlbra,
+              fontSize: splitrFontHeadline2,
               fontWeight: FontWeight.w400,
-              color: _titleColor,
+              color: groupOnSurface,
             ),
           ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: _borderColor),
-          const SizedBox(height: 16),
-          _buildFeatureRow('Unlimited expense splitting', true),
-          _buildFeatureRow('Unlimited groups', true),
-          _buildFeatureRow('Basic monthly stats', true),
-          _buildFeatureRow('Standard support', true),
-          _buildFeatureRow('AI Receipt scanning', false),
-          _buildFeatureRow('UPI Quick Settle links', false),
-          _buildFeatureRow('Advanced analytics', false),
-          _buildFeatureRow('CSV / PDF export', false),
+          const SizedBox(height: groupGapMd),
+          Divider(height: 1, color: borderColor),
+          const SizedBox(height: groupGapMd),
+          _buildFeatureRow(AppStrings.premium.featureUnlimitedSplitting, true),
+          _buildFeatureRow(AppStrings.premium.featureUnlimitedGroups, true),
+          _buildFeatureRow(AppStrings.premium.featureBasicStats, true),
+          _buildFeatureRow(AppStrings.premium.featureStandardSupport, true),
+          _buildFeatureRow(AppStrings.premium.featureAiReceipt, false),
+          _buildFeatureRow(AppStrings.premium.featureUpiSettle, false),
+          _buildFeatureRow(AppStrings.premium.featureAdvancedAnalytics, false),
+          _buildFeatureRow(AppStrings.premium.featureExport, false),
         ],
       ),
     );
   }
 
-  // ─── Premium Card ────────────────────────────────────────────────────────────
   Widget _buildPremiumCard() {
-    final storeProduct = _premium.productFor(_isYearly);
-    final price = storeProduct?.price ??
-        (_isYearly ? '₹799/yr' : '₹89/mo');
-    final sub = storeProduct != null
-        ? storeProduct.description
-        : (_isYearly ? 'Billed annually (₹66.58/mo)' : 'Billed monthly');
+    final price = _premium.priceLabelFor(_isYearly);
+
+    final sub = _premium.billingLabelFor(_isYearly);
 
     return Container(
       decoration: BoxDecoration(
-        color: _premiumDark,
-        borderRadius: BorderRadius.circular(20),
-        // Subtle green-purple glow matching the avatar
+        color: AppPalette.premiumDark,
+        borderRadius: BorderRadius.circular(groupCardRadiusLg),
         boxShadow: [
           BoxShadow(
-              color: _accentGreen.withOpacity(0.25),
+              color: neopopAccentBorderHairline,
               blurRadius: 32,
               offset: const Offset(-4, 8)),
           BoxShadow(
-              color: _accentPurple.withOpacity(0.25),
+              color: AppPalette.accentPurple.withOpacity(0.25),
               blurRadius: 32,
               offset: const Offset(4, -8)),
         ],
       ),
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(groupGap22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'PREMIUM',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 12,
+              Text(
+                AppStrings.premium.premium,
+                style: caption_text.copyWith(
+                  fontStyle: FontStyle.normal,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.4,
-                  color: _neopopYellow,
+                  color: neopopYellow,
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: groupGap10, vertical: groupGapXxs),
                 decoration: BoxDecoration(
-                  color: _neopopYellow.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _neopopYellow.withOpacity(0.4)),
+                  color: neopopYellow.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(groupCardRadiusLg),
+                  border: Border.all(color: neopopYellowBorderStrong),
                 ),
-                child: const Text(
-                  'RECOMMENDED',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 10,
+                child: Text(
+                  AppStrings.premium.recommended,
+                  style: caption_text.copyWith(
+                    fontSize: splitrFontMicro,
+                    fontStyle: FontStyle.normal,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.8,
-                    color: _neopopYellow,
+                    color: neopopYellow,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: groupGapSm),
           Text(
             price,
-            style: const TextStyle(
-              fontFamily: 'Albra',
-              fontSize: 32,
+            style: TextStyle(
+              fontFamily: kFontAlbra,
+              fontSize: splitrFontHeadline1,
               fontWeight: FontWeight.w400,
               color: Colors.white,
             ),
@@ -371,26 +423,34 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
           const SizedBox(height: 2),
           Text(
             sub,
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 11,
-              color: Colors.white.withOpacity(0.45),
+            style: caption_text.copyWith(
+              fontSize: splitrFontCaptionSm,
+              fontStyle: FontStyle.normal,
+              color: Colors.white.withValues(alpha: 0.45),
             ),
           ),
-          const SizedBox(height: 16),
-          Divider(height: 1, color: Colors.white.withOpacity(0.1)),
-          const SizedBox(height: 16),
-          _buildPremiumFeatureRow('Everything in Basic'),
-          _buildPremiumFeatureRow('AI Receipt Scanning (OCR)'),
-          _buildPremiumFeatureRow('UPI Quick Settle Links'),
-          _buildPremiumFeatureRow('Advanced Analytics & Charts'),
-          _buildPremiumFeatureRow('CSV & PDF Export'),
-          _buildPremiumFeatureRow('Elite Splitter Badge'),
-          const SizedBox(height: 20),
-
+          const SizedBox(height: groupGapMd),
+          Divider(height: 1, color: shareCardOnSurface.withValues(alpha: 0.1)),
+          const SizedBox(height: groupGapMd),
+          _buildPremiumFeatureRow(AppStrings.premium.featureEverythingBasic),
+          _buildPremiumFeatureRow(AppStrings.premium.featureAiReceiptOcr),
+          _buildPremiumFeatureRow(AppStrings.premium.featureUpiSettleLinks),
+          _buildPremiumFeatureRow(AppStrings.premium.featureAdvancedCharts),
+          _buildPremiumFeatureRow(AppStrings.premium.featureCsvPdfExport),
+          _buildPremiumFeatureRow(AppStrings.trips.multiCurrencyLedger),
+          _buildPremiumFeatureRow(AppStrings.lending.contractPdf),
+          _buildPremiumFeatureRow(AppStrings.reminders.escalatedCadence),
+          _buildPremiumFeatureRow(AppStrings.premium.featureAiInsights),
+          _buildPremiumFeatureRow(AppStrings.premium.featureEliteBadge),
+          const SizedBox(height: groupCarouselGap + groupGapSm),
           Obx(() {
             final loading = _premium.isLoading.value;
+
             final isPro = _premium.isPremium.value;
+
+            final pending = _premium.subscriptionStatus.value ==
+                PremiumSubscriptionStatus.pending;
+
             return GestureDetector(
               onTap: loading || isPro
                   ? null
@@ -401,29 +461,24 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
                         } else {
                           await _premium.purchaseMonthly();
                         }
+
                         if (_premium.isPremium.value && mounted) {
                           Get.back(result: true);
                         }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                e.toString().contains('Store not available')
-                                    ? 'Store unavailable — use Restore or dev Pro in debug'
-                                    : 'Purchase failed: $e',
-                              ),
-                            ),
-                          );
-                        }
+                      } catch (e, stack) {
+                        AppErrorReporter.reportActionFailure(
+                          AppStrings.premium.purchaseFailedPrefix,
+                          error: e,
+                          stack: stack,
+                        );
                       }
                     },
               child: Container(
                 width: double.infinity,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: isPro ? _accentGreen : _neopopYellow,
-                  borderRadius: BorderRadius.circular(14),
+                  color: isPro ? neopopAccent : neopopYellow,
+                  borderRadius: BorderRadius.circular(groupRadiusLgSm),
                 ),
                 alignment: Alignment.center,
                 child: loading
@@ -431,20 +486,21 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black,
+                          strokeWidth: groupProgressStrokeWidth,
+                          color: groupOnSurface,
                         ),
                       )
                     : Text(
                         isPro
-                            ? 'YOU\'RE ON PRO ✦'
-                            : 'SUBSCRIBE — $price',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 13,
+                            ? AppStrings.premium.onPro
+                            : pending
+                                ? AppStrings.premium.subscriptionPending
+                                : AppStringFormat.premiumSubscribe(price),
+                        style: body2_text.copyWith(
+                          fontSize: splitrFontBodySm,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
-                          color: Colors.black,
+                          color: groupOnSurface,
                         ),
                       ),
               ),
@@ -457,22 +513,21 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
 
   Widget _buildFeatureRow(String label, bool included) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: groupGap5),
       child: Row(
         children: [
           Icon(
             included ? Icons.check_circle_rounded : Icons.cancel_outlined,
             size: 17,
-            color: included ? const Color(0xFF4CAF50) : const Color(0xFFCCCCCC),
+            color: included ? neopopSuccessBright : neopopDisabledMuted,
           ),
           const SizedBox(width: 10),
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 13,
+            style: body2_text.copyWith(
+              fontSize: splitrFontBodySm,
               fontWeight: FontWeight.w500,
-              color: included ? _titleColor : _sectionLabel,
+              color: included ? groupOnSurface : groupOnSurfaceMuted,
             ),
           ),
         ],
@@ -482,17 +537,16 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
 
   Widget _buildPremiumFeatureRow(String label) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: groupGap5),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_rounded, size: 17, color: _accentGreen),
+          const Icon(Icons.check_circle_rounded, size: 17, color: neopopAccent),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
+              style: body2_text.copyWith(
+                fontSize: splitrFontBodySm,
                 fontWeight: FontWeight.w500,
                 color: Colors.white,
               ),

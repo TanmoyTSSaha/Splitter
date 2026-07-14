@@ -1560,6 +1560,16 @@ class $LocalPersonalTransactionsTable extends LocalPersonalTransactions
   late final GeneratedColumn<String> paymentMethod = GeneratedColumn<String>(
       'payment_method', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _isCreditMeta =
+      const VerificationMeta('isCredit');
+  @override
+  late final GeneratedColumn<bool> isCredit = GeneratedColumn<bool>(
+      'is_credit', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_credit" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _transactionDateMeta =
       const VerificationMeta('transactionDate');
   @override
@@ -1583,6 +1593,7 @@ class $LocalPersonalTransactionsTable extends LocalPersonalTransactions
         transactionDescription,
         currency,
         paymentMethod,
+        isCredit,
         transactionDate,
         syncStatus
       ];
@@ -1637,6 +1648,10 @@ class $LocalPersonalTransactionsTable extends LocalPersonalTransactions
           paymentMethod.isAcceptableOrUnknown(
               data['payment_method']!, _paymentMethodMeta));
     }
+    if (data.containsKey('is_credit')) {
+      context.handle(_isCreditMeta,
+          isCredit.isAcceptableOrUnknown(data['is_credit']!, _isCreditMeta));
+    }
     if (data.containsKey('transaction_date')) {
       context.handle(
           _transactionDateMeta,
@@ -1674,6 +1689,8 @@ class $LocalPersonalTransactionsTable extends LocalPersonalTransactions
           .read(DriftSqlType.string, data['${effectivePrefix}currency'])!,
       paymentMethod: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}payment_method']),
+      isCredit: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_credit'])!,
       transactionDate: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}transaction_date']),
       syncStatus: attachedDatabase.typeMapping
@@ -1696,6 +1713,7 @@ class LocalPersonalTransaction extends DataClass
   final String? transactionDescription;
   final String currency;
   final String? paymentMethod;
+  final bool isCredit;
   final DateTime? transactionDate;
   final String syncStatus;
   const LocalPersonalTransaction(
@@ -1706,6 +1724,7 @@ class LocalPersonalTransaction extends DataClass
       this.transactionDescription,
       required this.currency,
       this.paymentMethod,
+      required this.isCredit,
       this.transactionDate,
       required this.syncStatus});
   @override
@@ -1724,6 +1743,7 @@ class LocalPersonalTransaction extends DataClass
     if (!nullToAbsent || paymentMethod != null) {
       map['payment_method'] = Variable<String>(paymentMethod);
     }
+    map['is_credit'] = Variable<bool>(isCredit);
     if (!nullToAbsent || transactionDate != null) {
       map['transaction_date'] = Variable<DateTime>(transactionDate);
     }
@@ -1746,6 +1766,7 @@ class LocalPersonalTransaction extends DataClass
       paymentMethod: paymentMethod == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentMethod),
+      isCredit: Value(isCredit),
       transactionDate: transactionDate == null && nullToAbsent
           ? const Value.absent()
           : Value(transactionDate),
@@ -1765,6 +1786,7 @@ class LocalPersonalTransaction extends DataClass
           serializer.fromJson<String?>(json['transactionDescription']),
       currency: serializer.fromJson<String>(json['currency']),
       paymentMethod: serializer.fromJson<String?>(json['paymentMethod']),
+      isCredit: serializer.fromJson<bool>(json['isCredit']),
       transactionDate: serializer.fromJson<DateTime?>(json['transactionDate']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
     );
@@ -1781,6 +1803,7 @@ class LocalPersonalTransaction extends DataClass
           serializer.toJson<String?>(transactionDescription),
       'currency': serializer.toJson<String>(currency),
       'paymentMethod': serializer.toJson<String?>(paymentMethod),
+      'isCredit': serializer.toJson<bool>(isCredit),
       'transactionDate': serializer.toJson<DateTime?>(transactionDate),
       'syncStatus': serializer.toJson<String>(syncStatus),
     };
@@ -1794,6 +1817,7 @@ class LocalPersonalTransaction extends DataClass
           Value<String?> transactionDescription = const Value.absent(),
           String? currency,
           Value<String?> paymentMethod = const Value.absent(),
+          bool? isCredit,
           Value<DateTime?> transactionDate = const Value.absent(),
           String? syncStatus}) =>
       LocalPersonalTransaction(
@@ -1807,6 +1831,7 @@ class LocalPersonalTransaction extends DataClass
         currency: currency ?? this.currency,
         paymentMethod:
             paymentMethod.present ? paymentMethod.value : this.paymentMethod,
+        isCredit: isCredit ?? this.isCredit,
         transactionDate: transactionDate.present
             ? transactionDate.value
             : this.transactionDate,
@@ -1828,6 +1853,7 @@ class LocalPersonalTransaction extends DataClass
       paymentMethod: data.paymentMethod.present
           ? data.paymentMethod.value
           : this.paymentMethod,
+      isCredit: data.isCredit.present ? data.isCredit.value : this.isCredit,
       transactionDate: data.transactionDate.present
           ? data.transactionDate.value
           : this.transactionDate,
@@ -1846,6 +1872,7 @@ class LocalPersonalTransaction extends DataClass
           ..write('transactionDescription: $transactionDescription, ')
           ..write('currency: $currency, ')
           ..write('paymentMethod: $paymentMethod, ')
+          ..write('isCredit: $isCredit, ')
           ..write('transactionDate: $transactionDate, ')
           ..write('syncStatus: $syncStatus')
           ..write(')'))
@@ -1861,6 +1888,7 @@ class LocalPersonalTransaction extends DataClass
       transactionDescription,
       currency,
       paymentMethod,
+      isCredit,
       transactionDate,
       syncStatus);
   @override
@@ -1874,6 +1902,7 @@ class LocalPersonalTransaction extends DataClass
           other.transactionDescription == this.transactionDescription &&
           other.currency == this.currency &&
           other.paymentMethod == this.paymentMethod &&
+          other.isCredit == this.isCredit &&
           other.transactionDate == this.transactionDate &&
           other.syncStatus == this.syncStatus);
 }
@@ -1887,6 +1916,7 @@ class LocalPersonalTransactionsCompanion
   final Value<String?> transactionDescription;
   final Value<String> currency;
   final Value<String?> paymentMethod;
+  final Value<bool> isCredit;
   final Value<DateTime?> transactionDate;
   final Value<String> syncStatus;
   final Value<int> rowid;
@@ -1898,6 +1928,7 @@ class LocalPersonalTransactionsCompanion
     this.transactionDescription = const Value.absent(),
     this.currency = const Value.absent(),
     this.paymentMethod = const Value.absent(),
+    this.isCredit = const Value.absent(),
     this.transactionDate = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1910,6 +1941,7 @@ class LocalPersonalTransactionsCompanion
     this.transactionDescription = const Value.absent(),
     this.currency = const Value.absent(),
     this.paymentMethod = const Value.absent(),
+    this.isCredit = const Value.absent(),
     this.transactionDate = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1924,6 +1956,7 @@ class LocalPersonalTransactionsCompanion
     Expression<String>? transactionDescription,
     Expression<String>? currency,
     Expression<String>? paymentMethod,
+    Expression<bool>? isCredit,
     Expression<DateTime>? transactionDate,
     Expression<String>? syncStatus,
     Expression<int>? rowid,
@@ -1937,6 +1970,7 @@ class LocalPersonalTransactionsCompanion
         'transaction_description': transactionDescription,
       if (currency != null) 'currency': currency,
       if (paymentMethod != null) 'payment_method': paymentMethod,
+      if (isCredit != null) 'is_credit': isCredit,
       if (transactionDate != null) 'transaction_date': transactionDate,
       if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
@@ -1951,6 +1985,7 @@ class LocalPersonalTransactionsCompanion
       Value<String?>? transactionDescription,
       Value<String>? currency,
       Value<String?>? paymentMethod,
+      Value<bool>? isCredit,
       Value<DateTime?>? transactionDate,
       Value<String>? syncStatus,
       Value<int>? rowid}) {
@@ -1963,6 +1998,7 @@ class LocalPersonalTransactionsCompanion
           transactionDescription ?? this.transactionDescription,
       currency: currency ?? this.currency,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      isCredit: isCredit ?? this.isCredit,
       transactionDate: transactionDate ?? this.transactionDate,
       syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
@@ -1994,6 +2030,9 @@ class LocalPersonalTransactionsCompanion
     if (paymentMethod.present) {
       map['payment_method'] = Variable<String>(paymentMethod.value);
     }
+    if (isCredit.present) {
+      map['is_credit'] = Variable<bool>(isCredit.value);
+    }
     if (transactionDate.present) {
       map['transaction_date'] = Variable<DateTime>(transactionDate.value);
     }
@@ -2016,6 +2055,7 @@ class LocalPersonalTransactionsCompanion
           ..write('transactionDescription: $transactionDescription, ')
           ..write('currency: $currency, ')
           ..write('paymentMethod: $paymentMethod, ')
+          ..write('isCredit: $isCredit, ')
           ..write('transactionDate: $transactionDate, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
@@ -3874,6 +3914,7 @@ typedef $$LocalPersonalTransactionsTableCreateCompanionBuilder
   Value<String?> transactionDescription,
   Value<String> currency,
   Value<String?> paymentMethod,
+  Value<bool> isCredit,
   Value<DateTime?> transactionDate,
   Value<String> syncStatus,
   Value<int> rowid,
@@ -3887,6 +3928,7 @@ typedef $$LocalPersonalTransactionsTableUpdateCompanionBuilder
   Value<String?> transactionDescription,
   Value<String> currency,
   Value<String?> paymentMethod,
+  Value<bool> isCredit,
   Value<DateTime?> transactionDate,
   Value<String> syncStatus,
   Value<int> rowid,
@@ -3922,6 +3964,9 @@ class $$LocalPersonalTransactionsTableFilterComposer
 
   ColumnFilters<String> get paymentMethod => $composableBuilder(
       column: $table.paymentMethod, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isCredit => $composableBuilder(
+      column: $table.isCredit, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get transactionDate => $composableBuilder(
       column: $table.transactionDate,
@@ -3964,6 +4009,9 @@ class $$LocalPersonalTransactionsTableOrderingComposer
       column: $table.paymentMethod,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get isCredit => $composableBuilder(
+      column: $table.isCredit, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get transactionDate => $composableBuilder(
       column: $table.transactionDate,
       builder: (column) => ColumnOrderings(column));
@@ -4001,6 +4049,9 @@ class $$LocalPersonalTransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get paymentMethod => $composableBuilder(
       column: $table.paymentMethod, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCredit =>
+      $composableBuilder(column: $table.isCredit, builder: (column) => column);
 
   GeneratedColumn<DateTime> get transactionDate => $composableBuilder(
       column: $table.transactionDate, builder: (column) => column);
@@ -4047,6 +4098,7 @@ class $$LocalPersonalTransactionsTableTableManager extends RootTableManager<
             Value<String?> transactionDescription = const Value.absent(),
             Value<String> currency = const Value.absent(),
             Value<String?> paymentMethod = const Value.absent(),
+            Value<bool> isCredit = const Value.absent(),
             Value<DateTime?> transactionDate = const Value.absent(),
             Value<String> syncStatus = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -4059,6 +4111,7 @@ class $$LocalPersonalTransactionsTableTableManager extends RootTableManager<
             transactionDescription: transactionDescription,
             currency: currency,
             paymentMethod: paymentMethod,
+            isCredit: isCredit,
             transactionDate: transactionDate,
             syncStatus: syncStatus,
             rowid: rowid,
@@ -4071,6 +4124,7 @@ class $$LocalPersonalTransactionsTableTableManager extends RootTableManager<
             Value<String?> transactionDescription = const Value.absent(),
             Value<String> currency = const Value.absent(),
             Value<String?> paymentMethod = const Value.absent(),
+            Value<bool> isCredit = const Value.absent(),
             Value<DateTime?> transactionDate = const Value.absent(),
             Value<String> syncStatus = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -4083,6 +4137,7 @@ class $$LocalPersonalTransactionsTableTableManager extends RootTableManager<
             transactionDescription: transactionDescription,
             currency: currency,
             paymentMethod: paymentMethod,
+            isCredit: isCredit,
             transactionDate: transactionDate,
             syncStatus: syncStatus,
             rowid: rowid,

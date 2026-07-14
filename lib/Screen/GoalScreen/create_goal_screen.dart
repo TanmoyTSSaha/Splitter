@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controller/create_goal_controller.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controller/create_goal_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
 
 class CreateGoalScreen extends StatelessWidget {
   const CreateGoalScreen({super.key});
@@ -10,57 +19,47 @@ class CreateGoalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(CreateGoalController());
+    final surface = Theme.of(context).colorScheme.surface;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        scrolledUnderElevation: 0,
-        leading: const BackButton(color: Colors.black),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          "New Goal",
-          style: headline3_text.copyWith(color: neopopBackground),
-        ),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.goals.newGoal,
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(width_16),
+        padding: const EdgeInsets.all(groupGutter),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Identity Section
             Text(
-              "What are you saving for?",
-              style: caption_text.copyWith(color: neopopGrey),
+              AppStrings.goals.savingForLabel,
+              style: caption_text.copyWith(color: groupOnSurfaceMuted),
             ),
-            SizedBox(height: height_10),
-            TextField(
+            const SizedBox(height: groupGapSm),
+            BorderedInputField(
               controller: controller.titleController,
-              style: headline1_text.copyWith(color: neopopBackground),
-              decoration: InputDecoration(
-                hintText: "e.g. Bali Trip",
-                hintStyle: headline1_text.copyWith(
-                    color: neopopBackground.withOpacity(0.3)),
-                border: InputBorder.none,
-              ),
+              hintText: AppStrings.goals.titleHint,
+              style: headline1_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16),
-
-            // Goal Type Dropdown
+            const SizedBox(height: groupGapMd),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupCarouselGap, vertical: groupGapXxs),
               decoration: BoxDecoration(
-                color: neopopAccent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: neopopAccentFillSoft,
+                borderRadius: BorderRadius.circular(groupControlRadius),
+                border: Border.all(
+                  color: groupMutedBorder,
+                ),
               ),
               child: Obx(
                 () => DropdownButton<String>(
                   value: controller.selectedGoalType.value,
-                  dropdownColor: neopopBackground,
-                  icon: Icon(Icons.arrow_drop_down, color: neopopAccent),
-                  elevation: 16,
-                  style: body1_text.copyWith(color: Colors.white),
-                  underline: Container(height: 0),
+                  dropdownColor: groupOnSurface,
+                  icon: const Icon(Icons.arrow_drop_down, color: neopopAccent),
+                  elevation: AppDimensions.elevationDropdown,
+                  style: body1_text.copyWith(color: neopopOnPrimary),
+                  underline: const SizedBox.shrink(),
                   onChanged: (String? newValue) {
                     if (newValue != null) {
                       controller.selectedGoalType.value = newValue;
@@ -72,7 +71,7 @@ class CreateGoalScreen extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           value,
-                          style: body1_text.copyWith(color: neopopBackground),
+                          style: body1_text.copyWith(color: groupOnSurface),
                         ),
                       );
                     }).toList();
@@ -87,132 +86,104 @@ class CreateGoalScreen extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: height_16),
-
-            // "Other" Goal Type Input
+            const SizedBox(height: groupGapMd),
             Obx(() {
-              if (controller.selectedGoalType.value == "Other") {
+              if (controller.selectedGoalType.value == GoalTypeValues.other) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Specify Goal Type",
-                      style: caption_text.copyWith(color: neopopGrey),
+                      AppStrings.goals.specifyGoalTypeLabel,
+                      style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
-                    SizedBox(height: height_10 / 2),
-                    TextField(
+                    const SizedBox(height: groupGapSm),
+                    BorderedInputField(
                       controller: controller.otherGoalTypeController,
-                      style: body1_text.copyWith(color: neopopBackground),
-                      decoration: InputDecoration(
-                        hintText: "e.g. Wedding",
-                        hintStyle: body1_text.copyWith(
-                            color: neopopBackground.withOpacity(0.3)),
-                        fillColor: neopopSecondaryGrey.withOpacity(0.1),
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
+                      hintText: AppStrings.goals.otherGoalTypeHint,
                     ),
-                    SizedBox(height: height_16),
+                    const SizedBox(height: groupGapMd),
                   ],
                 );
               }
-              return SizedBox.shrink();
+              return const SizedBox.shrink();
             }),
-
-            // Description Field
             Text(
-              "Describe it (AI will help estimate costs)",
-              style: caption_text.copyWith(color: neopopGrey),
+              AppStrings.goals.describeForAi,
+              style: caption_text.copyWith(color: groupOnSurfaceMuted),
             ),
-            SizedBox(height: height_10 / 2),
-            TextField(
+            const SizedBox(height: groupGapSm),
+            BorderedInputField(
               controller: controller.descriptionController,
+              hintText: AppStrings.goals.describeHint,
               maxLines: 3,
-              style: body1_text.copyWith(color: neopopBackground),
-              decoration: InputDecoration(
-                hintText:
-                    "e.g. 5 days trip to Bali for 2 people with flight and 4-star hotel...",
-                hintStyle: body1_text.copyWith(
-                    color: neopopBackground.withOpacity(0.3)),
-                fillColor: neopopSecondaryGrey.withOpacity(0.1),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
             ),
-            SizedBox(height: height_16),
-
-            // Icon & Color Row
+            const SizedBox(height: groupGapMd),
             Text(
-              "Goal Theme & Icon",
-              style: caption_text.copyWith(color: neopopGrey),
+              AppStrings.goals.goalThemeIcon,
+              style: caption_text.copyWith(color: groupOnSurfaceMuted),
             ),
-            SizedBox(height: height_10),
+            const SizedBox(height: groupGapSm),
             Row(
               children: [
                 Obx(() => Container(
-                      padding: EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(groupCarouselGap),
                       decoration: BoxDecoration(
-                        color: neopopAccent.withOpacity(0.1),
+                        color: neopopAccentFillSoft,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         controller.selectedIcon.value,
-                        style: TextStyle(fontSize: 32),
+                        style: const TextStyle(fontSize: splitrFontHeadline1),
                       ),
                     )),
-                SizedBox(width: width_16),
+                const SizedBox(width: groupGapMd),
                 Expanded(
                   child: SizedBox(
                     height: 50,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildColorOption(controller, "0xFFFE885D"), // Primary
-                        _buildColorOption(controller, "0xFF18C595"), // Accent
-                        _buildColorOption(controller, "0xFF2196F3"), // Blue
-                        _buildColorOption(controller, "0xFF9C27B0"), // Purple
-                        _buildColorOption(controller, "0xFFFFC107"), // Amber
-                      ],
+                      children: GoalThemeColors.palette
+                          .map((colorHex) =>
+                              _buildColorOption(controller, colorHex))
+                          .toList(),
                     ),
                   ),
-                )
+                ),
               ],
             ),
-            SizedBox(height: height_16 * 2),
-
-            // 2. Target Section
+            const SizedBox(height: groupGapLg),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
                     Text(
-                      "How much do you need?",
-                      style: caption_text.copyWith(color: neopopGrey),
+                      AppStrings.goals.targetAmountLabel,
+                      style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                     Obx(() {
                       if (controller.aiReasoning.value.isNotEmpty) {
                         return Tooltip(
                           message: controller.aiReasoning.value,
                           triggerMode: TooltipTriggerMode.tap,
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          showDuration: const Duration(seconds: 10),
+                          padding: const EdgeInsets.all(groupCarouselGap),
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: groupGap20),
+                          showDuration: AppMotion.aiTooltip,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF333333),
-                            borderRadius: BorderRadius.circular(8),
+                            color: neopopSurface,
+                            borderRadius:
+                                BorderRadius.circular(groupControlRadiusSm),
                           ),
-                          textStyle: body1_text.copyWith(color: Colors.white),
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: Icon(Icons.info_outline,
-                                size: 18, color: neopopGrey),
+                          textStyle:
+                              body1_text.copyWith(color: neopopOnPrimary),
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: groupGapSm),
+                            child: Icon(
+                              Icons.info_outline,
+                              size: groupCarouselIconSm,
+                              color: groupOnSurfaceMuted,
+                            ),
                           ),
                         );
                       }
@@ -223,59 +194,56 @@ class CreateGoalScreen extends StatelessWidget {
                 Obx(() => controller.isEstimating.value
                     ? Row(
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             width: 12,
-                            height: 12,
+                            height: groupCarouselGap,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: neopopAccent),
+                              strokeWidth: groupProgressStrokeWidth,
+                              color: neopopAccent,
+                            ),
                           ),
-                          SizedBox(width: 8),
-                          Text("AI estimating...",
-                              style:
-                                  caption_text.copyWith(color: neopopAccent)),
+                          const SizedBox(width: groupGapSm),
+                          Text(
+                            AppStrings.goals.aiEstimating,
+                            style: caption_text.copyWith(color: neopopAccent),
+                          ),
                         ],
                       )
-                    : SizedBox.shrink())
+                    : const SizedBox.shrink()),
               ],
             ),
-            SizedBox(height: height_10),
-            TextField(
+            const SizedBox(height: groupGapSm),
+            BorderedInputField(
               controller: controller.amountController,
+              hintText: AppAmountHints.zero,
+              prefixText: currencyPrefixText(),
               keyboardType: TextInputType.number,
               style: headline1_text.copyWith(
-                  color: neopopAccent, fontFamily: 'Albra'),
-              decoration: InputDecoration(
-                prefixText: "₹ ",
-                prefixStyle: headline1_text.copyWith(color: neopopAccent),
-                hintText: "0",
-                hintStyle: headline1_text.copyWith(
-                    color: neopopBackground.withOpacity(0.2)),
-                border: InputBorder.none,
+                color: neopopAccent,
+                fontFamily: kFontAlbra,
               ),
             ),
-            SizedBox(height: height_16 * 2),
-
-            // 3. Deadline Section
+            const SizedBox(height: groupGapLg),
             Text(
-              "When do you want this?",
-              style: caption_text.copyWith(color: neopopGrey),
+              AppStrings.goals.targetDateLabel,
+              style: caption_text.copyWith(color: groupOnSurfaceMuted),
             ),
-            SizedBox(height: height_10),
+            const SizedBox(height: groupGapSm),
             InkWell(
               onTap: () async {
-                DateTime? picked = await showDatePicker(
+                final picked = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now().add(const Duration(days: 90)),
+                  initialDate: DateTime.now().add(AppMotion.goalDefaultTarget),
                   firstDate: DateTime.now(),
-                  lastDate: DateTime(2035),
+                  lastDate: DateTime(GoalDefaults.maxTargetYear),
                   builder: (context, child) {
                     return Theme(
                       data: Theme.of(context).copyWith(
-                        colorScheme: ColorScheme.light(
-                          primary: neopopBackground,
-                          onPrimary: Colors.white,
-                          surface: Colors.white,
-                          onSurface: neopopBackground,
+                        colorScheme: const ColorScheme.light(
+                          primary: groupOnSurface,
+                          onPrimary: neopopOnPrimary,
+                          surface: neopopOnPrimary,
+                          onSurface: groupOnSurface,
                         ),
                       ),
                       child: child!,
@@ -287,76 +255,87 @@ class CreateGoalScreen extends StatelessWidget {
                 }
               },
               child: Container(
-                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: groupGapMd,
+                  horizontal: 12,
+                ),
                 decoration: BoxDecoration(
-                  border: Border.all(color: neopopBackground.withOpacity(0.1)),
-                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: groupMutedBorderHairline,
+                  ),
+                  borderRadius: BorderRadius.circular(groupControlRadius),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Obx(() => Text(
                           controller.selectedDate.value == null
-                              ? "Select Target Date"
-                              : DateFormat('MMMM d, yyyy')
+                              ? AppStrings.goals.selectTargetDate
+                              : DateFormat(AppDateFormats.longDayYear)
                                   .format(controller.selectedDate.value!),
-                          style: body1_text.copyWith(color: neopopBackground),
+                          style: body1_text.copyWith(color: groupOnSurface),
                         )),
-                    Icon(Icons.calendar_today, color: neopopAccent),
+                    const Icon(Icons.calendar_today, color: neopopAccent),
                   ],
                 ),
               ),
             ),
-
-            // 4. AI Insight Section
             Obx(() {
               if (controller.aiFeasibilityMessage.value.isEmpty) {
-                return SizedBox.shrink();
+                return const SizedBox.shrink();
               }
               return Container(
-                margin: EdgeInsets.only(top: height_16 * 2),
-                padding: EdgeInsets.all(16),
+                margin: const EdgeInsets.only(top: groupGapLg),
+                padding: const EdgeInsets.all(groupGutter),
                 decoration: BoxDecoration(
-                  color: neopopAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: neopopAccent.withOpacity(0.3)),
+                  color: neopopAccentFillSoft,
+                  borderRadius: BorderRadius.circular(groupCardRadius),
+                  border: Border.all(
+                    color: neopopAccentBorderSoft,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.auto_awesome, color: neopopAccent, size: 20),
-                    SizedBox(width: 12),
+                    Icon(Icons.auto_awesome,
+                        color: neopopAccent, size: AppDimensions.groupIconMd),
+                    const SizedBox(width: groupCarouselGap),
                     Expanded(
                       child: Text(
                         controller.aiFeasibilityMessage.value,
-                        style: caption_text.copyWith(color: neopopBackground),
+                        style: caption_text.copyWith(color: groupOnSurface),
                       ),
                     ),
                   ],
                 ),
               );
             }),
-
-            SizedBox(height: height_16 * 4),
-
-            // Action Button
+            const SizedBox(height: groupGapXl * 2),
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: groupCtaHeight,
               child: Obx(() => ElevatedButton(
                     onPressed: controller.isLoading.value
                         ? null
                         : () => controller.saveGoal(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: neopopBackground,
+                      backgroundColor: neopopAccent,
+                      disabledBackgroundColor: groupMutedBorder,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(groupControlRadius),
                       ),
                     ),
                     child: controller.isLoading.value
-                        ? CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            width: AppDimensions.loadingIndicatorMd,
+                            height: AppDimensions.loadingIndicatorMd,
+                            child: CircularProgressIndicator(
+                              strokeWidth: groupProgressStrokeWidth,
+                              color: groupOnSurface,
+                            ),
+                          )
                         : Text(
-                            "CREATE GOAL",
-                            style: button_text.copyWith(color: Colors.white),
+                            AppStrings.goals.createSubmit,
+                            style: button_text.copyWith(color: groupOnSurface),
                           ),
                   )),
             ),
@@ -370,14 +349,14 @@ class CreateGoalScreen extends StatelessWidget {
     return GestureDetector(
       onTap: () => controller.selectedColor.value = colorHex,
       child: Obx(() => Container(
-            margin: EdgeInsets.only(right: 12),
+            margin: const EdgeInsets.only(right: groupCarouselGap),
             width: 40,
             height: 40,
             decoration: BoxDecoration(
               color: Color(int.parse(colorHex)),
               shape: BoxShape.circle,
               border: controller.selectedColor.value == colorHex
-                  ? Border.all(color: neopopBackground, width: 3)
+                  ? Border.all(color: groupOnSurface, width: 3)
                   : null,
             ),
           )),

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controller/add_transaction_controller.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Controller/add_transaction_controller.dart';
 
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 import '../../../Model/group_model.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
 
 class EvenShareTab extends StatefulWidget {
   final double totalAmount;
@@ -32,12 +37,12 @@ class _EvenShareTabState extends State<EvenShareTab> {
   void initState() {
     super.initState();
 
-    _addTransactionScreenController
-        .addAllCheckBoxValue(widget.groupMembersWithNameModel.length);
-
-    if (_addTransactionScreenController.involvedPersons.value == 0) {
-      _addTransactionScreenController.involvedPersons.value =
-          widget.groupMembersWithNameModel.length;
+    final memberCount = widget.groupMembersWithNameModel.length;
+    if (_addTransactionScreenController.checkBoxBool.length != memberCount) {
+      _addTransactionScreenController.addAllCheckBoxValue(memberCount);
+      _addTransactionScreenController.involvedPersons.value = memberCount;
+    } else if (_addTransactionScreenController.involvedPersons.value == 0) {
+      _addTransactionScreenController.involvedPersons.value = memberCount;
     }
   }
 
@@ -50,55 +55,64 @@ class _EvenShareTabState extends State<EvenShareTab> {
       physics: const BouncingScrollPhysics(),
       child: Obx(
         () {
+          final perPersonAmount = (widget.totalAmount /
+                  _addTransactionScreenController.involvedPersons.value)
+              .toStringAsFixed(DefaultDecimalPlaces.amount);
+          final involvedCount =
+              _addTransactionScreenController.involvedPersons.value;
+
           return Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                "Split evenly",
+                SharingMode.byEvenly.tabTitle,
                 style: sub_headline4_text.copyWith(color: groupOnSurface),
               ),
-              SizedBox(height: height_16 / 2),
+              const SizedBox(height: groupGapSm),
               Text(
-                "Select who owns the even share in the split",
+                SharingMode.byEvenly.tabSubtitle,
                 style: body1_text.copyWith(color: groupOnSurface),
               ),
-              SizedBox(height: height_16 * 2),
-              Container(
-                width: devSysWidth - (height_16 * 2),
+              const SizedBox(height: groupGapXl),
+              SizedBox(
+                width: devSysWidth - (groupGutter * 2),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(
-                      width: (devSysWidth * 0.7) - height_16,
+                      width: (devSysWidth * groupShareSummaryWidthFactor) -
+                          groupGutter,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            "₹${(widget.totalAmount / _addTransactionScreenController.involvedPersons.value).toStringAsFixed(2)} / Person",
+                            AppStringFormat.perPersonRate(
+                              userCurrencySymbol(),
+                              perPersonAmount,
+                            ),
                             style: sub_headline5_text.copyWith(
                                 color: groupOnSurface),
                           ),
                           Text(
-                            "(${_addTransactionScreenController.involvedPersons.value} ${_addTransactionScreenController.involvedPersons.value > 1 ? 'Peoples' : 'People'})",
-                            style:
-                                body1_text.copyWith(color: groupOnSurface),
+                            AppStringFormat.evenSharePeopleLabel(involvedCount),
+                            style: body1_text.copyWith(color: groupOnSurface),
                           ),
                         ],
                       ),
                     ),
                     SizedBox(
-                      width: (devSysWidth * 0.3) - height_16,
+                      width: (devSysWidth * groupShareControlsWidthFactor) -
+                          groupGutter,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            "All",
-                            style:
-                                body1_text.copyWith(color: groupOnSurface),
+                            AppStrings.trips.all,
+                            style: body1_text.copyWith(color: groupOnSurface),
                           ),
                           Checkbox(
                             activeColor: neopopAccent,
@@ -117,7 +131,7 @@ class _EvenShareTabState extends State<EvenShareTab> {
                   ],
                 ),
               ),
-              SizedBox(height: height_16 * 2),
+              const SizedBox(height: groupGapXl),
               ListView.separated(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -137,12 +151,12 @@ class _EvenShareTabState extends State<EvenShareTab> {
                                 "",
                             userName: widget.groupMembersWithNameModel[index]
                                     .userName ??
-                                "User",
+                                DisplayFallbacks.user,
                             imageUrl:
                                 widget.groupMembersWithNameModel[index].userPic,
-                            radius: height_16 * 1.25,
+                            radius: AppDimensions.groupIconMd,
                           ),
-                          SizedBox(width: width_10),
+                          const SizedBox(width: groupGap10),
                           Text(
                             widget.groupMembersWithNameModel[index].userName!,
                             style: sub_headline5_text.copyWith(
@@ -198,7 +212,7 @@ class _EvenShareTabState extends State<EvenShareTab> {
                   );
                 },
                 separatorBuilder: (context, index) {
-                  return SizedBox(height: height_10);
+                  return const SizedBox(height: groupGap10);
                 },
               ),
             ],

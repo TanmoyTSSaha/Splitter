@@ -1,20 +1,30 @@
 import 'dart:async';
+import 'package:splitr/Widgets/splitr_toast.dart';
 
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/constants.dart';
 import 'package:neopop/neopop.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Controller/group_screen_controller.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
-import 'package:splitter/Screen/GroupScreen/add_transaction_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Model/wishlist_model.dart';
-import 'package:splitter/Model/wishlist_prefill.dart';
-import 'package:splitter/Services/realtime_service.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Services/wishlist_service.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Controller/group_screen_controller.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
+import 'package:splitr/Screen/GroupScreen/add_transaction_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Model/wishlist_model.dart';
+import 'package:splitr/Model/wishlist_prefill.dart';
+import 'package:splitr/Services/realtime_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Services/wishlist_service.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+
 /// Tab that displays a group's shared wishlist / planned expenses.
 /// Members can propose items, upvote, and convert them to group expenses.
 class WishlistTab extends StatefulWidget {
@@ -104,8 +114,8 @@ class WishlistTabState extends State<WishlistTab> {
     if (_items.isEmpty) {
       return TabEmptyState(
         variant: TabEmptyVariant.wishlist,
-        title: 'No planned expenses yet',
-        subtitle: 'Propose expenses the group should plan for.',
+        title: AppStrings.groups.noPlannedExpensesYet,
+        subtitle: AppStrings.groups.noPlannedExpensesSubtitle,
         action: NeoPopButton(
           color: neopopAccent,
           buttonPosition: Position.fullBottom,
@@ -118,10 +128,11 @@ class WishlistTabState extends State<WishlistTab> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.add_rounded, color: neopopBackground, size: 18),
-                const SizedBox(width: 8),
+                const Icon(Icons.add_rounded,
+                    color: neopopBackground, size: groupCarouselIconSm),
+                const SizedBox(width: groupGapSm),
                 Text(
-                  'Add First Item',
+                  AppStrings.groups.addFirstItem,
                   style: button_text.copyWith(
                     color: neopopBackground,
                     fontWeight: FontWeight.w600,
@@ -136,7 +147,7 @@ class WishlistTabState extends State<WishlistTab> {
 
     return RefreshIndicator(
       color: neopopAccent,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       onRefresh: _loadItems,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -150,29 +161,28 @@ class WishlistTabState extends State<WishlistTab> {
           return _buildWishlistCard(_items[index], index);
         },
       ),
-    );  }
+    );
+  }
 
   Widget _buildWishlistCard(WishlistItem item, int index) {
     final isAdded = item.isAddedToExpenses;
 
     return Opacity(
-      opacity: isAdded ? 0.55 : 1.0,
+      opacity: isAdded ? AppDimensions.wishlistAddedOpacity : 1.0,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(groupGapMd),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: groupCardFill,
+          borderRadius: BorderRadius.circular(groupCardRadius),
           border: Border.all(
-            color: isAdded
-                ? Colors.green.withValues(alpha: 0.35)
-                : neopopGrey.withValues(alpha: 0.35),
+            color: isAdded ? WishlistPalette.border : groupMutedBorderStrong,
           ),
           boxShadow: [
             BoxShadow(
-              color: neopopBackground.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: groupSurfaceFillFaint,
+              blurRadius: AppDimensions.groupCardShadowBlur,
+              offset: AppAnimationOffsets.cardShadow,
             ),
           ],
         ),
@@ -183,23 +193,24 @@ class WishlistTabState extends State<WishlistTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: AppDimensions.groupWishlistIconBox,
+                  height: AppDimensions.groupWishlistIconBox,
                   decoration: BoxDecoration(
                     color: isAdded
-                        ? Colors.green.withValues(alpha: 0.12)
-                        : neopopAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                        ? WishlistPalette.iconFill
+                        : neopopAccentFillLight,
+                    borderRadius: BorderRadius.circular(groupControlRadius),
                   ),
                   child: Icon(
                     isAdded
                         ? Icons.check_circle_rounded
                         : Icons.lightbulb_rounded,
-                    color: isAdded ? Colors.green.shade700 : neopopAccent,
-                    size: 22,
+                    color:
+                        isAdded ? WishlistPalette.successGreen : neopopAccent,
+                    size: AppDimensions.groupIconLg,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: groupGapSm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +218,7 @@ class WishlistTabState extends State<WishlistTab> {
                       Text(
                         item.title,
                         style: body1_text.copyWith(
-                          color: neopopBackground,
+                          color: groupOnSurface,
                           fontWeight: FontWeight.w600,
                           decoration:
                               isAdded ? TextDecoration.lineThrough : null,
@@ -215,12 +226,12 @@ class WishlistTabState extends State<WishlistTab> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: groupGapXxs),
                       Text(
-                        'by ${item.addedByName}',
+                        AppStringFormat.addedBy(item.addedByName),
                         style: caption_text.copyWith(
-                          color: neopopGrey,
-                          fontSize: 12,
+                          color: groupOnSurfaceMuted,
+                          fontSize: splitrFontCaption,
                           fontStyle: FontStyle.normal,
                         ),
                       ),
@@ -228,20 +239,20 @@ class WishlistTabState extends State<WishlistTab> {
                   ),
                 ),
                 if (item.estimatedAmount != null) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: groupGapSm),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                      horizontal: groupGap10,
+                      vertical: groupGapXs,
                     ),
                     decoration: BoxDecoration(
-                      color: neopopAccent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      color: neopopAccentFillLight,
+                      borderRadius: BorderRadius.circular(groupRadiusMd),
                     ),
                     child: Text(
-                      '₹${item.estimatedAmount!.toStringAsFixed(0)}',
+                      '${userCurrencySymbol()}${item.estimatedAmount!.toStringAsFixed(0)}',
                       style: body2_text.copyWith(
-                        color: neopopBackground,
+                        color: groupOnSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -266,14 +277,14 @@ class WishlistTabState extends State<WishlistTab> {
                         : () => _openAddExpenseFromWishlist(item),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
+                        horizontal: groupCarouselGap,
+                        vertical: groupGapXs,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        color: WishlistPalette.ctaFill,
+                        borderRadius: BorderRadius.circular(groupRadiusMd),
                         border: Border.all(
-                          color: Colors.green.withValues(alpha: 0.35),
+                          color: WishlistPalette.border,
                         ),
                       ),
                       child: Row(
@@ -281,16 +292,16 @@ class WishlistTabState extends State<WishlistTab> {
                         children: [
                           Icon(
                             Icons.add_task_rounded,
-                            color: Colors.green.shade700,
-                            size: 15,
+                            color: WishlistPalette.successGreen,
+                            size: groupIconSm,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: groupGapXxs),
                           Text(
-                            'Add as Expense',
+                            AppStrings.groups.addAsExpense,
                             style: caption_text.copyWith(
-                              color: Colors.green.shade700,
+                              color: WishlistPalette.successGreen,
                               fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                              fontSize: splitrFontCaption,
                               fontStyle: FontStyle.normal,
                             ),
                           ),
@@ -300,21 +311,21 @@ class WishlistTabState extends State<WishlistTab> {
                   )
                 else
                   Text(
-                    'Added ✓',
+                    AppStrings.groups.addedCheck,
                     style: caption_text.copyWith(
-                      color: Colors.green.shade700,
+                      color: WishlistPalette.successGreen,
                       fontWeight: FontWeight.w600,
                       fontStyle: FontStyle.normal,
                     ),
                   ),
                 if (item.addedByUserId == widget.userId && !isAdded) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: groupGapSm),
                   GestureDetector(
                     onTap: () => _deleteItem(item),
                     child: const Icon(
                       Icons.delete_outline_rounded,
-                      color: neopopGrey,
-                      size: 20,
+                      color: groupOnSurfaceMuted,
+                      size: AppDimensions.groupIconMd,
                     ),
                   ),
                 ],
@@ -377,8 +388,8 @@ class WishlistTabState extends State<WishlistTab> {
         () => AddTransactionScreen(
           userID: widget.userId,
           groupDetails: <String, dynamic>{
-            'group_id': widget.groupId,
-            'group_name': widget.groupName,
+            UnifiedTxnKeys.groupId: widget.groupId,
+            SupabaseColumns.groupName: widget.groupName,
           },
           groupMembersDetails: members,
           wishlistPrefill: WishlistPrefill(
@@ -393,15 +404,13 @@ class WishlistTabState extends State<WishlistTab> {
       if (Get.isRegistered<GroupScreenController>()) {
         Get.find<GroupScreenController>().triggerRefresh();
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (Get.isDialogOpen ?? false) Get.back();
-      if (mounted) {
-        Fluttertoast.showToast(
-          msg: 'Could not open add expense: $e',
-          textColor: neopopBackground,
-          backgroundColor: neopopYellow,
-        );
-      }
+      AppErrorReporter.report(
+        AppStrings.errors.couldNotOpenAddExpensePrefix,
+        error: e,
+        stack: stack,
+      );
     } finally {
       if (mounted) {
         setState(() => _openingExpenseItemId = null);
@@ -424,7 +433,7 @@ class WishlistTabState extends State<WishlistTab> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: groupTransparent,
       isScrollControlled: true,
       builder: (context) {
         return Padding(
@@ -432,14 +441,14 @@ class WishlistTabState extends State<WishlistTab> {
               EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Container(
             padding: EdgeInsets.only(
-              top: 24,
-              left: 24,
-              right: 24,
-              bottom: MediaQuery.of(context).padding.bottom + 24,
+              top: groupGapLg,
+              left: groupGutter,
+              right: groupGutter,
+              bottom: MediaQuery.of(context).padding.bottom + groupGutter,
             ),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              color: groupCardFill,
+              borderRadius: groupSheetTopBorderRadiusXl,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -448,79 +457,36 @@ class WishlistTabState extends State<WishlistTab> {
                 // Handle
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: AppDimensions.sheetDragHandleWidth,
+                    height: AppDimensions.sheetDragHandleHeight,
                     decoration: BoxDecoration(
-                      color: neopopGrey.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(2),
+                      color: groupMutedBorderSoft,
+                      borderRadius: BorderRadius.circular(groupRadiusHairline),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: groupGapLg),
                 Text(
-                  'Plan an Expense',
-                  style: sub_headline5_text.copyWith(color: neopopBackground),
+                  AppStrings.groups.planExpense,
+                  style: sub_headline5_text.copyWith(color: groupOnSurface),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: groupGapLg),
 
-                // Title
-                TextField(
+                BorderedInputField(
                   controller: titleController,
-                  style: body1_text.copyWith(color: neopopBackground),
-                  decoration: InputDecoration(
-                    hintText: 'e.g. Birthday cake for Alex',
-                    hintStyle: body1_text.copyWith(
-                      color: neopopGrey,
-                    ),
-                    labelText: 'What do you need?',
-                    labelStyle: caption_text.copyWith(
-                      color: neopopAccent,
-                    ),
-                    filled: true,
-                    fillColor: neopopBackground.withOpacity(0.04),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: neopopBackground.withOpacity(0.1),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: neopopAccent),
-                    ),
-                  ),
+                  labelText: AppStrings.groups.whatDoYouNeed,
+                  hintText: AppStrings.groups.wishlistTitleHint,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: groupGapMd),
 
-                // Amount (optional)
-                TextField(
+                BorderedInputField(
                   controller: amountController,
+                  labelText: AppStringFormat.estimatedAmountLabel(
+                      userCurrencySymbol()),
+                  hintText: AppStrings.groups.optional,
                   keyboardType: TextInputType.number,
-                  style: body1_text.copyWith(color: neopopBackground),
-                  decoration: InputDecoration(
-                    hintText: 'Optional',
-                    hintStyle: body1_text.copyWith(
-                      color: neopopGrey,
-                    ),
-                    labelText: 'Estimated Amount (₹)',
-                    labelStyle: caption_text.copyWith(
-                      color: neopopAccent,
-                    ),
-                    filled: true,
-                    fillColor: neopopBackground.withOpacity(0.04),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: neopopBackground.withOpacity(0.1),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: neopopAccent),
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: groupGapLg),
 
                 // Submit
                 SizedBox(
@@ -544,25 +510,22 @@ class WishlistTabState extends State<WishlistTab> {
 
                       if (success) {
                         await _loadItems();
-                        Fluttertoast.showToast(
-                          msg: 'Item added! 🎯',
-                          textColor: neopopBackground,
-                          backgroundColor: neopopAccent,
-                        );
+                        SplitrToast.show(AppStrings.groups.itemAdded);
                       }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: neopopAccent,
                       foregroundColor: neopopBackground,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: groupGap14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(groupRadiusLgSm),
                       ),
                     ),
-                    child: const Text(
-                      'Add to Wishlist',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    child: Text(
+                      AppStrings.groups.addToWishlist,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: splitrFontBodyMd),
                     ),
                   ),
                 ),
@@ -594,17 +557,15 @@ class _UpvotePill extends StatelessWidget {
     return GestureDetector(
       onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        duration: AppMotion.standard,
+        padding: const EdgeInsets.symmetric(
+            horizontal: groupGap10, vertical: groupGapXs),
         decoration: BoxDecoration(
-          color: isUpvoted
-              ? neopopAccent.withValues(alpha: 0.15)
-              : neopopSecondaryGrey.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
+          color: isUpvoted ? neopopAccentFillMedium : groupMutedFillFaint,
+          borderRadius: BorderRadius.circular(groupCardRadiusLg),
           border: Border.all(
-            color: isUpvoted
-                ? neopopAccent.withValues(alpha: 0.4)
-                : neopopGrey.withValues(alpha: 0.25),
+            color:
+                isUpvoted ? neopopAccentBorderStrong : groupMutedBorderHairline,
           ),
         ),
         child: Row(
@@ -612,16 +573,16 @@ class _UpvotePill extends StatelessWidget {
           children: [
             Icon(
               isUpvoted ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
-              size: 14,
-              color: isUpvoted ? neopopAccent : neopopGrey,
+              size: groupIconSm,
+              color: isUpvoted ? neopopAccent : groupOnSurfaceMuted,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: groupGapXxs),
             Text(
               '$count',
               style: TextStyle(
-                color: isUpvoted ? neopopAccent : neopopBackground,
+                color: isUpvoted ? neopopAccent : groupOnSurface,
                 fontWeight: FontWeight.w600,
-                fontSize: 12,
+                fontSize: splitrFontCaption,
               ),
             ),
           ],

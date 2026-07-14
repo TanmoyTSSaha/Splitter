@@ -1,4 +1,8 @@
 /// Data models for Trip Mode — extends group concept with dates, destination, and per-day views.
+library;
+
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
 
 class TripModel {
   final String groupId; // Trip IS a group, reusing group infrastructure
@@ -9,6 +13,7 @@ class TripModel {
   final String createdBy;
   final List<String> memberIds;
   final String? coverImageUrl;
+  final String tripCurrency;
 
   TripModel({
     required this.groupId,
@@ -19,6 +24,7 @@ class TripModel {
     required this.createdBy,
     this.memberIds = const [],
     this.coverImageUrl,
+    this.tripCurrency = CurrencyDefaults.code,
   });
 
   int get totalDays => endDate.difference(startDate).inDays + 1;
@@ -32,26 +38,29 @@ class TripModel {
   bool get isUpcoming => DateTime.now().isBefore(startDate);
 
   Map<String, dynamic> toJSON() => {
-        'group_id': groupId,
-        'trip_name': tripName,
-        'destination': destination,
-        'start_date': startDate.toIso8601String(),
-        'end_date': endDate.toIso8601String(),
-        'created_by': createdBy,
-        'member_ids': memberIds,
-        'cover_image_url': coverImageUrl,
+        SupabaseColumns.groupId: groupId,
+        SupabaseColumns.tripName: tripName,
+        SupabaseColumns.destination: destination,
+        SupabaseColumns.startDate: startDate.toIso8601String(),
+        SupabaseColumns.endDate: endDate.toIso8601String(),
+        SupabaseColumns.createdBy: createdBy,
+        SupabaseColumns.memberIds: memberIds,
+        SupabaseColumns.coverImageUrl: coverImageUrl,
+        SupabaseColumns.tripCurrency: tripCurrency,
       };
 
   factory TripModel.fromJSON(Map<String, dynamic> json) {
     return TripModel(
-      groupId: json['group_id'] as String,
-      tripName: json['trip_name'] as String,
-      destination: json['destination'] as String?,
-      startDate: DateTime.parse(json['start_date'] as String),
-      endDate: DateTime.parse(json['end_date'] as String),
-      createdBy: json['created_by'] as String,
-      memberIds: List<String>.from(json['member_ids'] ?? []),
-      coverImageUrl: json['cover_image_url'] as String?,
+      groupId: json[SupabaseColumns.groupId] as String,
+      tripName: json[SupabaseColumns.tripName] as String,
+      destination: json[SupabaseColumns.destination] as String?,
+      startDate: DateTime.parse(json[SupabaseColumns.startDate] as String),
+      endDate: DateTime.parse(json[SupabaseColumns.endDate] as String),
+      createdBy: json[SupabaseColumns.createdBy] as String,
+      memberIds: List<String>.from(json[SupabaseColumns.memberIds] ?? []),
+      coverImageUrl: json[SupabaseColumns.coverImageUrl] as String?,
+      tripCurrency: json[SupabaseColumns.tripCurrency] as String? ??
+          CurrencyDefaults.code,
     );
   }
 }

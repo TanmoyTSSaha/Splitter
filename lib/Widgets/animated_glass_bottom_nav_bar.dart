@@ -1,11 +1,13 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
-/// Vertical clearance reserved above the floating bottom nav bar.
-/// Sized for 56px nav items + padding.
-const double bottomNavClearance = 80.0;
+export 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart'
+    show bottomNavClearance;
 
 /// Data model for a single bottom-navigation tab.
 class BottomNavItemData {
@@ -38,7 +40,12 @@ class AnimatedGlassBottomNavBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimensions.bottomNavPadding,
+          0,
+          AppDimensions.bottomNavPadding,
+          AppDimensions.bottomNavBottomPadding,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: List.generate(items.length, (index) {
@@ -73,12 +80,12 @@ class _AnimatedNavItem extends StatefulWidget {
 
 class _AnimatedNavItemState extends State<_AnimatedNavItem>
     with SingleTickerProviderStateMixin {
-  static const _duration = Duration(milliseconds: 300);
-  static const _inactiveSize = 56.0;
-  static const _iconCircleSize = 48.0;
-  static const _iconSize = 26.0;
-  static const _glassBlur = 20.0;
-  static const _glassOpacity = 0.75;
+  static const _duration = AppMotion.nav;
+  static const _inactiveSize = AppDimensions.bottomNavItemSize;
+  static const _iconCircleSize = AppDimensions.bottomNavIconCircle;
+  static const _iconSize = AppDimensions.bottomNavIconSize;
+  static const _glassBlur = AppDimensions.bottomNavBlur;
+  static const _glassOpacity = AppDimensions.glassCardOpacityNav;
 
   late final AnimationController _controller;
   late final Animation<double> _expandAnimation;
@@ -92,22 +99,22 @@ class _AnimatedNavItemState extends State<_AnimatedNavItem>
     _controller = AnimationController(vsync: this, duration: _duration);
     _expandAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: AppCurves.navExpand,
     );
     _labelFade = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: AppCurves.navExpand,
     );
     _labelSlide = Tween<Offset>(
-      begin: const Offset(-0.5, 0),
+      begin: AppAnimationOffsets.bottomNavLabelSlideBegin,
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: AppCurves.navExpand,
     ));
     _accentScale = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutBack,
+      curve: AppCurves.navAccent,
     );
 
     if (widget.isSelected) {
@@ -145,7 +152,7 @@ class _AnimatedNavItemState extends State<_AnimatedNavItem>
 
           return AnimatedSize(
             duration: _duration,
-            curve: Curves.easeOutCubic,
+            curve: AppCurves.navExpand,
             alignment: Alignment.center,
             child: _GlassShell(
               borderRadius: borderRadius,
@@ -200,15 +207,17 @@ class _AnimatedNavItemState extends State<_AnimatedNavItem>
                           child: FadeTransition(
                             opacity: _labelFade,
                             child: Padding(
-                              padding: const EdgeInsets.only(right: 16),
+                              padding:
+                                  const EdgeInsets.only(right: groupGutter),
                               child: Text(
                                 widget.item.label,
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 14,
+                                style: TextStyle(
+                                  fontFamily: kFontPoppins,
+                                  fontSize: splitrFontBody,
                                   fontWeight: FontWeight.w600,
                                   color: neopopOnBackground,
-                                  letterSpacing: 0.2,
+                                  letterSpacing:
+                                      AppDimensions.letterSpacingNavLabel,
                                 ),
                               ),
                             ),
@@ -251,15 +260,19 @@ class _GlassShell extends StatelessWidget {
             borderRadius: BorderRadius.circular(borderRadius),
             color: neopopBackground.withValues(alpha: opacity),
             border: Border.all(
-              color: neopopOnBackground.withValues(alpha: 0.12),
-              width: 1,
+              color: neopopOnBackgroundBorderSoft,
+              width: AppDimensions.borderWidthHairline,
             ),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                neopopBackground.withValues(alpha: opacity + 0.05),
-                neopopBackground.withValues(alpha: opacity - 0.05),
+                neopopBackground.withValues(
+                  alpha: opacity + AppDimensions.navGlassGradientDelta,
+                ),
+                neopopBackground.withValues(
+                  alpha: opacity - AppDimensions.navGlassGradientDelta,
+                ),
               ],
             ),
           ),

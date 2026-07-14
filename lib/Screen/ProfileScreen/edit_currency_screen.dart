@@ -1,15 +1,14 @@
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Services/currency_service.dart';
-
-// ─── Palette ──────────────────────────────────────────────────────────────────
-const Color _bg = Color(0xFFF0F0F5);
-const Color _cardBg = Colors.white;
-const Color _sectionLabel = Color(0xFF9E9E9E);
-const Color _titleColor = Color(0xFF1A1A1A);
-const Color _borderColor = Color(0xFFEEEEEE);
-const Color _neopopYellow = Color(0xFFEAFF41);
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Constants/business_rules.dart';
 
 class EditCurrencyScreen extends StatefulWidget {
   const EditCurrencyScreen({super.key});
@@ -24,18 +23,8 @@ class _EditCurrencyScreenState extends State<EditCurrencyScreen> {
   String _query = '';
   bool _isSaving = false;
 
-  // Groupings
-  static const _regional = ['INR'];
-  static const _popular = [
-    'USD',
-    'EUR',
-    'GBP',
-    'AED',
-    'SGD',
-    'AUD',
-    'CAD',
-    'JPY'
-  ];
+  static const _regional = PopularCurrencyCodes.regional;
+  static const _popular = PopularCurrencyCodes.international;
 
   @override
   void dispose() {
@@ -59,21 +48,9 @@ class _EditCurrencyScreenState extends State<EditCurrencyScreen> {
     await _cc.setCurrency(code);
     if (mounted) {
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Currency set to ${_cc.name} (${_cc.symbol})',
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-          backgroundColor: _neopopYellow,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          margin: const EdgeInsets.all(16),
-        ),
+      SplitrToast.showFromContext(
+        context,
+        AppStringFormat.currencySet(_cc.name, _cc.symbol),
       );
       Get.back();
     }
@@ -88,81 +65,57 @@ class _EditCurrencyScreenState extends State<EditCurrencyScreen> {
         .where((e) => !_regional.contains(e.key) && !_popular.contains(e.key))
         .toList();
 
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: _titleColor),
-          onPressed: () => Get.back(),
-        ),
-        title: const Text(
-          'Edit Currency',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: _titleColor,
-          ),
-        ),
-        centerTitle: false,
-      ),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(title: AppStrings.currency.title),
       body: Column(
         children: [
-          // ── Search bar ───────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
-            child: Container(
-              decoration: BoxDecoration(
-                color: _cardBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _borderColor),
-              ),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) => setState(() => _query = v.trim()),
-                style: const TextStyle(
-                    fontFamily: 'Poppins', fontSize: 14, color: _titleColor),
-                decoration: InputDecoration(
-                  hintText: 'Search currencies...',
-                  hintStyle: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
-                      color: _sectionLabel.withOpacity(0.7)),
-                  prefixIcon: const Icon(Icons.search_rounded,
-                      size: 20, color: _sectionLabel),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                ),
+            padding: const EdgeInsets.fromLTRB(
+              groupGutter,
+              groupGapSm,
+              groupGutter,
+              groupGapSm,
+            ),
+            child: BorderedInputField(
+              controller: _searchCtrl,
+              hintText: AppStrings.currency.searchHint,
+              onChanged: (v) => setState(() => _query = v.trim()),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                size: 20,
+                color: groupOnSurfaceMuted,
               ),
             ),
           ),
           const SizedBox(height: 4),
-
-          // ── Currency list ────────────────────────────────────────────────────
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              padding: const EdgeInsets.fromLTRB(
+                groupGutter,
+                groupGapSm,
+                groupGutter,
+                groupGapLg,
+              ),
               children: [
                 if (regional.isNotEmpty && _query.isEmpty) ...[
-                  _sectionHeader('YOUR REGION'),
+                  _sectionHeader(AppStrings.currency.yourRegion),
                   const SizedBox(height: 8),
-                  _buildGroup(regional),
+                  _buildGroup(context, regional),
                   const SizedBox(height: 20),
                 ],
                 if (popular.isNotEmpty && _query.isEmpty) ...[
-                  _sectionHeader('POPULAR'),
+                  _sectionHeader(AppStrings.currency.popular),
                   const SizedBox(height: 8),
-                  _buildGroup(popular),
+                  _buildGroup(context, popular),
                   const SizedBox(height: 20),
                 ],
                 if (others.isNotEmpty || _query.isNotEmpty) ...[
-                  if (_query.isEmpty) _sectionHeader('ALL CURRENCIES'),
+                  if (_query.isEmpty)
+                    _sectionHeader(AppStrings.currency.allCurrencies),
                   if (_query.isEmpty) const SizedBox(height: 8),
-                  _buildGroup(_query.isEmpty ? others : filtered),
+                  _buildGroup(context, _query.isEmpty ? others : filtered),
                 ],
               ],
             ),
@@ -175,35 +128,42 @@ class _EditCurrencyScreenState extends State<EditCurrencyScreen> {
   Widget _sectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontFamily: 'Poppins',
-        fontSize: 11,
+      style: caption_text.copyWith(
         fontWeight: FontWeight.w600,
         letterSpacing: 1.6,
-        color: _sectionLabel,
+        color: groupOnSurfaceMuted,
+        fontStyle: FontStyle.normal,
       ),
     );
   }
 
-  Widget _buildGroup(List<MapEntry<String, String>> entries) {
+  Widget _buildGroup(
+      BuildContext context, List<MapEntry<String, String>> entries) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Container(
       decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupCardRadius),
+        border: Border.all(color: groupMutedBorderHairline),
       ),
       child: Column(
         children: entries.asMap().entries.map((e) {
           final isLast = e.key == entries.length - 1;
           final code = e.value.key;
           final name = e.value.value;
-          return _buildCurrencyTile(code: code, name: name, isLast: isLast);
+          return _buildCurrencyTile(
+            context: context,
+            code: code,
+            name: name,
+            isLast: isLast,
+          );
         }).toList(),
       ),
     );
   }
 
   Widget _buildCurrencyTile({
+    required BuildContext context,
     required String code,
     required String name,
     bool isLast = false,
@@ -214,53 +174,49 @@ class _EditCurrencyScreenState extends State<EditCurrencyScreen> {
         children: [
           InkWell(
             onTap: () => _pick(code),
-            borderRadius: isLast
-                ? const BorderRadius.vertical(bottom: Radius.circular(16))
-                : BorderRadius.zero,
+            borderRadius:
+                isLast ? groupSheetBottomBorderRadius : BorderRadius.zero,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGap18, vertical: groupGap14),
               child: Row(
                 children: [
-                  // Symbol pill
                   Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: isSelected ? _neopopYellow : _bg,
-                      borderRadius: BorderRadius.circular(10),
+                      color: isSelected ? neopopYellow : groupMutedFillMedium,
+                      borderRadius: BorderRadius.circular(groupRadiusMd),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       CurrencyService.symbolFor(code),
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: splitrFontBodyLg,
                         fontWeight: FontWeight.w700,
-                        color: isSelected ? Colors.black : _sectionLabel,
+                        color:
+                            isSelected ? neopopBackground : groupOnSurfaceMuted,
                       ),
                     ),
                   ),
                   const SizedBox(width: 14),
-                  // Name + code
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           name,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14,
+                          style: body2_text.copyWith(
                             fontWeight:
                                 isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: _titleColor,
+                            color: groupOnSurface,
                           ),
                         ),
                         Text(
                           code,
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            color: _sectionLabel,
+                          style: caption_text.copyWith(
+                            color: groupOnSurfaceMuted,
+                            fontStyle: FontStyle.normal,
                           ),
                         ),
                       ],
@@ -268,14 +224,14 @@ class _EditCurrencyScreenState extends State<EditCurrencyScreen> {
                   ),
                   if (isSelected)
                     const Icon(Icons.check_circle_rounded,
-                        color: Color(0xFF4CAF50), size: 20),
+                        color: neopopAccent, size: 20),
                 ],
               ),
             ),
           ),
           if (!isLast)
-            const Divider(
-                height: 1, color: _borderColor, indent: 18, endIndent: 18),
+            Divider(
+                height: 1, color: groupMutedBorder, indent: 18, endIndent: 18),
         ],
       );
     });

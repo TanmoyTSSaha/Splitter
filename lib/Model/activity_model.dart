@@ -1,5 +1,9 @@
 /// Data models for Group Activity Feed
 /// Represents aggregated events in a group: expense added, settled up, member joined, or comments.
+library;
+
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
 
 enum ActivityType {
   expenseAdded,
@@ -15,10 +19,10 @@ class ActivityItem {
   final String actorId;
   final String actorName;
   final String? actorPic;
-  final String description; // "added 'Dinner at Toscano'"
+  final String description;
   final double? amount;
   final DateTime timestamp;
-  final Map<String, dynamic>? metadata; // Can store related expenseId, etc.
+  final Map<String, dynamic>? metadata;
   final List<Reaction> reactions;
   final int commentCount;
 
@@ -39,25 +43,25 @@ class ActivityItem {
 
   factory ActivityItem.fromJSON(Map<String, dynamic> json) {
     return ActivityItem(
-      id: json['id'] as String,
-      groupId: json['group_id'] as String,
+      id: json[SupabaseColumns.id] as String,
+      groupId: json[SupabaseColumns.groupId] as String,
       type: ActivityType.values.firstWhere(
-          (e) => e.toString().split('.').last == json['type'],
+          (e) => e.toString().split('.').last == json[SupabaseColumns.type],
           orElse: () => ActivityType.expenseAdded),
-      actorId: json['actor_id'] as String,
-      actorName: json['actor_name'] as String,
-      actorPic: json['actor_pic'] as String?,
-      description: json['description'] as String,
-      amount: json['amount'] != null
-          ? double.tryParse(json['amount'].toString())
+      actorId: json[SupabaseColumns.actorId] as String,
+      actorName: json[SupabaseColumns.actorName] as String,
+      actorPic: json[SupabaseColumns.actorPic] as String?,
+      description: json[SupabaseColumns.description] as String,
+      amount: json[SupabaseColumns.amount] != null
+          ? double.tryParse(json[SupabaseColumns.amount].toString())
           : null,
-      timestamp: DateTime.parse(json['created_at'] as String),
-      metadata: json['metadata'] as Map<String, dynamic>?,
-      reactions: (json['reactions'] as List<dynamic>?)
+      timestamp: DateTime.parse(json[SupabaseColumns.createdAt] as String),
+      metadata: json[SupabaseColumns.metadata] as Map<String, dynamic>?,
+      reactions: (json[SupabaseColumns.reactions] as List<dynamic>?)
               ?.map((r) => Reaction.fromJSON(r))
               .toList() ??
           [],
-      commentCount: json['comment_count'] as int? ?? 0,
+      commentCount: json[SupabaseColumns.commentCount] as int? ?? 0,
     );
   }
 }
@@ -75,16 +79,16 @@ class Reaction {
 
   factory Reaction.fromJSON(Map<String, dynamic> json) {
     return Reaction(
-      emoji: json['emoji'] as String,
-      userId: json['user_id'] as String,
-      userName: json['user_name'] as String,
+      emoji: json[SupabaseColumns.emoji] as String,
+      userId: json[SupabaseColumns.userId] as String,
+      userName: json[SupabaseColumns.userName] as String,
     );
   }
 
   Map<String, dynamic> toJSON() => {
-        'emoji': emoji,
-        'user_id': userId,
-        'user_name': userName,
+        SupabaseColumns.emoji: emoji,
+        SupabaseColumns.userId: userId,
+        SupabaseColumns.userName: userName,
       };
 }
 
@@ -109,13 +113,14 @@ class ActivityComment {
 
   factory ActivityComment.fromJSON(Map<String, dynamic> json) {
     return ActivityComment(
-      id: json['id'] as String,
-      activityId: json['activity_id'] as String,
-      groupId: json['group_id'] as String,
-      userId: json['user_id'] as String,
-      userName: json['user_name'] as String? ?? 'User',
-      body: json['body'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json[SupabaseColumns.id] as String,
+      activityId: json[SupabaseColumns.activityId] as String,
+      groupId: json[SupabaseColumns.groupId] as String,
+      userId: json[SupabaseColumns.userId] as String,
+      userName:
+          json[SupabaseColumns.userName] as String? ?? DisplayFallbacks.user,
+      body: json[SupabaseColumns.body] as String,
+      createdAt: DateTime.parse(json[SupabaseColumns.createdAt] as String),
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 class InsightsCoachCard extends StatelessWidget {
   final String title;
@@ -28,10 +28,10 @@ class InsightsCoachCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(groupGap10),
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(groupControlRadius),
             ),
             child: Icon(icon, color: accent, size: 22),
           ),

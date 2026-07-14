@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'dart:io';
 
 /// Utility to capture a widget wrapped in [RepaintBoundary] as a PNG image
@@ -17,7 +20,7 @@ class ShareableCardService {
   /// [shareText] is the optional text that accompanies the image.
   static Future<void> captureAndShare(
     GlobalKey repaintKey, {
-    String filename = 'splito_card',
+    String filename = '${AppBranding.exportFilePrefix}_card',
     String? shareText,
   }) async {
     try {
@@ -30,7 +33,8 @@ class ShareableCardService {
       }
 
       // 2. Capture at 3× for crisp images
-      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ui.Image image =
+          await boundary.toImage(pixelRatio: ShareCardConfig.pixelRatio);
       final ByteData? byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
 
@@ -49,10 +53,15 @@ class ShareableCardService {
       // 4. Share via platform share sheet
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: shareText ?? 'Shared from SplitO ✨',
+        text: shareText ?? AppBranding.shareAttribution,
       );
-    } catch (e) {
-      debugPrint('ShareableCardService: error — $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ShareableCardService.captureAndShare failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'sharing', 'operation': 'captureAndShare'},
+      );
     }
   }
 }

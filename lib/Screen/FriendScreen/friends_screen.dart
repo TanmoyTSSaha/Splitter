@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Controller/friends_controller.dart';
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Screen/FriendScreen/add_friend_screen.dart';
-import 'package:splitter/Screen/FriendScreen/friend_detail_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Controller/notification_badge_controller.dart';
-import 'package:splitter/Widgets/notification_bell_button.dart';
-import 'package:splitter/Widgets/pill_tab_bar.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
-
-const Color _lightBg = Color(0xFFFAFAFA);
-const Color _cardBorder = Color(0xFFEEEEEE);
-const double _actionButtonMinWidth = 76;
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Controller/friends_controller.dart';
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Screen/FriendScreen/add_friend_screen.dart';
+import 'package:splitr/Screen/FriendScreen/friend_detail_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Controller/notification_badge_controller.dart';
+import 'package:splitr/Widgets/notification_bell_button.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/pill_tab_bar.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
 TextStyle _actionLabelStyle(Color color) => TextStyle(
-      fontFamily: 'Poppins',
-      fontSize: 12,
+      fontFamily: kFontPoppins,
+      fontSize: splitrFontCaption,
       fontWeight: FontWeight.w600,
       fontStyle: FontStyle.normal,
       color: color,
@@ -44,7 +47,8 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController =
+        TabController(length: FriendScreenLayout.tabCount, vsync: this);
     final uid = SupabaseAuth().supabaseGetUserID();
     _userID = uid.isNotEmpty ? uid : null;
     if (_userID != null) {
@@ -65,34 +69,24 @@ class _FriendsScreenState extends State<FriendsScreen>
   Widget build(BuildContext context) {
     if (_userID == null) {
       return Scaffold(
-        backgroundColor: _lightBg,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(
           child: Text(
-            "Please log in.",
+            AppStrings.auth.pleaseLogIn,
             style: body1_text.copyWith(color: groupOnSurface),
           ),
         ),
       );
     }
 
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: _lightBg,
-      appBar: AppBar(
-        backgroundColor: _lightBg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.friends.title,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: groupOnSurface),
-        ),
-        title: Text(
-          'Friends',
-          style: headline3_text.copyWith(
-            fontFamily: 'Albra',
-            fontWeight: FontWeight.w600,
-            color: groupOnSurface,
-          ),
         ),
         actions: [
           const NotificationBellButton(),
@@ -102,11 +96,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                   .getCurrentUserProfile(userID: _userID!);
               final name = '${profile.firstName} ${profile.lastName}'.trim();
               await _controller.shareFriendInviteLink(
-                name.isEmpty ? 'A friend' : name,
+                name.isEmpty ? DisplayFallbacks.aFriend : name,
               );
             },
             icon: const Icon(Icons.link_rounded, color: neopopAccent),
-            tooltip: 'Share invite link',
+            tooltip: AppStrings.a11y.shareInviteLink,
           ),
           IconButton(
             onPressed: () {
@@ -137,9 +131,13 @@ class _FriendsScreenState extends State<FriendsScreen>
           headerSliverBuilder: (_, __) => [
             sliverPillTabBar(
               controller: _tabController,
-              tabs: const ['Friends', 'Pending', 'Incoming'],
+              tabs: [
+                AppStrings.friends.tabFriends,
+                AppStrings.friends.tabPending,
+                AppStrings.friends.tabIncoming,
+              ],
               badgeCounts: [null, pendingCount, incomingCount],
-              backgroundColor: _lightBg,
+              backgroundColor: surface,
             ),
           ],
           body: TabBarView(
@@ -160,8 +158,8 @@ class _FriendsScreenState extends State<FriendsScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline_rounded,
-              color: groupOnSurfaceMuted, size: 48),
+          const Icon(Icons.error_outline_rounded,
+              color: groupOnSurfaceMuted, size: groupCtaHeightCompact),
           const SizedBox(height: groupGapMd),
           Text(
             _controller.errorMessage.value,
@@ -175,8 +173,8 @@ class _FriendsScreenState extends State<FriendsScreen>
               backgroundColor: neopopBackground,
             ),
             child: Text(
-              "Retry",
-              style: button_text.copyWith(color: Colors.white),
+              AppStrings.actions.retry,
+              style: button_text.copyWith(color: neopopOnPrimary),
             ),
           ),
         ],
@@ -195,10 +193,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          children: const [
+          children: [
             TabEmptyState(
-              title: 'Add friends to start splitting!',
-              subtitle: 'Tap the + icon to search by email.',
+              title: AppStrings.friends.addFriendsEmpty,
+              subtitle: AppStrings.friends.addFriendsEmptySubtitle,
               compact: true,
             ),
           ],
@@ -236,10 +234,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          children: const [
+          children: [
             TabEmptyState(
-              title: 'No pending requests',
-              subtitle: 'Friend requests you send appear here.',
+              title: AppStrings.friends.noPendingRequests,
+              subtitle: AppStrings.friends.noPendingSubtitle,
               compact: true,
             ),
           ],
@@ -277,10 +275,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          children: const [
+          children: [
             TabEmptyState(
-              title: 'No incoming requests',
-              subtitle: "When someone adds you, they'll show up here.",
+              title: AppStrings.friends.noIncomingRequests,
+              subtitle: AppStrings.friends.noIncomingSubtitle,
               compact: true,
             ),
           ],
@@ -312,14 +310,14 @@ class _FriendsScreenState extends State<FriendsScreen>
       margin: const EdgeInsets.only(bottom: groupGapSm),
       padding: const EdgeInsets.all(groupGapMd),
       decoration: BoxDecoration(
-        color: tint ?? Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _cardBorder),
+        color: tint ?? neopopOnPrimary,
+        borderRadius: BorderRadius.circular(groupCardRadius),
+        border: Border.all(color: groupMutedBorderHairline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: groupSurfaceFillWhisper,
+            blurRadius: AppDimensions.groupCardShadowBlur,
+            offset: Offset(0, AppDimensions.groupCardShadowOffsetSmY),
           ),
         ],
       ),
@@ -332,11 +330,11 @@ class _FriendsScreenState extends State<FriendsScreen>
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         UserAvatar(
-          userID: req.friendUserID ?? 'unknown',
-          userName: req.friendName ?? '?',
+          userID: req.friendUserID ?? DisplayFallbacks.unknown.toLowerCase(),
+          userName: req.friendName ?? DisplayFallbacks.questionMark,
           imageUrl: req.friendPic,
           radius: 22,
-          fontSize: 16,
+          fontSize: splitrFontBodyLg,
         ),
         const SizedBox(width: groupGapSm),
         Expanded(
@@ -344,7 +342,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                req.friendName ?? 'Unknown',
+                req.friendName ?? DisplayFallbacks.unknown,
                 style: body1_text.copyWith(
                   color: groupOnSurface,
                   fontWeight: FontWeight.w600,
@@ -374,32 +372,31 @@ class _FriendsScreenState extends State<FriendsScreen>
           Expanded(child: _buildRequestIdentity(req)),
           const SizedBox(width: groupGapSm),
           SizedBox(
-            width: _actionButtonMinWidth,
+            width: FriendScreenLayout.actionButtonMinWidth,
             child: ElevatedButton(
               onPressed: () async {
                 if (req.id != null) {
                   final success =
                       await _controller.acceptFriendRequest(req.id!);
-                  Fluttertoast.showToast(
-                    msg: success
-                        ? "Friend request accepted!"
-                        : "Failed to accept.",
-                    backgroundColor: success ? neopopAccent : neopopYellow,
-                    textColor: neopopBackground,
-                  );
+                  SplitrToast.show(success
+                        ? AppStrings.friends.friendRequestAccepted
+                        : AppStrings.friends.friendRequestFailed);
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: neopopAccent,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                minimumSize: const Size(_actionButtonMinWidth, 36),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: groupGapSm, vertical: groupGapSm),
+                minimumSize: const Size(
+                  FriendScreenLayout.actionButtonMinWidth,
+                  FriendScreenLayout.actionButtonMinHeight,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(groupControlRadiusSm),
                 ),
               ),
-              child:
-                  Text('Accept', style: _actionLabelStyle(neopopOnBackground)),
+              child: Text(AppStrings.actions.accept,
+                  style: _actionLabelStyle(neopopOnBackground)),
             ),
           ),
         ],
@@ -409,8 +406,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildOutgoingCard(FriendModel req) {
     final requestId = req.id;
-    final isBusy =
-        requestId != null && _actionsInFlight.contains(requestId);
+    final isBusy = requestId != null && _actionsInFlight.contains(requestId);
 
     return _buildLightCard(
       child: Column(
@@ -427,13 +423,14 @@ class _FriendsScreenState extends State<FriendsScreen>
                       : () => _onCancelRequest(req),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: groupOnSurfaceMuted,
-                    side: BorderSide(color: _cardBorder),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    side: BorderSide(color: groupMutedBorderHairline),
+                    padding: const EdgeInsets.symmetric(vertical: groupGapSm),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(groupControlRadiusSm),
                     ),
                   ),
-                  child: Text('Cancel', style: _actionLabelStyle(groupOnSurfaceMuted)),
+                  child: Text(AppStrings.actions.cancel,
+                      style: _actionLabelStyle(groupOnSurfaceMuted)),
                 ),
               ),
               const SizedBox(width: groupGapSm),
@@ -444,15 +441,14 @@ class _FriendsScreenState extends State<FriendsScreen>
                       : () => _onRemindRequest(req),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: neopopAccent,
-                    disabledBackgroundColor:
-                        neopopAccent.withValues(alpha: 0.5),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    disabledBackgroundColor: neopopAccentIconMuted,
+                    padding: const EdgeInsets.symmetric(vertical: groupGapSm),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(groupControlRadiusSm),
                     ),
                   ),
-                  child:
-                      Text('Remind', style: _actionLabelStyle(neopopOnBackground)),
+                  child: Text(AppStrings.friends.remind,
+                      style: _actionLabelStyle(neopopOnBackground)),
                 ),
               ),
             ],
@@ -470,11 +466,9 @@ class _FriendsScreenState extends State<FriendsScreen>
     final success = await _controller.cancelFriendRequest(requestId);
     if (mounted) setState(() => _actionsInFlight.remove(requestId));
 
-    Fluttertoast.showToast(
-      msg: success ? 'Request cancelled.' : 'Failed to cancel.',
-      backgroundColor: success ? neopopAccent : neopopYellow,
-      textColor: neopopBackground,
-    );
+    SplitrToast.show(success
+          ? AppStrings.friends.requestCancelled
+          : AppStrings.friends.requestCancelFailed);
   }
 
   Future<void> _onRemindRequest(FriendModel req) async {
@@ -485,25 +479,25 @@ class _FriendsScreenState extends State<FriendsScreen>
     final success = await _controller.remindFriendRequest(req);
     if (mounted) setState(() => _actionsInFlight.remove(requestId));
 
-    Fluttertoast.showToast(
-      msg: success ? 'Reminder sent.' : 'Failed to send reminder.',
-      backgroundColor: success ? neopopAccent : neopopYellow,
-      textColor: neopopBackground,
-    );
+    SplitrToast.show(success
+          ? AppStrings.friends.reminderSent
+          : AppStrings.friends.reminderFailed);
   }
 
   Widget _buildFriendCard(FriendBalanceModel fb) {
     Color balanceColor;
     String balanceText;
-    if (fb.netBalance > 0.01) {
+    if (fb.netBalance > MoneyEpsilon.balanceSettled) {
       balanceColor = neopopAccent;
-      balanceText = "owes you ₹${fb.netBalance.toStringAsFixed(2)}";
-    } else if (fb.netBalance < -0.01) {
-      balanceColor = const Color(0xFFE6A800);
-      balanceText = "you owe ₹${fb.netBalance.abs().toStringAsFixed(2)}";
+      balanceText =
+          "${AppStrings.friends.owesYou} ${userCurrencySymbol()}${fb.netBalance.toStringAsFixed(DefaultDecimalPlaces.amount)}";
+    } else if (fb.netBalance < -MoneyEpsilon.balanceSettled) {
+      balanceColor = neopopOwe;
+      balanceText =
+          "${AppStrings.friends.youOwe} ${userCurrencySymbol()}${fb.netBalance.abs().toStringAsFixed(DefaultDecimalPlaces.amount)}";
     } else {
       balanceColor = groupOnSurfaceMuted;
-      balanceText = "settled up";
+      balanceText = AppStrings.friends.settledUp;
     }
 
     return GestureDetector(
@@ -524,10 +518,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           children: [
             UserAvatar(
               userID: fb.friendUserID!,
-              userName: fb.friendName ?? '?',
+              userName: fb.friendName ?? DisplayFallbacks.questionMark,
               imageUrl: fb.friendPic,
               radius: 24,
-              fontSize: 18,
+              fontSize: splitrFontSubhead,
             ),
             const SizedBox(width: groupGapSm),
             Expanded(
@@ -535,13 +529,13 @@ class _FriendsScreenState extends State<FriendsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fb.friendName ?? 'Unknown',
+                    fb.friendName ?? DisplayFallbacks.unknown,
                     style: body1_text.copyWith(
                       color: groupOnSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: groupGap2),
                   Text(
                     fb.friendEmail ?? '',
                     style: body2_text.copyWith(
@@ -562,18 +556,18 @@ class _FriendsScreenState extends State<FriendsScreen>
                 ),
                 if (fb.groupBreakdown.isNotEmpty)
                   Text(
-                    "${fb.groupBreakdown.length} group${fb.groupBreakdown.length > 1 ? 's' : ''}",
+                    '${fb.groupBreakdown.length}${AppStringFormat.groupCount(fb.groupBreakdown.length)}',
                     style: body2_text.copyWith(
                       color: groupOnSurfaceMuted,
-                      fontSize: 10,
+                      fontSize: splitrFontMicro,
                       fontStyle: FontStyle.normal,
                     ),
                   ),
               ],
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded,
-                color: groupOnSurfaceMuted, size: 20),
+            const SizedBox(width: groupGapXxs),
+            const Icon(Icons.chevron_right_rounded,
+                color: groupOnSurfaceMuted, size: AppDimensions.groupIconMd),
           ],
         ),
       ),

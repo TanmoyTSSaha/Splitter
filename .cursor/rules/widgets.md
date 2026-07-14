@@ -1,4 +1,4 @@
-# Widget Rules — SplitO (Splitter)
+# Widget Rules — Splitr
 
 ## Purpose
 
@@ -62,7 +62,7 @@ Known violations to split when touched:
 | `activity_comments_sheet.dart` | Activity comment sheet |
 | `dark_surface_theme.dart` | Dark surface theme helpers |
 
-Import: `package:splitter/Widgets/<file>.dart`
+Import: `package:splitr/Widgets/<file>.dart`
 
 ### Feature-scoped widgets (stay in feature folder)
 

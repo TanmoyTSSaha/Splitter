@@ -1,7 +1,8 @@
 import 'package:get/get.dart';
-import 'package:splitter/Model/reminder_settings_model.dart';
-import 'package:splitter/Services/reminder_service.dart';
-import 'package:splitter/Services/reminder_settings_service.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Services/reminder_service.dart';
+import 'package:splitr/Services/reminder_settings_service.dart';
 
 /// Schedules contextual debt reminders after expenses and settlements.
 class ReminderTriggerHelper {
@@ -28,7 +29,7 @@ class ReminderTriggerHelper {
       if (entry.value <= 0) continue;
       if (settings.mutedMemberIds.contains(entry.key)) continue;
 
-      final debtorName = memberNames[entry.key] ?? 'Someone';
+      final debtorName = memberNames[entry.key] ?? DisplayFallbacks.someone;
       await reminderService.scheduleReminder(
         id: _notificationId(groupId, notifIndex++),
         groupName: groupName,
@@ -61,7 +62,7 @@ class ReminderTriggerHelper {
       debtorName: fromName,
       amount: amount,
       tone: settings.tone,
-      delay: const Duration(hours: 12),
+      delay: AppMotion.reminderSettlementDelay,
     );
   }
 

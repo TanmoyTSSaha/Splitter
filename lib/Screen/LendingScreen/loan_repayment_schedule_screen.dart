@@ -1,39 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/loan_model.dart';
-import 'package:splitter/Model/repayment_schedule.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Model/repayment_schedule.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/LendingScreen/widgets/loan_payment_sheet.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
 
-class LoanRepaymentScheduleScreen extends StatelessWidget {
+class LoanRepaymentScheduleScreen extends StatefulWidget {
   final LoanModel loan;
 
   const LoanRepaymentScheduleScreen({super.key, required this.loan});
 
   @override
-  Widget build(BuildContext context) {
-    final schedule = LoanScheduleCalculator.build(loan);
-    final sym = Get.find<CurrencyController>().symbol;
-    final dateFormat = DateFormat('MMM d, yyyy');
+  State<LoanRepaymentScheduleScreen> createState() =>
+      _LoanRepaymentScheduleScreenState();
+}
 
+class _LoanRepaymentScheduleScreenState
+    extends State<LoanRepaymentScheduleScreen> {
+  late LoanModel _loan;
+
+  @override
+  void initState() {
+    super.initState();
+    _loan = widget.loan;
+  }
+
+  Future<void> _openPaymentSheet(RepaymentInstallment inst) async {
+    final updated = await LoanPaymentSheet.show(
+      context,
+      loan: _loan,
+      initialAmount: LoanScheduleCalculator.remainingDue(inst),
+    );
+    if (updated != null && mounted) {
+      setState(() => _loan = updated);
+    }
+  }
+
+  bool _canPayInstallment(RepaymentInstallment inst) {
+    if (_loan.status != LoanStatusValues.active) return false;
+    if (inst.status != InstallmentStatus.upcoming &&
+        inst.status != InstallmentStatus.partial) {
+      return false;
+    }
+    return LoanScheduleCalculator.isInPaymentWindow(inst, DateTime.now());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final schedule = LoanScheduleCalculator.build(_loan);
+    final sym = Get.find<CurrencyController>().symbol;
+    final dateFormat = DateFormat(AppDateFormats.shortDayYear);
+
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: groupOnSurface),
-          onPressed: () => Get.back(),
-        ),
-        title: Text(
-          'Repayment Schedule',
-          style: sub_headline5_text.copyWith(color: groupOnSurface),
-        ),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.lending.repaymentSchedule,
         centerTitle: true,
-        scrolledUnderElevation: 0,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
+          onPressed: () => Get.back(result: _loan != widget.loan),
+        ),
       ),
       body: schedule.monthCount == 0 || schedule.installments.isEmpty
           ? _buildEmptyState()
@@ -41,9 +76,9 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
               padding: const EdgeInsets.all(groupGutter),
               children: [
                 _buildSummaryCard(schedule, sym),
-                const SizedBox(height: groupGapXl+groupGapSm),
+                const SizedBox(height: groupGapXl + groupGapSm),
                 Text(
-                  'Monthly installments',
+                  AppStrings.lending.monthlyInstallments,
                   style: body1_text.copyWith(
                     fontWeight: FontWeight.bold,
                     color: groupOnSurface,
@@ -63,7 +98,7 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(groupGutter),
         child: Text(
-          'Unable to build a repayment schedule. Check duration and due date.',
+          AppStrings.lending.scheduleBuildError,
           textAlign: TextAlign.center,
           style: body2_text.copyWith(color: groupOnSurfaceMuted),
         ),
@@ -72,14 +107,15 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
   }
 
   Widget _buildSummaryCard(RepaymentSchedule schedule, String sym) {
-    final periodLabel =
-        loan.interestPeriod == 'yearly' ? 'yearly' : 'monthly';
+    final periodLabel = _loan.interestPeriod == LoanFrequencyValues.yearly
+        ? LoanFrequencyValues.yearly
+        : LoanFrequencyValues.monthly;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'REPAYMENT BREAKDOWN',
+          AppStrings.lending.repaymentBreakdown,
           style: caption_text.copyWith(
             color: groupOnSurfaceMuted,
             letterSpacing: 1.2,
@@ -88,21 +124,21 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
         ),
         const SizedBox(height: groupGapLg),
         _breakdownLineItem(
-          title: 'Principal',
-          subtitle: 'Loan amount',
+          title: AppStrings.lending.principal,
+          subtitle: AppStrings.lending.loanAmount,
           amount: '$sym${schedule.principal.toStringAsFixed(2)}',
         ),
         const SizedBox(height: groupGapMd),
         _breakdownLineItem(
-          title: 'Total interest',
+          title: AppStrings.lending.totalInterest,
           subtitle:
-              '${loan.interestRate.toStringAsFixed(1)}% $periodLabel · ${loan.interestType}',
+              '${_loan.interestRate.toStringAsFixed(1)}% $periodLabel · ${_loan.interestType}',
           amount: '$sym${schedule.totalInterest.toStringAsFixed(2)}',
         ),
         const SizedBox(height: groupGapMd),
         _breakdownLineItem(
-          title: 'Monthly EMI',
-          subtitle: 'Per installment',
+          title: AppStrings.lending.monthlyEmi,
+          subtitle: AppStrings.lending.perInstallment,
           amount: '$sym${schedule.monthlyEmi.toStringAsFixed(2)}',
         ),
         const SizedBox(height: groupGapLg),
@@ -119,7 +155,7 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
                 (_) => Container(
                   width: dashWidth,
                   height: 1,
-                  color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                  color: groupMutedBorderStrong,
                 ),
               ),
             );
@@ -130,8 +166,8 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Text(
-              'Total payable',
+            Text(
+              AppStrings.lending.totalPayable,
               style: _totalPayableTextStyle,
             ),
             Flexible(
@@ -148,8 +184,8 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
   }
 
   static const TextStyle _totalPayableTextStyle = TextStyle(
-    fontFamily: 'Albra',
-    fontSize: 28,
+    fontFamily: kFontAlbra,
+    fontSize: splitrFontHeadline2,
     height: 1.2,
     fontWeight: FontWeight.w500,
     color: groupOnSurface,
@@ -198,8 +234,11 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
     String sym,
     DateFormat dateFormat,
   ) {
-    final windowLabel =
-        'Pay between ${dateFormat.format(inst.windowStart)} – ${dateFormat.format(inst.windowEnd)}';
+    final windowLabel = AppStringFormat.payBetween(
+      dateFormat.format(inst.windowStart),
+      dateFormat.format(inst.windowEnd),
+    );
+    final showPay = _canPayInstallment(inst);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: groupGapSm),
@@ -215,7 +254,7 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Month ${inst.index}',
+                    AppStringFormat.monthLabel(inst.index),
                     style: body1_text.copyWith(
                       fontWeight: FontWeight.w600,
                       color: groupOnSurface,
@@ -237,16 +276,65 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
                   if (inst.status == InstallmentStatus.partial &&
                       inst.paidAmount != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: groupGapXxs),
                       child: Text(
-                        '$sym${inst.paidAmount!.toStringAsFixed(2)} paid of $sym${inst.amount.toStringAsFixed(2)}',
+                        AppStringFormat.paidOfAmount(
+                          sym,
+                          inst.paidAmount!.toStringAsFixed(2),
+                          inst.amount.toStringAsFixed(2),
+                        ),
                         style: caption_text.copyWith(color: Colors.orange),
+                      ),
+                    ),
+                  if (inst.status == InstallmentStatus.prepaid &&
+                      inst.paidAmount != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: groupGapXxs),
+                      child: Text(
+                        AppStringFormat.paidOfAmount(
+                          sym,
+                          inst.paidAmount!.toStringAsFixed(2),
+                          inst.amount.toStringAsFixed(2),
+                        ),
+                        style: caption_text.copyWith(color: Colors.teal),
                       ),
                     ),
                 ],
               ),
             ),
-            _statusChip(inst.status),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _statusChip(inst.status),
+                if (showPay) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 32,
+                    child: ElevatedButton(
+                      onPressed: () => _openPaymentSheet(inst),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: neopopBackground,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: groupGap14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(groupControlRadiusSm),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        AppStrings.lending.pay,
+                        style: body2_text.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -259,29 +347,33 @@ class LoanRepaymentScheduleScreen extends StatelessWidget {
     switch (status) {
       case InstallmentStatus.paid:
         color = Colors.green;
-        label = 'Paid';
+        label = AppStrings.lending.paid;
+      case InstallmentStatus.prepaid:
+        color = Colors.teal;
+        label = AppStrings.lending.prepaid;
       case InstallmentStatus.partial:
         color = Colors.orange;
-        label = 'Partial';
+        label = AppStrings.lending.partial;
       case InstallmentStatus.missed:
-        color = Colors.redAccent;
-        label = 'Missed';
+        color = neopopError;
+        label = AppStrings.lending.missed;
       case InstallmentStatus.upcoming:
         color = groupOnSurfaceMuted;
-        label = 'Upcoming';
+        label = AppStrings.lending.upcoming;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+          horizontal: groupGap10, vertical: groupGapXxs),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: splitrFontCaptionSm,
           fontWeight: FontWeight.bold,
           color: color,
         ),

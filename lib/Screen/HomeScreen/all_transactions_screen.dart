@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/transaction_tile.dart';
-import 'package:splitter/Model/group_model.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controller/all_transactions_controller.dart';
+import 'package:splitr/Screen/HomeScreen/widgets/personal_transaction_sheet.dart';
+import 'package:splitr/Screen/HomeScreen/widgets/transaction_filter_sheet.dart';
+import 'package:splitr/Screen/HomeScreen/widgets/transaction_section_header.dart';
+import 'package:splitr/Screen/HomeScreen/widgets/transaction_sort_sheet.dart';
+import 'package:splitr/Utils/transaction_section_grouper.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/transaction_tile.dart';
 
 class AllTransactionsScreen extends StatefulWidget {
   final bool? isGroupFilter;
@@ -26,118 +34,196 @@ class AllTransactionsScreen extends StatefulWidget {
 }
 
 class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
-  final SupabaseDatabase _supabase = SupabaseDatabase();
-  final String _userID = SupabaseAuth().supabaseGetUserID();
-
-  List<Map<String, dynamic>> _allTransactions = [];
-  bool _isLoading = true;
-
-  Worker? _currencyWorker;
+  late final AllTransactionsController _controller;
 
   @override
   void initState() {
     super.initState();
-    _fetchAllTransactions();
-    final cc = Get.find<CurrencyController>();
-    _currencyWorker = ever(cc.rxCode, (_) => _fetchAllTransactions());
+    _controller = Get.put(
+      AllTransactionsController(
+        isGroupFilter: widget.isGroupFilter,
+        isTripFilter: widget.isTripFilter,
+        groups: widget.groups,
+        tripGroupIds: widget.tripGroupIds,
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _currencyWorker?.dispose();
+    if (Get.isRegistered<AllTransactionsController>()) {
+      Get.delete<AllTransactionsController>();
+    }
     super.dispose();
   }
 
-  Future<void> _fetchAllTransactions() async {
-    setState(() => _isLoading = true);
-    try {
-      final String selectedCurrency = Get.find<CurrencyController>().code;
-      final txns = await _supabase.getUnifiedTransactions(
-        userID: _userID,
-        limit: null, // Fetch all
-        selectedCurrency: selectedCurrency,
-      );
+  String _title() {
+    if (widget.isGroupFilter == true) return AppStrings.home.groupTransactions;
+    if (widget.isTripFilter == true) return AppStrings.home.tripTransactions;
+    return AppStrings.home.allTransactions;
+  }
 
-      List<Map<String, dynamic>> filteredTxns = txns;
+  void _openPersonalTransactionSheet(Map<String, dynamic> txn) {
+    PersonalTransactionSheet.show(
+      context,
+      txn: txn,
+      onChanged: _controller.fetchTransactions,
+    );
+  }
 
-      // Filter Logic
-      if (widget.isGroupFilter == true) {
-        // Filter for Group Tab (Non-Trip Groups)
-        if (widget.groups != null) {
-          final nonTripGroupIds = (widget.groups as List)
-              .whereType<GroupModel>()
-              .map((g) => g.groupID)
-              .whereType<String>()
-              .toSet();
-
-          filteredTxns = txns.where((t) {
-            return t['type'] == 'group' &&
-                nonTripGroupIds.contains(t['group_id']);
-          }).toList();
-        }
-      } else if (widget.isTripFilter == true) {
-        // Filter for Trip Tab (Trip Groups)
-        if (widget.tripGroupIds != null) {
-          filteredTxns = txns.where((t) {
-            return t['type'] == 'group' &&
-                widget.tripGroupIds!.contains(t['group_id']);
-          }).toList();
-        }
+  List<Widget> _buildListItems(List<TransactionSection> sections) {
+    final items = <Widget>[];
+    for (final section in sections) {
+      items.add(TransactionSectionHeader(title: section.header));
+      for (final txn in section.transactions) {
+        items.add(TransactionTile(
+          txn: txn,
+          onLongPress: txn['type'] != TransactionTypes.group
+              ? () => _openPersonalTransactionSheet(txn)
+              : null,
+        ));
       }
-
-      setState(() {
-        _allTransactions = filteredTxns;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("FETCH ALL TRANSACTIONS ERROR: $e");
-      setState(() => _isLoading = false);
     }
+    return items;
   }
 
   @override
   Widget build(BuildContext context) {
-    String title = "All Transactions";
-    if (widget.isGroupFilter == true) title = "Group Transactions";
-    if (widget.isTripFilter == true) title = "Trip Transactions";
-
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: const BackButton(color: neopopBackground),
-        title: Text(
-          title,
-          style: headline3_text.copyWith(
-            fontFamily: 'Albra',
-            color: neopopBackground,
-            fontWeight: FontWeight.w600,
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: _title(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sort, color: groupOnSurface),
+            tooltip: AppStrings.a11y.sort,
+            onPressed: () => TransactionSortSheet.show(context, _controller),
           ),
-        ),
-      ),
-      body: _isLoading
-          ? Center(
-              child: LoadingAnimationWidget.staggeredDotsWave(
-                color: neopopBackground,
-                size: 40,
-              ),
-            )
-          : _allTransactions.isEmpty
-              ? Center(
-                  child: Text(
-                    "No transactions found.",
-                    style: body1_text.copyWith(color: neopopGrey),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _allTransactions.length,
-                  itemBuilder: (context, index) {
-                    return TransactionTile(txn: _allTransactions[index]);
-                  },
+          Obx(() {
+            final count = _controller.activeFilterCount;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list, color: groupOnSurface),
+                  tooltip: AppStrings.a11y.filter,
+                  onPressed: () =>
+                      TransactionFilterSheet.show(context, _controller),
                 ),
+                if (count > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(groupGapXxs),
+                      decoration: const BoxDecoration(
+                        color: neopopAccent,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$count',
+                        textAlign: TextAlign.center,
+                        style: caption_text.copyWith(
+                          color: neopopOnBackground,
+                          fontSize: splitrFontNanoSm,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+      body: Obx(() {
+        if (_controller.isLoading.value) {
+          return Center(
+            child: LoadingAnimationWidget.staggeredDotsWave(
+              color: neopopBackground,
+              size: AppDimensions.loadingIndicatorLg,
+            ),
+          );
+        }
+
+        final sections = _controller.sections;
+        final error = _controller.fetchError.value;
+        if (sections.isEmpty && error != null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  error,
+                  style: body1_text.copyWith(color: groupOnSurfaceMuted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: groupGapMd),
+                TextButton(
+                  onPressed: () => _controller.fetchTransactions(reset: true),
+                  child: Text(
+                    AppStrings.actions.tryAgain,
+                    style: body2_text.copyWith(color: neopopAccent),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        if (sections.isEmpty) {
+          return Center(
+            child: Text(
+              AppStrings.home.noTransactions,
+              style: body1_text.copyWith(color: groupOnSurfaceMuted),
+            ),
+          );
+        }
+
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: groupGutter),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate(_buildListItems(sections)),
+              ),
+            ),
+            if (_controller.canLoadOlder.value)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(groupGutter),
+                  child: Obx(() {
+                    final loading = _controller.isLoadingOlder.value;
+                    return TextButton(
+                      onPressed: loading ? null : _controller.loadOlder,
+                      child: loading
+                          ? const SizedBox(
+                              height: AppDimensions.loadingIndicatorSm,
+                              width: AppDimensions.loadingIndicatorSm,
+                              child: CircularProgressIndicator(
+                                strokeWidth: groupProgressStrokeWidth,
+                                color: neopopAccent,
+                              ),
+                            )
+                          : Text(
+                              AppStrings.home.loadOlder,
+                              style: body1_text.copyWith(
+                                color: neopopAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    );
+                  }),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: groupGapMd)),
+          ],
+        );
+      }),
     );
   }
 }

@@ -1,28 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:splitter/Constants/category_style.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Constants/gradient_mesh_background.dart';
-import 'package:splitter/Constants/sync_indicator_widget.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/financial_goal_model.dart';
-import 'package:splitter/Model/user_details_model.dart';
-import 'package:splitter/Screen/GoalScreen/create_goal_screen.dart';
-import 'package:splitter/Screen/GoalScreen/goal_details_screen.dart';
-import 'package:splitter/Screen/HomeScreen/add_personal_transaction_screen.dart';
-import 'package:splitter/Screen/HomeScreen/daily_spend_bar_chart.dart';
-import 'package:splitter/Controller/notification_badge_controller.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/animated_glass_bottom_nav_bar.dart';
-import 'package:splitter/Widgets/notification_bell_button.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
-import 'package:splitter/Widgets/insights_promo_card.dart';
-import 'package:splitter/Widgets/transaction_tile.dart';
-import 'package:splitter/Screen/HomeScreen/all_transactions_screen.dart';
-import 'package:splitter/Screen/HomeScreen/empty_state_widget.dart';
-import 'package:splitter/Services/sync_service.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/category_style.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Constants/gradient_mesh_background.dart';
+import 'package:splitr/Constants/sync_indicator_widget.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/financial_goal_model.dart';
+import 'package:splitr/Model/user_details_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/GoalScreen/create_goal_screen.dart';
+import 'package:splitr/Screen/GoalScreen/goal_details_screen.dart';
+import 'package:splitr/Screen/HomeScreen/add_personal_transaction_screen.dart';
+import 'package:splitr/Screen/HomeScreen/daily_spend_bar_chart.dart';
+import 'package:splitr/Controller/home_controller.dart';
+import 'package:splitr/Controller/notification_badge_controller.dart';
+import 'package:splitr/Controller/profile_controller.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/animated_glass_bottom_nav_bar.dart';
+import 'package:splitr/Widgets/notification_bell_button.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
+import 'package:splitr/Widgets/insights_promo_card.dart';
+import 'package:splitr/Widgets/transaction_tile.dart';
+import 'package:splitr/Screen/HomeScreen/widgets/personal_transaction_sheet.dart';
+import 'package:splitr/Screen/HomeScreen/all_transactions_screen.dart';
+import 'package:splitr/Screen/HomeScreen/empty_state_widget.dart';
+import 'package:splitr/Services/sync_service.dart';
 
 import '../../Constants/shared.dart';
 
@@ -34,74 +43,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final SupabaseDatabase _supabase = SupabaseDatabase();
   final String _userID = SupabaseAuth().supabaseGetUserID();
-
-  // State Variables
-  List<Map<String, dynamic>> _unifiedTransactions = [];
-  Map<String, double> _monthlyAnalytics = {};
-  List<FinancialGoalModel> _goals = [];
-  bool _isLoading = true;
-
-  // Analytics State
-  bool _showTrueSpend = true; // Toggle state
-  double _monthlyCashFlow = 0.0;
-  List<Map<String, dynamic>> _dailySpendData = [];
-
-  Worker? _currencyWorker;
+  late final HomeController _homeController;
+  ProfileController get _profile => Get.find<ProfileController>();
 
   @override
   void initState() {
     super.initState();
+    _homeController = Get.find<HomeController>();
+    _homeController.initialize(_userID);
     if (Get.isRegistered<NotificationBadgeController>()) {
       Get.find<NotificationBadgeController>().updateBadge();
     }
-    _fetchHomeData();
-    // Re-fetch whenever the user changes the display currency
-    final cc = Get.find<CurrencyController>();
-    _currencyWorker = ever(cc.rxCode, (_) => _fetchHomeData());
   }
-
-  @override
-  void dispose() {
-    _currencyWorker?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchHomeData() async {
-    setState(() => _isLoading = true);
-    try {
-      final String selectedCurrency = Get.find<CurrencyController>().code;
-      final results = await Future.wait([
-        _supabase.getUnifiedTransactions(
-            userID: _userID, selectedCurrency: selectedCurrency),
-        _supabase.getMonthlySpendAnalytics(
-            userID: _userID, selectedCurrency: selectedCurrency),
-        _supabase.getGoals(userID: _userID),
-        _supabase.getMonthlyCashFlow(
-            userID: _userID, selectedCurrency: selectedCurrency),
-        _supabase.getMonthlyPulseData(
-            userID: _userID, selectedCurrency: selectedCurrency),
-      ]);
-
-      setState(() {
-        _unifiedTransactions = results[0] as List<Map<String, dynamic>>;
-        _monthlyAnalytics = results[1] as Map<String, double>;
-        _goals = results[2] as List<FinancialGoalModel>;
-        _monthlyCashFlow = results[3] as double;
-        _dailySpendData = results[4] as List<Map<String, dynamic>>;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("HOME DATA FETCH ERROR: $e");
-      setState(() => _isLoading = false);
-    }
-  }
-
-  bool get _hasHomeData =>
-      _unifiedTransactions.isNotEmpty ||
-      _goals.isNotEmpty ||
-      _monthlyAnalytics.entries.any((e) => e.key != 'total' && e.value > 0);
 
   EdgeInsets get _homePadding => EdgeInsets.fromLTRB(
         width_16,
@@ -118,113 +72,150 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UserDetails>(
-        future: _supabase.getCurrentUserProfile(userID: _userID),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const LoadingWidget();
+    return Obx(() {
+      final user = _profile.user.value;
+      if (user == null) return const LoadingWidget();
 
-          final user = snapshot.data!;
-
-          return Scaffold(
-            backgroundColor: const Color(0xFFFAFAFA), // Light Background
-            appBar: _buildAppBar(user),
-            body: Column(
-              children: [
-                StreamBuilder<SyncStatus>(
-                  stream: Get.find<SyncService>().syncStatus,
-                  initialData: SyncStatus.synced,
-                  builder: (context, syncSnapshot) {
-                    return SyncStatusBanner(
-                      status: syncSnapshot.data ?? SyncStatus.synced,
-                    );
-                  },
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: _buildAppBar(user),
+        body: Column(
+          children: [
+            StreamBuilder<SyncStatus>(
+              stream: Get.find<SyncService>().syncStatus,
+              initialData: SyncStatus.synced,
+              builder: (context, syncSnapshot) {
+                return SyncStatusBanner(
+                  status: syncSnapshot.data ?? SyncStatus.synced,
+                );
+              },
+            ),
+            Obx(() {
+              final error = _homeController.fetchError.value;
+              if (error == null) return const SizedBox.shrink();
+              return MaterialBanner(
+                backgroundColor: neopopErrorFillMedium,
+                content: Text(
+                  error,
+                  style: body2_text.copyWith(color: groupOnSurface),
                 ),
-                Expanded(
-                  child: _isLoading
-                      ? Center(
-                          child: LoadingAnimationWidget.discreteCircle(
-                              color: neopopAccent, size: 40))
-                      : !_hasHomeData
-                          ? HomeEmptyState(
-                              userName: user.firstName,
-                              onActionComplete: _fetchHomeData,
-                            )
-                          : SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: _homePadding,
+                leading: const Icon(
+                  Icons.cloud_off_rounded,
+                  color: neopopError,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => _homeController.fetchError.value = null,
+                    child: Text(
+                      AppStrings.actions.dismiss,
+                      style: body2_text.copyWith(color: groupOnSurfaceMuted),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _homeController.fetchHomeData,
+                    child: Text(
+                      AppStrings.actions.retry,
+                      style: body2_text.copyWith(
+                        color: neopopAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            Expanded(
+              child: Obx(() {
+                if (_homeController.isLoading.value) {
+                  return Center(
+                    child: LoadingAnimationWidget.discreteCircle(
+                      color: neopopAccent,
+                      size: AppDimensions.loadingIndicatorLg,
+                    ),
+                  );
+                }
+                if (!_homeController.hasHomeData) {
+                  return HomeEmptyState(
+                    userName: user.firstName,
+                    onActionComplete: _homeController.fetchHomeData,
+                  );
+                }
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: _homePadding,
+                  child: Column(
+                    children: [
+                      const InsightsPromoCard(),
+                      GradientMeshBackground(
+                        child: GlassCard(
+                          margin: EdgeInsets.zero,
+                          padding: EdgeInsets.symmetric(vertical: height_16),
+                          opacity: 0.12,
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const InsightsPromoCard(),
-                              GradientMeshBackground(
-                                child: GlassCard(
-                                  margin: EdgeInsets.zero,
-                                  padding:
-                                      EdgeInsets.symmetric(vertical: height_16),
-                                  opacity: 0.12,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      _buildTagline(),
-                                      SizedBox(height: height_16 * 2),
-                                      _buildMonthlySpendSection(),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                              _buildTagline(),
                               SizedBox(height: height_16 * 2),
-                              _buildTransactionsList(),
-                              SizedBox(height: height_16 * 2),
-                              _buildAnalyticsHeader(),
-                              SizedBox(height: height_16),
-                              if (_showTrueSpend)
-                                _buildPulseGraph()
-                              else
-                                _buildCashFlowSection(),
-                              SizedBox(height: height_16 * 2),
-                              _buildGoalsSection(),
-                              SizedBox(height: height_10 * 8), // Bottom Padding
+                              _buildMonthlySpendSection(),
                             ],
                           ),
                         ),
-                ),
-              ],
+                      ),
+                      SizedBox(height: height_16 * 2),
+                      _buildTransactionsList(),
+                      SizedBox(height: height_16 * 2),
+                      _buildAnalyticsHeader(),
+                      SizedBox(height: height_16),
+                      Obx(() => _homeController.showTrueSpend.value
+                          ? _buildPulseGraph()
+                          : _buildCashFlowSection()),
+                      SizedBox(height: height_16 * 2),
+                      _buildGoalsSection(),
+                      SizedBox(height: height_10 * 8),
+                    ],
+                  ),
+                );
+              }),
             ),
-
-            floatingActionButton: _hasHomeData
-                ? Padding(
-              padding: const EdgeInsets.only(bottom: bottomNavClearance + 16),
-              child: FloatingActionButton(
-                heroTag: "home_make_transaction_fab",
-                onPressed: () async {
-                  bool? result =
-                      await Get.to(() => const AddPersonalTransactionScreen());
-                  if (result == true) {
-                    _fetchHomeData(); // Refresh if transaction added
-                  }
-                },
-                backgroundColor: neopopBackground,
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
-            )
-                : null,
+          ],
+        ),
+        floatingActionButton: Obx(() {
+          if (!_homeController.hasHomeData) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: bottomNavClearance + 16),
+            child: FloatingActionButton(
+              heroTag: HeroTags.homeFab,
+              onPressed: () async {
+                bool? result =
+                    await Get.to(() => const AddPersonalTransactionScreen());
+                if (result == true) {
+                  _homeController.fetchHomeData();
+                }
+              },
+              backgroundColor: neopopBackground,
+              child: const Icon(Icons.add, color: neopopOnPrimary),
+            ),
           );
-        });
+        }),
+      );
+    });
   }
 
   AppBar _buildAppBar(UserDetails user) {
     return AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: groupTransparent,
       scrolledUnderElevation: 0, // Fix: Prevent color change on scroll
       elevation: 0,
       centerTitle: false,
       titleSpacing: width_16,
       automaticallyImplyLeading: false,
       title: const Text(
-        "Splitr.",
+        AppBranding.brandLogo,
         style: TextStyle(
-          fontFamily: 'Albra', // Ensure correct font name
-          fontSize: 28,
+          fontFamily: kFontAlbra,
+          fontSize: splitrFontHeadline2,
           fontWeight: FontWeight.w700,
           color: neopopBackground,
         ),
@@ -236,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
           userID: user.userID ?? _userID,
           userName: "${user.firstName} ${user.lastName}",
           imageUrl: user.profilePictureURL,
-          radius: 20,
+          radius: AppDimensions.homeAppBarAvatarRadius,
         ),
         SizedBox(width: width_16),
       ],
@@ -244,13 +235,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTagline() {
-    return const Align(
+    return Align(
       alignment: Alignment.centerLeft,
       child: Text(
-        "money matters,\nsimplified.",
+        AppStrings.home.tagline,
         style: TextStyle(
-          fontFamily: 'Albra',
-          fontSize: 32,
+          fontFamily: kFontAlbra,
+          fontSize: splitrFontHeadline1,
           height: 1.2,
           color: neopopBackground,
         ),
@@ -259,59 +250,67 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAnalyticsHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _showTrueSpend ? "True Spend" : "Cash Flow",
-              style: headline3_text.copyWith(
-                fontFamily: 'Albra',
-                fontWeight: FontWeight.w600,
-                color: neopopBackground,
-              ),
-            ),
-            Text(
-              _showTrueSpend ? "Actual cost incurred" : "Total money out",
-              style: caption_text.copyWith(color: Colors.grey),
-            ),
-          ],
-        ),
-        Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
+    return Obx(() {
+      final showSpend = _homeController.showTrueSpend.value;
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildToggleOption("Spend", _showTrueSpend),
-              _buildToggleOption("Flow", !_showTrueSpend),
+              Text(
+                showSpend
+                    ? AppStrings.home.trueSpend
+                    : AppStrings.home.cashFlow,
+                style: headline3_text.copyWith(
+                  fontFamily: kFontAlbra,
+                  fontWeight: FontWeight.w600,
+                  color: neopopBackground,
+                ),
+              ),
+              Text(
+                showSpend
+                    ? AppStrings.home.trueSpendSubtitle
+                    : AppStrings.home.cashFlowSubtitle,
+                style: caption_text.copyWith(color: groupOnSurfaceMuted),
+              ),
             ],
           ),
-        ),
-      ],
-    );
+          Container(
+            height: 40,
+            decoration: BoxDecoration(
+              color: groupChipTrackBg,
+              borderRadius: BorderRadius.circular(groupCardRadiusLg),
+            ),
+            child: Row(
+              children: [
+                _buildToggleOption(AppStrings.home.spend, showSpend),
+                _buildToggleOption(AppStrings.home.flow, !showSpend),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildToggleOption(String text, bool isSelected) {
     return GestureDetector(
       onTap: () {
-        if (!isSelected) setState(() => _showTrueSpend = !_showTrueSpend);
+        if (!isSelected) _homeController.toggleAnalyticsMode();
       },
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: width_16, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+            horizontal: groupGutter, vertical: groupGapSm),
         decoration: BoxDecoration(
-          color: isSelected ? neopopBackground : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? neopopBackground : groupTransparent,
+          borderRadius: BorderRadius.circular(groupCardRadiusLg),
         ),
         child: Text(
           text,
           style: body2_text.copyWith(
             fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.white : Colors.grey,
+            color: isSelected ? groupChipSelectedFg : groupChipUnselectedFg,
           ),
         ),
       ),
@@ -320,19 +319,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPulseGraph() {
     return DailySpendBarChart(
-      dailySpendData: _dailySpendData,
-      monthlyTotal: (_monthlyAnalytics['total'] as num?)?.toDouble() ?? 0,
+      dailySpendData: _homeController.dailySpendData,
+      monthlyTotal:
+          (_homeController.monthlyAnalytics['total'] as num?)?.toDouble() ?? 0,
     );
   }
 
   Widget _buildCashFlowSection() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(height_16),
+      padding: const EdgeInsets.all(groupGutter),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
+        color: groupCardFill,
+        borderRadius: BorderRadius.circular(groupCardRadiusLg),
+        border: Border.all(color: groupSurfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,23 +340,22 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(groupCarouselGap),
                 decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1),
-                    shape: BoxShape.circle),
+                    color: neopopErrorFillSoft, shape: BoxShape.circle),
                 child: const Icon(Icons.arrow_upward_rounded,
-                    color: Colors.redAccent, size: 24),
+                    color: neopopError, size: groupCarouselIconLg),
               ),
               SizedBox(width: width_16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Total Outflow",
-                      style: caption_text.copyWith(color: Colors.grey)),
+                  Text(AppStrings.home.totalOutflow,
+                      style: caption_text.copyWith(color: groupOnSurfaceMuted)),
                   Obx(() {
                     final sym = Get.find<CurrencyController>().symbol;
                     return Text(
-                      "$sym${_monthlyCashFlow.toStringAsFixed(0)}",
+                      "$sym${_homeController.monthlyCashFlow.value.toStringAsFixed(0)}",
                       style: headline3_text.copyWith(
                           color: neopopBackground, fontWeight: FontWeight.bold),
                     );
@@ -367,8 +366,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: height_16),
           Text(
-            "This assumes full amount paid by you, including what others owe you.",
-            style: caption_text.copyWith(color: Colors.grey, fontSize: 11),
+            AppStrings.home.cashFlowDisclaimer,
+            style: caption_text.copyWith(
+                color: groupOnSurfaceMuted, fontSize: splitrFontCaptionSm),
           ),
         ],
       ),
@@ -377,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMonthlySpendSection() {
     // 1. Filter out zero/negative values and 'total' key
-    final validEntries = _monthlyAnalytics.entries
+    final validEntries = _homeController.monthlyAnalytics.entries
         .where((e) => e.key != 'total' && e.value > 0)
         .toList();
 
@@ -388,15 +388,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final topEntries = validEntries.take(5).toList();
 
     if (topEntries.isEmpty) {
-      return SizedBox.shrink(); // Hide section if no spend
+      return const SizedBox.shrink(); // Hide section if no spend
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Monthly Spend",
+        Text(AppStrings.home.monthlySpend,
             style: headline3_text.copyWith(
-                fontFamily: 'Albra',
+                fontFamily: kFontAlbra,
                 fontWeight: FontWeight.w600,
                 color: neopopBackground)),
         SizedBox(height: height_16),
@@ -421,33 +421,33 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSpendCard(
       String category, double amount, IconData icon, Color color) {
     return Container(
-      width: 140,
-      height: 160,
+      width: AppDimensions.homeSpendCardWidth,
+      height: AppDimensions.homeSpendCardHeight,
       margin: EdgeInsets.only(right: width_16),
       padding: EdgeInsets.all(height_16),
       decoration: BoxDecoration(
         color: neopopBackground,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(groupCardRadiusXl),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: color, size: 28),
+          Icon(icon, color: color, size: AppDimensions.groupIconLg),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(category,
-                  style: caption_text.copyWith(color: Colors.white54),
+                  style: caption_text.copyWith(color: shareCardTextMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
-              SizedBox(height: 4),
+              const SizedBox(height: groupGapXxs),
               Obx(() {
                 final sym = Get.find<CurrencyController>().symbol;
                 return Text(
                   "$sym${amount.toStringAsFixed(0)}",
                   style: headline3_text.copyWith(
-                      color: Colors.white, fontWeight: FontWeight.bold),
+                      color: neopopOnPrimary, fontWeight: FontWeight.bold),
                 );
               }),
             ],
@@ -457,11 +457,11 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _buildMiniBar(10, color.withOpacity(0.3)),
-              const SizedBox(width: 4),
+              const SizedBox(width: groupGapXxs),
               _buildMiniBar(20, color.withOpacity(0.5)),
-              const SizedBox(width: 4),
+              const SizedBox(width: groupGapXxs),
               _buildMiniBar(15, color.withOpacity(0.4)),
-              const SizedBox(width: 4),
+              const SizedBox(width: groupGapXxs),
               _buildMiniBar(30, color),
             ],
           )
@@ -474,11 +474,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMiniBar(double height, Color color) {
     return Container(
-      width: 12,
+      width: AppDimensions.homeMiniBarWidth,
       height: height,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(groupRadiusSm),
       ),
     );
   }
@@ -490,25 +490,34 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Transactions",
+            Text(AppStrings.home.transactions,
                 style: headline3_text.copyWith(
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                     fontWeight: FontWeight.w600,
                     color: neopopBackground)),
-            if (_unifiedTransactions.isNotEmpty)
+            if (_homeController.unifiedTransactions.isNotEmpty)
               TextButton(
                 style: _sectionActionStyle,
                 onPressed: () => Get.to(() => const AllTransactionsScreen()),
-                child: Text("VIEW ALL",
+                child: Text(AppStrings.actions.viewAll,
                     style: body2_text.copyWith(
                         color: neopopBackground, fontWeight: FontWeight.bold)),
               )
           ],
         ),
         SizedBox(height: height_16),
-        ..._unifiedTransactions
-            .map((txn) => TransactionTile(txn: txn))
-            .toList(),
+        ..._homeController.unifiedTransactions.map(
+          (txn) => TransactionTile(
+            txn: txn,
+            onLongPress: txn['type'] != TransactionTypes.group
+                ? () => PersonalTransactionSheet.show(
+                      context,
+                      txn: txn,
+                      onChanged: _homeController.fetchHomeData,
+                    )
+                : null,
+          ),
+        ),
       ],
     );
   }
@@ -522,9 +531,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Financial Goals",
+            Text(AppStrings.home.financialGoals,
                 style: headline3_text.copyWith(
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                     fontWeight: FontWeight.w600,
                     color: neopopBackground)),
             TextButton(
@@ -532,32 +541,33 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 bool? result = await Get.to(() => const CreateGoalScreen());
                 if (result == true) {
-                  _fetchHomeData();
+                  _homeController.fetchHomeData();
                 }
               }, // Add Goal
-              child: Text("SET A GOAL",
+              child: Text(AppStrings.home.setAGoal,
                   style: body2_text.copyWith(
                       color: neopopBackground, fontWeight: FontWeight.bold)),
             )
           ],
         ),
         SizedBox(height: height_10),
-        if (_goals.isEmpty)
+        if (_homeController.goals.isEmpty)
           Padding(
             padding: EdgeInsets.symmetric(vertical: height_16),
-            child: const Text(
-              "Goals are essential,\nto have better lifestyle.",
+            child: Text(
+              AppStrings.home.goalsEmptyQuote,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 32,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontHeadline1,
                 height: 1.2,
-                color: neopopBackground,
+                color: groupOnSurface,
               ),
             ),
           )
         else
           Column(
-            children: _goals.map((g) => _buildGoalCard(g)).toList(),
+            children:
+                _homeController.goals.map((g) => _buildGoalCard(g)).toList(),
           )
       ],
     );
@@ -567,15 +577,24 @@ class _HomeScreenState extends State<HomeScreen> {
     double progress = (goal.currentAmount ?? 0) / (goal.targetAmount ?? 1);
     Color goalColor =
         goal.colorHex != null ? Color(int.parse(goal.colorHex!)) : neopopAccent;
+    final surface = Theme.of(context).colorScheme.surface;
+    final border = groupMutedBorder;
 
     return Container(
       width: double.infinity,
       margin: EdgeInsets.only(bottom: height_16),
       padding: EdgeInsets.all(height_16),
       decoration: BoxDecoration(
-        color: neopopBackground,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupCardRadiusXl),
+        border: Border.all(color: border),
+        boxShadow: [
+          BoxShadow(
+            color: groupMutedFillFaint,
+            blurRadius: homeSpendChartShadowBlur,
+            offset: homeSpendChartShadowOffset,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -584,43 +603,48 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(groupGap10),
                 decoration: BoxDecoration(
                     color: goalColor.withOpacity(0.2), shape: BoxShape.circle),
-                child: Text(goal.icon ?? "🎯", style: TextStyle(fontSize: 20)),
+                child: Text(goal.icon ?? GoalDefaults.defaultEmoji,
+                    style: const TextStyle(fontSize: splitrFontTitle)),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: groupGap10, vertical: groupGapXs),
                 decoration: BoxDecoration(
                   color: goalColor,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(groupCardRadiusLg),
                 ),
-                child: Text("${(progress * 100).toInt()}%",
-                    style: caption_text.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  AppStringFormat.progressPercent((progress * 100).toInt()),
+                  style: caption_text.copyWith(
+                    color: neopopOnPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               )
             ],
           ),
           SizedBox(height: height_16),
-          Text(goal.title ?? "Goal",
-              style: headline4_text.copyWith(color: Colors.white),
+          Text(goal.title ?? DisplayFallbacks.goal,
+              style: headline4_text.copyWith(color: groupOnSurface),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
+          const SizedBox(height: groupGapXxs),
           Obx(() {
             final sym = Get.find<CurrencyController>().symbol;
             return Text(
               "$sym${goal.currentAmount?.toStringAsFixed(0)} / $sym${goal.targetAmount?.toStringAsFixed(0)}",
-              style: caption_text.copyWith(color: Colors.white54),
+              style: caption_text.copyWith(color: groupOnSurfaceMuted),
             );
           }),
           SizedBox(height: height_16),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(groupRadiusSm),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.white10,
+              backgroundColor: groupMutedFillMedium,
               valueColor: AlwaysStoppedAnimation<Color>(goalColor),
               minHeight: 6,
             ),
@@ -630,18 +654,17 @@ class _HomeScreenState extends State<HomeScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () async {
-                await Get.to(() => const GoalDetailsScreen(),
-                    arguments: goal);
-                _fetchHomeData();
-              }, // Navigate to Goal Details
+                await Get.to(() => const GoalDetailsScreen(), arguments: goal);
+                _homeController.fetchHomeData();
+              },
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white10,
+                  backgroundColor: neopopAccentFillLight,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(groupControlRadius)),
                   elevation: 0),
-              child: Text("VIEW DETAILS",
+              child: Text(AppStrings.actions.viewDetails,
                   style: caption_text.copyWith(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+                      color: neopopAccent, fontWeight: FontWeight.bold)),
             ),
           )
         ],

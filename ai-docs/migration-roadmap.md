@@ -1,4 +1,4 @@
-# SplitO Migration Roadmap
+# Splitr Migration Roadmap
 
 Prioritized path from current state to target architecture (GetX + repositories + offline-first). **No application code changes in this document** — implementation order only.
 

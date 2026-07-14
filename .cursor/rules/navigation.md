@@ -1,8 +1,8 @@
-# Navigation Rules — SplitO (Splitter)
+# Navigation Rules — Splitr
 
 ## Purpose
 
-Navigation patterns for SplitO: app shell, auth flow, GetX navigation, and secondary routes.
+Navigation patterns for Splitr: app shell, auth flow, GetX navigation, and secondary routes.
 
 ---
 
@@ -127,7 +127,7 @@ Friends remains secondary under Profile — not a bottom tab per product decisio
 ```dart
 // lib/main.dart — current
 GetMaterialApp(
-  title: 'SplitO',
+  title: 'Splitr',
   debugShowCheckedModeBanner: false,
   initialBinding: AppBindings(),
   theme: AppThemes.light,

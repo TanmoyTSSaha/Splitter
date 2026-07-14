@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controller/notification_badge_controller.dart';
-import 'package:splitter/Screen/NotificationScreen/notification_screen.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Controller/notification_badge_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/ProfileScreen/notifications_screen.dart';
 
 /// Bell icon with an optional unseen-notification dot.
 class NotificationBellButton extends StatelessWidget {
@@ -12,7 +14,7 @@ class NotificationBellButton extends StatelessWidget {
   const NotificationBellButton({
     super.key,
     this.iconColor = neopopBackground,
-    this.iconSize = 28,
+    this.iconSize = AppDimensions.notificationBellIcon,
   });
 
   @override
@@ -25,8 +27,7 @@ class NotificationBellButton extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () async {
-              await Get.to(() => const NotificationScreen());
-              await badgeController.markViewed();
+              await Get.to(() => const NotificationsScreen());
               await badgeController.updateBadge();
             },
             icon: Icon(
@@ -37,19 +38,19 @@ class NotificationBellButton extends StatelessWidget {
           ),
           if (badgeController.hasUnseen.value)
             Positioned(
-              right: 10,
-              top: 10,
+              right: AppDimensions.notificationBellBadgePos,
+              top: AppDimensions.notificationBellBadgePos,
               child: Container(
-                width: 9,
-                height: 9,
+                width: AppDimensions.notificationBellBadge,
+                height: AppDimensions.notificationBellBadge,
                 decoration: BoxDecoration(
                   color: neopopAccent,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: iconColor == neopopOnPrimary
                         ? neopopBackground
-                        : Colors.white,
-                    width: 1.5,
+                        : groupCardFill,
+                    width: AppDimensions.borderWidthStandard,
                   ),
                 ),
               ),

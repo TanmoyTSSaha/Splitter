@@ -1,4 +1,4 @@
-# SplitO Technology Stack
+# Splitr Technology Stack
 
 ## Core
 
@@ -57,7 +57,7 @@
 
 | Package | Purpose |
 |---------|---------|
-| `in_app_purchase` | SplitO Pro subscriptions |
+| `in_app_purchase` | Splitr Pro subscriptions |
 | `pdf` | Premium PDF export |
 
 ## AI

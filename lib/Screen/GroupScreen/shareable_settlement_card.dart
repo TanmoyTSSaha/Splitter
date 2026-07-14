@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Services/shareable_card_service.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/shareable_card_service.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
 
 /// A premium glassmorphism card that displays a settlement confirmation.
 /// Wrapped in [RepaintBoundary] so it can be captured as an image and shared.
@@ -32,24 +40,24 @@ class ShareableSettlementCard extends StatelessWidget {
         RepaintBoundary(
           key: repaintKey,
           child: Container(
-            width: 340,
-            padding: const EdgeInsets.all(28),
+            width: AppDimensions.groupShareCardWidth,
+            padding: const EdgeInsets.all(AppDimensions.groupShareCardPadding),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(groupCardRadiusXl),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF1A1A2E),
-                  Color(0xFF16213E),
-                  Color(0xFF0F3460),
+                  AppPalette.shareCardGradientStart,
+                  AppPalette.shareCardGradientMid,
+                  AppPalette.shareCardGradientEnd,
                 ],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: neopopAccent.withOpacity(0.15),
-                  blurRadius: 30,
-                  spreadRadius: 2,
+                  color: neopopAccentFillMedium,
+                  blurRadius: AppDimensions.groupShareShadowBlur,
+                  spreadRadius: AppDimensions.groupShareShadowSpread,
                 ),
               ],
             ),
@@ -58,57 +66,58 @@ class ShareableSettlementCard extends StatelessWidget {
               children: [
                 // ── Status Badge ──
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGutter, vertical: groupGapSm),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00C853).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    color: AppPalette.shareCardSettledGreenFill,
+                    borderRadius: BorderRadius.circular(groupCardRadiusLg),
                     border: Border.all(
-                      color: const Color(0xFF00C853).withOpacity(0.3),
+                      color: AppPalette.shareCardSettledGreenBorder,
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle_rounded,
-                          color: Color(0xFF00C853), size: 18),
-                      SizedBox(width: 6),
+                      const Icon(Icons.check_circle_rounded,
+                          color: AppPalette.shareCardSettledGreen,
+                          size: groupCarouselIconSm),
+                      const SizedBox(width: groupGapXs),
                       Text(
-                        'SETTLED',
+                        AppStrings.groups.settledBadge,
                         style: TextStyle(
-                          color: Color(0xFF00C853),
+                          color: AppPalette.shareCardSettledGreen,
                           fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          letterSpacing: 1.5,
+                          fontSize: splitrFontBodySm,
+                          letterSpacing: AppDimensions.letterSpacingSection,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: groupGapLg),
 
                 // ── Amount ──
                 Text(
-                  '₹${amount.toStringAsFixed(2)}',
+                  '${userCurrencySymbol()}${amount.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
+                    color: shareCardOnSurface,
+                    fontSize: splitrFontRecapMd,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
+                    letterSpacing: AppDimensions.letterSpacingTight,
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: groupGap20),
 
                 // ── From → To ──
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(groupGutter),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(16),
+                    color: shareCardFillSubtle,
+                    borderRadius: BorderRadius.circular(groupCardRadius),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.08),
+                      color: shareCardFillSoft,
                     ),
                   ),
                   child: Row(
@@ -118,14 +127,14 @@ class ShareableSettlementCard extends StatelessWidget {
                         child: Column(
                           children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: AppDimensions.groupShareAvatarSize,
+                              height: AppDimensions.groupShareAvatarSize,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
                                   colors: [
-                                    neopopAccent.withOpacity(0.8),
-                                    neopopAccent.withOpacity(0.4),
+                                    neopopAccentScrim,
+                                    neopopAccentBorderStrong,
                                   ],
                                 ),
                               ),
@@ -133,30 +142,30 @@ class ShareableSettlementCard extends StatelessWidget {
                                 child: Text(
                                   _initial(fromName),
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: shareCardOnSurface,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 18,
+                                    fontSize: splitrFontSubhead,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: groupGapSm),
                             Text(
                               fromName,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: shareCardOnSurface,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                fontSize: splitrFontBodySm,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                             ),
-                            const Text(
-                              'Paid',
+                            Text(
+                              AppStrings.lending.paid,
                               style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
+                                color: shareCardIconMuted,
+                                fontSize: splitrFontCaptionSm,
                               ),
                             ),
                           ],
@@ -165,15 +174,15 @@ class ShareableSettlementCard extends StatelessWidget {
 
                       // Arrow
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(groupGapSm),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: neopopAccent.withOpacity(0.15),
+                          color: neopopAccentFillMedium,
                         ),
                         child: const Icon(
                           Icons.arrow_forward_rounded,
                           color: neopopAccent,
-                          size: 20,
+                          size: AppDimensions.groupIconMd,
                         ),
                       ),
 
@@ -182,14 +191,14 @@ class ShareableSettlementCard extends StatelessWidget {
                         child: Column(
                           children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: AppDimensions.groupShareAvatarSize,
+                              height: AppDimensions.groupShareAvatarSize,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
                                   colors: [
-                                    neopopYellow.withOpacity(0.8),
-                                    neopopYellow.withOpacity(0.4),
+                                    neopopYellowScrim,
+                                    neopopYellowBorderStrong,
                                   ],
                                 ),
                               ),
@@ -197,30 +206,30 @@ class ShareableSettlementCard extends StatelessWidget {
                                 child: Text(
                                   _initial(toName),
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: shareCardOnSurface,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 18,
+                                    fontSize: splitrFontSubhead,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: groupGapSm),
                             Text(
                               toName,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: shareCardOnSurface,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                fontSize: splitrFontBodySm,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                             ),
-                            const Text(
-                              'Received',
+                            Text(
+                              AppStrings.groups.received,
                               style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
+                                color: shareCardIconMuted,
+                                fontSize: splitrFontCaptionSm,
                               ),
                             ),
                           ],
@@ -230,7 +239,7 @@ class ShareableSettlementCard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: groupGutter),
 
                 // ── Meta row ──
                 Row(
@@ -239,36 +248,37 @@ class ShareableSettlementCard extends StatelessWidget {
                     Text(
                       groupName,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 12,
+                        color: shareCardTextMuted,
+                        fontSize: splitrFontCaption,
                       ),
                     ),
                     Text(
-                      DateFormat('MMM d, yyyy').format(settledDate),
+                      DateFormat(AppDateFormats.shortDayYear)
+                          .format(settledDate),
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 12,
+                        color: shareCardTextMuted,
+                        fontSize: splitrFontCaption,
                       ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: groupGap20),
 
                 // ── Branding ──
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.auto_awesome_rounded,
-                        color: neopopAccent.withOpacity(0.6), size: 14),
-                    const SizedBox(width: 4),
+                        color: neopopAccentIconDim, size: groupIconSm),
+                    const SizedBox(width: groupGapXxs),
                     Text(
-                      'SplitO',
+                      AppBranding.brandLogo,
                       style: TextStyle(
-                        color: neopopAccent.withOpacity(0.6),
+                        color: neopopAccentIconDim,
                         fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
+                        fontSize: splitrFontBodySm,
+                        letterSpacing: AppDimensions.letterSpacingWide,
                       ),
                     ),
                   ],
@@ -278,31 +288,37 @@ class ShareableSettlementCard extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: groupGap20),
 
         // ── Share Button (outside boundary) ──
         SizedBox(
-          width: 200,
+          width: AppDimensions.groupShareButtonWidth,
           child: ElevatedButton.icon(
             onPressed: () => ShareableCardService.captureAndShare(
               repaintKey,
-              filename: 'splito_settlement',
-              shareText:
-                  '$fromName settled ₹${amount.toStringAsFixed(0)} with $toName via SplitO ✨',
+              filename: '${AppBranding.exportFilePrefix}_settlement',
+              shareText: AppStringFormat.settlementShareText(
+                fromName,
+                userCurrencySymbol(),
+                amount.toStringAsFixed(0),
+                toName,
+                AppBranding.brandName,
+              ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: neopopAccent,
               foregroundColor: neopopBackground,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: groupGap14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(groupCardRadius),
               ),
               elevation: 0,
             ),
-            icon: const Icon(Icons.share_rounded, size: 18),
-            label: const Text(
-              'Share',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            icon: const Icon(Icons.share_rounded, size: groupCarouselIconSm),
+            label: Text(
+              AppStrings.actions.share,
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: splitrFontBodyMd),
             ),
           ),
         ),
@@ -311,7 +327,7 @@ class ShareableSettlementCard extends StatelessWidget {
   }
 
   String _initial(String name) {
-    if (name.isEmpty) return '?';
+    if (name.isEmpty) return DisplayFallbacks.questionMark;
     return name[0].toUpperCase();
   }
 }

@@ -1,8 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
-/// A device contact matched to a registered SplitO user.
+/// A device contact matched to a registered Splitr user.
 class ContactMatch {
   final String contactName;
   final String email;
@@ -19,7 +21,7 @@ class ContactMatch {
   });
 }
 
-/// Reads the device contact book and matches emails to SplitO accounts.
+/// Reads the device contact book and matches emails to Splitr accounts.
 class ContactInviteService {
   final SupabaseDatabase _db = SupabaseDatabase();
 
@@ -59,15 +61,22 @@ class ContactInviteService {
       return users.map((u) {
         final email = (u['user_email'] as String).toLowerCase();
         return ContactMatch(
-          contactName: emailToContactName[email] ?? u['user_name'] ?? 'Contact',
+          contactName: emailToContactName[email] ??
+              u[SupabaseColumns.userName] ??
+              DisplayFallbacks.contact,
           email: email,
-          userId: u['user_id'] as String,
-          userName: u['user_name'] as String?,
-          userPic: u['profile_picture_url'] as String?,
+          userId: u[SupabaseColumns.userId] as String,
+          userName: u[SupabaseColumns.userName] as String?,
+          userPic: u[SupabaseColumns.profilePictureUrl] as String?,
         );
       }).toList();
-    } catch (e) {
-      debugPrint('ContactInviteService.findRegisteredContacts: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ContactInviteService.findRegisteredContacts failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'invites', 'operation': 'findRegisteredContacts'},
+      );
       return [];
     }
   }

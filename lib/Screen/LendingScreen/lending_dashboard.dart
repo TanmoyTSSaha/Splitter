@@ -1,24 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Constants/gradient_mesh_background.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Controller/lending_refresh_controller.dart';
-import 'package:splitter/Controller/notification_badge_controller.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/loan_model.dart';
-import 'package:splitter/Model/user_details_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Screen/LendingScreen/create_loan_screen.dart';
-import 'package:splitter/Screen/LendingScreen/loan_detail_screen.dart';
-import 'package:splitter/Screen/LendingScreen/request_loan_screen.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/notification_bell_button.dart';
-import 'package:splitter/Widgets/pill_tab_bar.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Constants/gradient_mesh_background.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Controller/lending_refresh_controller.dart';
+import 'package:splitr/Controller/profile_controller.dart';
+import 'package:splitr/Controller/notification_badge_controller.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Model/user_details_model.dart';
+import 'package:splitr/Repository/loan_repository.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/LendingScreen/create_loan_screen.dart';
+import 'package:splitr/Screen/LendingScreen/loan_detail_screen.dart';
+import 'package:splitr/Screen/LendingScreen/request_loan_screen.dart';
+import 'package:splitr/Screen/LendingScreen/widgets/loan_repayment_progress_bar.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/notification_bell_button.dart';
+import 'package:splitr/Widgets/pill_tab_bar.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
 
 class LendingDashboard extends StatefulWidget {
   const LendingDashboard({super.key});
@@ -29,8 +38,8 @@ class LendingDashboard extends StatefulWidget {
 
 class _LendingDashboardState extends State<LendingDashboard>
     with SingleTickerProviderStateMixin {
-  final SupabaseDatabase _supabase = SupabaseDatabase();
   final String _userID = SupabaseAuth().supabaseGetUserID();
+  LoanRepository get _loanRepo => Get.find<LoanRepository>();
 
   late TabController _tabController;
 
@@ -77,13 +86,16 @@ class _LendingDashboardState extends State<LendingDashboard>
     });
 
     try {
+      final profile = Get.find<ProfileController>();
       final results = await Future.wait([
-        _supabase.getLoans(userID: _userID),
-        _supabase.getCurrentUserProfile(userID: _userID),
+        _loanRepo.getLoans(_userID),
+        profile.user.value != null
+            ? Future.value(profile.user.value)
+            : profile.fetchProfileData().then((_) => profile.user.value),
       ]);
 
       final loans = results[0] as List<LoanModel>;
-      final user = results[1] as UserDetails;
+      final user = results[1] as UserDetails?;
 
       final pending = <LoanModel>[];
       final active = <LoanModel>[];
@@ -93,10 +105,10 @@ class _LendingDashboardState extends State<LendingDashboard>
 
       for (final loan in loans) {
         switch (loan.status) {
-          case 'pending':
+          case GroupInviteStatusValues.pending:
             pending.add(loan);
             break;
-          case 'active':
+          case LoanStatusValues.active:
             active.add(loan);
             if (loan.lenderID == _userID) {
               owedToMe += loan.currentAmountOwed;
@@ -104,9 +116,9 @@ class _LendingDashboardState extends State<LendingDashboard>
               iOwe += loan.currentAmountOwed;
             }
             break;
-          case 'completed':
-          case 'rejected':
-          case 'defaulted':
+          case LoanStatusValues.completed:
+          case LoanStatusValues.rejected:
+          case LoanStatusValues.defaulted:
             completed.add(loan);
             break;
         }
@@ -121,11 +133,15 @@ class _LendingDashboardState extends State<LendingDashboard>
         _totalIOwe = iOwe;
         _isLoading = false;
       });
-    } catch (e) {
-      debugPrint('Error fetching lending data: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        AppStrings.errors.loadLending,
+        error: e,
+        stack: stack,
+      );
       setState(() {
         _isLoading = false;
-        _fetchError = 'Could not load lending data. Pull to retry.';
+        _fetchError = AppStrings.errors.loadLending;
       });
     }
   }
@@ -139,9 +155,10 @@ class _LendingDashboardState extends State<LendingDashboard>
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: _buildAppBar(_user),
+      backgroundColor: surface,
+      appBar: _buildAppBar(_user, surface),
       body: _isLoading
           ? const Center(child: LoadingWidget())
           : _fetchError != null
@@ -151,7 +168,11 @@ class _LendingDashboardState extends State<LendingDashboard>
                     SliverToBoxAdapter(child: _buildHeaderContent()),
                     sliverPillTabBar(
                       controller: _tabController,
-                      tabs: const ['Active', 'Pending', 'Completed'],
+                      tabs: [
+                        AppStrings.lending.active,
+                        AppStrings.lending.pending,
+                        AppStrings.lending.completed
+                      ],
                     ),
                   ],
                   body: TabBarView(
@@ -159,21 +180,19 @@ class _LendingDashboardState extends State<LendingDashboard>
                     children: [
                       _buildLoansTab(
                         loans: _activeLoans,
-                        emptyTitle: 'No active contracts',
-                        emptySubtitle:
-                            'Lend or borrow to start a contract.',
+                        emptyTitle: AppStrings.lending.noActiveContracts,
+                        emptySubtitle: AppStrings.lending.activeEmptySubtitle,
                       ),
                       _buildLoansTab(
                         loans: _pendingLoans,
-                        emptyTitle: 'No pending offers',
-                        emptySubtitle:
-                            'Offers awaiting acceptance appear here.',
+                        emptyTitle: AppStrings.lending.noPendingOffers,
+                        emptySubtitle: AppStrings.lending.pendingEmptySubtitle,
                       ),
                       _buildLoansTab(
                         loans: _completedLoans,
-                        emptyTitle: 'No completed contracts',
+                        emptyTitle: AppStrings.lending.noCompletedContracts,
                         emptySubtitle:
-                            'Closed, declined, and defaulted loans appear here.',
+                            AppStrings.lending.completedEmptySubtitle,
                       ),
                     ],
                   ),
@@ -182,19 +201,19 @@ class _LendingDashboardState extends State<LendingDashboard>
         padding: const EdgeInsets.only(bottom: groupFabClearance + 10),
         child: SizedBox(
           width: 160,
-          height: 56,
+          height: groupCtaHeight,
           child: FloatingActionButton.extended(
-            heroTag: 'lending_fab',
+            heroTag: HeroTags.lendingFab,
             onPressed: () async {
               await Get.to(() => const CreateLoanScreen());
               _fetchData();
             },
             backgroundColor: neopopBackground,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(groupCardRadius),
             ),
             label: Text(
-              '+ New Contract',
+              AppStrings.lending.newContract,
               style: body1_text.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -297,7 +316,8 @@ class _LendingDashboardState extends State<LendingDashboard>
               style: ElevatedButton.styleFrom(
                 backgroundColor: neopopBackground,
               ),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              child: Text(AppStrings.groups.retry,
+                  style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -305,18 +325,18 @@ class _LendingDashboardState extends State<LendingDashboard>
     );
   }
 
-  PreferredSizeWidget _buildAppBar(UserDetails? user) {
+  PreferredSizeWidget _buildAppBar(UserDetails? user, Color surface) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: groupTransparent,
       scrolledUnderElevation: 0,
       elevation: 0,
       automaticallyImplyLeading: false,
       centerTitle: false,
       title: const Text(
-        'Splitr.',
+        AppBranding.brandLogo,
         style: TextStyle(
-          fontFamily: 'Albra',
-          fontSize: 28,
+          fontFamily: kFontAlbra,
+          fontSize: splitrFontHeadline2,
           fontWeight: FontWeight.w700,
           color: neopopBackground,
         ),
@@ -333,16 +353,16 @@ class _LendingDashboardState extends State<LendingDashboard>
           )
         else
           Container(
-            padding: const EdgeInsets.all(2),
+            padding: const EdgeInsets.all(groupGap2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade300, width: 2),
+              border: Border.all(color: groupSurfaceBorder, width: 2),
             ),
             child: CircleAvatar(
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: groupChipTrackBg,
               radius: 18,
               child: const Icon(Icons.person_rounded,
-                  color: Colors.grey, size: 20),
+                  color: groupOnSurfaceMuted, size: 20),
             ),
           ),
         const SizedBox(width: groupGutter),
@@ -351,11 +371,11 @@ class _LendingDashboardState extends State<LendingDashboard>
   }
 
   Widget _buildTagline() {
-    return const Text(
-      'lending,\nsimplified.',
+    return Text(
+      AppStrings.lending.tagline,
       style: TextStyle(
-        fontFamily: 'Albra',
-        fontSize: 32,
+        fontFamily: kFontAlbra,
+        fontSize: splitrFontHeadline1,
         height: 1.2,
         color: groupOnSurface,
       ),
@@ -370,12 +390,12 @@ class _LendingDashboardState extends State<LendingDashboard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Total Net Position',
+          AppStrings.lending.totalNetPosition,
           style: body2_text.copyWith(color: groupOnSurfaceMuted),
         ),
         const SizedBox(height: 4),
         Text(
-          'Active contracts only',
+          AppStrings.lending.activeContractsOnly,
           style: caption_text.copyWith(color: neopopGrey),
         ),
         const SizedBox(height: groupGapSm),
@@ -383,9 +403,9 @@ class _LendingDashboardState extends State<LendingDashboard>
           final sym = Get.find<CurrencyController>().symbol;
           return Text(
             '$sym ${netPos.abs().toStringAsFixed(0)}',
-            style: const TextStyle(
-              fontFamily: 'Albra',
-              fontSize: 40,
+            style: TextStyle(
+              fontFamily: kFontAlbra,
+              fontSize: splitrFontRecapLg,
               color: groupOnSurface,
               fontWeight: FontWeight.bold,
             ),
@@ -393,20 +413,21 @@ class _LendingDashboardState extends State<LendingDashboard>
         }),
         const SizedBox(height: groupGapSm),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+              horizontal: groupCarouselGap, vertical: groupGapXs),
           decoration: BoxDecoration(
             color: isPositive
                 ? Colors.green.withValues(alpha: 0.12)
                 : Colors.red.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(groupControlRadiusSm),
             border: Border.all(
               color: isPositive ? Colors.green : Colors.red,
             ),
           ),
           child: Text(
             isPositive
-                ? 'You are in the green'
-                : 'You owe more than you\'re owed',
+                ? AppStrings.lending.inTheGreen
+                : AppStrings.lending.oweMoreThanOwed,
             style: caption_text.copyWith(
               color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
               fontWeight: FontWeight.bold,
@@ -422,18 +443,19 @@ class _LendingDashboardState extends State<LendingDashboard>
       children: [
         Expanded(
           child: _buildActionCard(
-            'Lend Money',
+            AppStrings.lending.lendMoney,
             Icons.arrow_outward_rounded,
-            () => Get.to(() => const CreateLoanScreen())?.then((_) => _fetchData()),
+            () => Get.to(() => const CreateLoanScreen())
+                ?.then((_) => _fetchData()),
           ),
         ),
         const SizedBox(width: groupGapMd),
         Expanded(
           child: _buildActionCard(
-            'Borrow Money',
+            AppStrings.lending.borrowMoney,
             Icons.call_received_rounded,
-            () =>
-                Get.to(() => const RequestLoanScreen())?.then((_) => _fetchData()),
+            () => Get.to(() => const RequestLoanScreen())
+                ?.then((_) => _fetchData()),
           ),
         ),
       ],
@@ -441,17 +463,18 @@ class _LendingDashboardState extends State<LendingDashboard>
   }
 
   Widget _buildActionCard(String label, IconData icon, VoidCallback onTap) {
+    final surface = Theme.of(context).colorScheme.surface;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 100,
         padding: const EdgeInsets.all(groupGapMd),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: surface,
+          borderRadius: BorderRadius.circular(groupCardRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: groupSurfaceFillSubtle,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -476,39 +499,43 @@ class _LendingDashboardState extends State<LendingDashboard>
   }
 
   String _subtitleForLoan(LoanModel loan, bool isLender) {
-    if (loan.status == 'pending') {
+    if (loan.status == GroupInviteStatusValues.pending) {
       final initiatedByMe = loan.createdBy == _userID;
       if (initiatedByMe) {
-        return 'Awaiting their response';
+        return AppStrings.lending.awaitingTheirResponse;
       }
-      return 'Awaiting your response — check Notifications';
+      return AppStrings.lending.awaitingYourResponse;
     }
 
-    if (loan.status == 'completed') {
-      return isLender ? 'Fully repaid to you' : 'Fully repaid';
+    if (loan.status == LoanStatusValues.completed) {
+      return isLender
+          ? AppStrings.lending.fullyRepaidToYou
+          : AppStrings.lending.fullyRepaid;
     }
-    if (loan.status == 'rejected') {
-      return 'Declined';
+    if (loan.status == LoanStatusValues.rejected) {
+      return AppStrings.notifications.inviteDeclined;
     }
-    if (loan.status == 'defaulted') {
-      return 'Defaulted';
+    if (loan.status == LoanStatusValues.defaulted) {
+      return AppStrings.lending.defaulted;
     }
 
-    return isLender ? 'owes you' : 'you owe';
+    return isLender ? AppStrings.friends.owesYou : AppStrings.friends.youOwe;
   }
 
   Widget _buildLoanCard(LoanModel loan) {
     final isLender = loan.lenderID == _userID;
     final otherUserName = isLender
-        ? (loan.borrowerName ?? 'Borrower')
-        : (loan.lenderName ?? 'Lender');
+        ? (loan.borrowerName ?? LoanRoleFallbacks.borrower)
+        : (loan.lenderName ?? LoanRoleFallbacks.lender);
     final otherUserAvatar =
         isLender ? (loan.borrowerAvatar ?? '') : (loan.lenderAvatar ?? '');
     final otherUserId = isLender ? loan.borrowerID : loan.lenderID;
 
-    final badgeColor = loan.status == 'active'
+    final badgeColor = loan.status == LoanStatusValues.active
         ? neopopAccent
-        : (loan.status == 'pending' ? Colors.orangeAccent : Colors.grey);
+        : (loan.status == GroupInviteStatusValues.pending
+            ? Colors.orangeAccent
+            : groupOnSurfaceMuted);
 
     return GestureDetector(
       onTap: () => _openLoanDetail(loan),
@@ -517,6 +544,7 @@ class _LendingDashboardState extends State<LendingDashboard>
         padding: const EdgeInsets.all(groupGapMd),
         opacity: 0.08,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -542,26 +570,27 @@ class _LendingDashboardState extends State<LendingDashboard>
                         ),
                         Text(
                           _subtitleForLoan(loan, isLender),
-                          style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                          style:
+                              caption_text.copyWith(color: groupOnSurfaceMuted),
                         ),
                       ],
                     ),
                   ],
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGap10, vertical: groupGapXxs),
                   decoration: BoxDecoration(
                     color: badgeColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(groupControlRadiusSm),
                     border: Border.all(color: badgeColor),
                   ),
                   child: Text(
                     loan.status.toUpperCase(),
                     style: const TextStyle(
-                      fontSize: 10,
+                      fontSize: splitrFontMicro,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: groupOnSurface,
                     ),
                   ),
                 ),
@@ -576,14 +605,19 @@ class _LendingDashboardState extends State<LendingDashboard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Principal',
+                      loan.status == LoanStatusValues.active
+                          ? AppStrings.lending.totalPayable
+                          : AppStrings.lending.principal,
                       style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                     const SizedBox(height: 4),
                     Obx(() {
                       final sym = Get.find<CurrencyController>().symbol;
+                      final amount = loan.status == LoanStatusValues.active
+                          ? loan.totalContractPayable
+                          : loan.principalAmount;
                       return Text(
-                        '$sym${loan.principalAmount.toStringAsFixed(0)}',
+                        '$sym${amount.toStringAsFixed(0)}',
                         style: body2_text.copyWith(
                           fontWeight: FontWeight.w600,
                           color: groupOnSurface,
@@ -596,12 +630,14 @@ class _LendingDashboardState extends State<LendingDashboard>
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      loan.status == 'active' ? 'Current Due' : 'Amount',
+                      loan.status == LoanStatusValues.active
+                          ? AppStrings.lending.remaining
+                          : AppStrings.home.amount,
                       style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                     Obx(() {
                       final sym = Get.find<CurrencyController>().symbol;
-                      final amount = loan.status == 'active'
+                      final amount = loan.status == LoanStatusValues.active
                           ? loan.currentAmountOwed
                           : loan.principalAmount;
                       return Text(
@@ -616,31 +652,25 @@ class _LendingDashboardState extends State<LendingDashboard>
                 ),
               ],
             ),
-            if (loan.status == 'active') ...[
+            if (loan.status == LoanStatusValues.active) ...[
               const SizedBox(height: groupGapMd),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: loan.repaymentProgress,
-                  backgroundColor: neopopSecondaryGrey.withValues(alpha: 0.15),
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(neopopAccent),
-                  minHeight: 8,
-                ),
-              ),
+              LoanRepaymentProgressBar.fromLoan(loan),
             ],
             if (loan.dueDate != null) ...[
               const SizedBox(height: groupGapSm),
               Row(
                 children: [
                   const Icon(Icons.calendar_today_rounded,
-                      size: 14, color: neopopGrey),
-                  const SizedBox(width: 4),
+                      size: 14, color: groupOnSurfaceMuted),
+                  const SizedBox(width: groupGapXxs),
                   Text(
-                    'Due ${DateFormat('MMM d, yyyy').format(loan.dueDate!)}',
+                    AppStringFormat.dueOn(
+                      DateFormat(AppDateFormats.shortDayYear)
+                          .format(loan.dueDate!),
+                    ),
                     style: caption_text.copyWith(
                       color: groupOnSurfaceMuted,
-                      fontSize: 11,
+                      fontSize: splitrFontCaptionSm,
                     ),
                   ),
                 ],

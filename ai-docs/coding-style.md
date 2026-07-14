@@ -1,4 +1,4 @@
-# SplitO Coding Style
+# Splitr Coding Style
 
 ## Imports
 
@@ -7,7 +7,7 @@ Order (no strict linter enforcement — follow visually):
 1. `dart:` 
 2. `package:flutter/`
 3. Third-party `package:`
-4. `package:splitter/`
+4. `package:splitr/`
 
 Use package imports for project files, not relative `../` across layers.
 

@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_detailed_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/supabase_service.dart';
-
-const Color _lightBg = Color(0xFFFAFAFA);
-const Color _cardBorder = Color(0xFFEEEEEE);
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_detailed_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Repository/group_repository.dart';
+import 'package:splitr/Repository/transaction_repository.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
 
 /// Lightweight 1:1 expense flow — reuses or creates a 2-member group.
 class QuickSplitScreen extends StatefulWidget {
@@ -40,31 +45,6 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
     super.dispose();
   }
 
-  InputDecoration _fieldDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(
-        fontFamily: 'Poppins',
-        color: groupOnSurfaceMuted,
-      ),
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _cardBorder),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _cardBorder),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: neopopBackground, width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    );
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (widget.friend.friendUserID == null) return;
@@ -73,13 +53,14 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
     try {
       final amount = double.parse(_amountController.text.trim());
       final description = _descriptionController.text.trim().isEmpty
-          ? 'Quick split'
+          ? AppStrings.friends.quickSplitDefaultDescription
           : _descriptionController.text.trim();
       final friendId = widget.friend.friendUserID!;
-      final friendName = widget.friend.friendName ?? 'Friend';
+      final friendName = widget.friend.friendName ?? DisplayFallbacks.friend;
 
-      final group = await SupabaseDatabase().getOrCreateDirectSplitGroup(
-        userID: widget.userID,
+      final group =
+          await Get.find<GroupRepository>().getOrCreateDirectSplitGroup(
+        userId: widget.userID,
         friendUserId: friendId,
         friendName: friendName,
       );
@@ -88,15 +69,16 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
       final owedBy = _friendPaid ? widget.userID : friendId;
       final splits = {owedBy: amount};
 
-      await SupabaseDatabase().addGroupExpense(
+      await Get.find<TransactionRepository>().addGroupExpense(
         groupID: group.groupID!,
         paidByUserID: paidBy,
         totalAmount: amount,
         description: description,
-        category: 'General',
+        category: CategoryDefaults.general,
         splits: splits,
         currency: Get.find<CurrencyController>().code,
-        sharingType: 'evenly',
+        sharingType: SharingTypeValues.evenly,
+        transactionDate: TransactionDateFormatter.nowForTransaction(),
       );
 
       Get.back();
@@ -104,16 +86,12 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
             groupModel: group,
             userID: widget.userID,
           ));
-      Fluttertoast.showToast(
-        msg: 'Split recorded!',
-        backgroundColor: neopopAccent,
-        textColor: neopopBackground,
-      );
-    } catch (e) {
-      Fluttertoast.showToast(
-        msg: 'Failed: $e',
-        backgroundColor: neopopYellow,
-        textColor: neopopBackground,
+      SplitrToast.show(AppStrings.friends.splitRecorded);
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.friends.failedPrefix,
+        error: e,
+        stack: stack,
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -122,24 +100,15 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
     return Scaffold(
-      backgroundColor: _lightBg,
-      appBar: AppBar(
-        backgroundColor: _lightBg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.friends.quickSplit,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: groupOnSurface),
-        ),
-        title: Text(
-          'Quick split',
-          style: headline3_text.copyWith(
-            fontFamily: 'Albra',
-            fontWeight: FontWeight.w600,
-            color: groupOnSurface,
-          ),
         ),
       ),
       body: Padding(
@@ -150,45 +119,42 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'with ${widget.friend.friendName ?? 'friend'}',
+                '${AppStrings.friends.quickSplitWithPrefix}${widget.friend.friendName ?? DisplayFallbacks.friend.toLowerCase()}',
                 style: body1_text.copyWith(color: groupOnSurfaceMuted),
               ),
               const SizedBox(height: groupGapMd),
-              TextFormField(
+              BorderedInputField.amount(
                 controller: _amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: body1_text.copyWith(color: groupOnSurface),
-                decoration: _fieldDecoration('Amount').copyWith(
-                  prefixText: '₹ ',
-                  prefixStyle: body1_text.copyWith(color: groupOnSurface),
-                ),
+                labelText: AppStrings.home.amount,
                 validator: (v) {
                   final n = double.tryParse(v?.trim() ?? '');
-                  if (n == null || n <= 0) return 'Enter a valid amount';
+                  if (n == null || n <= 0) {
+                    return AppStrings.validation.validAmount;
+                  }
                   return null;
                 },
               ),
               const SizedBox(height: groupGapMd),
-              TextFormField(
+              BorderedInputField(
                 controller: _descriptionController,
-                style: body1_text.copyWith(color: groupOnSurface),
-                decoration: _fieldDecoration('What for?'),
+                labelText: AppStrings.friends.whatForShort,
               ),
               const SizedBox(height: groupGapSm),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _cardBorder),
+                  color: surface,
+                  borderRadius: BorderRadius.circular(groupCardRadius),
+                  border: Border.all(color: borderColor),
                 ),
                 child: SwitchListTile(
                   title: Text(
-                    '${widget.friend.friendName} paid',
+                    '${widget.friend.friendName}${AppStrings.friends.friendPaidSuffix}',
                     style: body1_text.copyWith(color: groupOnSurface),
                   ),
                   subtitle: Text(
-                    _friendPaid ? 'You owe them' : 'They owe you',
+                    _friendPaid
+                        ? AppStrings.friends.youOweThemShort
+                        : AppStrings.friends.theyOweYouShort,
                     style: caption_text.copyWith(color: groupOnSurfaceMuted),
                   ),
                   value: _friendPaid,
@@ -201,23 +167,24 @@ class _QuickSplitScreenState extends State<QuickSplitScreen> {
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: neopopBackground,
-                  minimumSize: const Size(double.infinity, 52),
+                  minimumSize:
+                      const Size(double.infinity, AppDimensions.groupCtaHeight),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(groupRadiusLgSm),
                   ),
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
+                        height: AppDimensions.loadingIndicatorSm,
+                        width: AppDimensions.loadingIndicatorSm,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                          strokeWidth: groupProgressStrokeWidth,
+                          color: neopopOnPrimary,
                         ),
                       )
                     : Text(
-                        'Split now',
-                        style: button_text.copyWith(color: Colors.white),
+                        AppStrings.friends.quickSplitSubmit,
+                        style: button_text.copyWith(color: neopopOnPrimary),
                       ),
               ),
             ],

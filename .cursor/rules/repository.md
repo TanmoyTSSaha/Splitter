@@ -1,4 +1,4 @@
-# Repository Rules — SplitO (Splitter)
+# Repository Rules — Splitr
 
 ## Purpose
 

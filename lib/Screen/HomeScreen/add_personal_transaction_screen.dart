@@ -1,16 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/product_category_model.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/custom_big_text_form_field.dart';
+import 'package:splitr/Constants/app_assets.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/product_category_model.dart';
+import 'package:splitr/Model/receipt_model.dart';
+import 'package:splitr/Repository/personal_transaction_repository.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/HomeScreen/widgets/personal_transaction_form_fields.dart';
+import 'package:splitr/Services/budget_spend_service.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/custom_big_text_form_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:uuid/uuid.dart';
 
 class AddPersonalTransactionScreen extends StatefulWidget {
-  const AddPersonalTransactionScreen({super.key});
+  final ReceiptData? receiptPrefill;
+
+  const AddPersonalTransactionScreen({super.key, this.receiptPrefill});
 
   @override
   State<AddPersonalTransactionScreen> createState() =>
@@ -20,6 +34,7 @@ class AddPersonalTransactionScreen extends StatefulWidget {
 class _AddPersonalTransactionScreenState
     extends State<AddPersonalTransactionScreen> {
   final SupabaseDatabase _supabase = SupabaseDatabase();
+  final PersonalTransactionRepository _personalRepo = Get.find();
   final String _userID = SupabaseAuth().supabaseGetUserID();
 
   final TextEditingController amountController = TextEditingController();
@@ -29,19 +44,40 @@ class _AddPersonalTransactionScreenState
   CategoryOnlyModel? selectedCategory;
   List<CategoryOnlyModel> categories = [];
   bool isLoading = true;
+  String? _categoryError;
   DateTime selectedDate = DateTime.now();
-  String selectedPaymentMethod = "Online"; // Default
+  String selectedPaymentMethod = PaymentMethodDefaults.online;
   bool isOtherCategorySelected = false;
+  bool _isIncome = false;
+  bool _isSaving = false;
 
-  final List<String> paymentMethods = ["Online", "Cash"];
+  final List<String> paymentMethods = kPersonalPaymentMethods;
 
   @override
   void initState() {
     super.initState();
+    final prefill = widget.receiptPrefill;
+    if (prefill != null) {
+      if (prefill.total != null && prefill.total! > 0) {
+        amountController.text = prefill.total!.toStringAsFixed(
+          prefill.total! % 1 == 0 ? 0 : 2,
+        );
+      }
+      if (prefill.merchantName != null && prefill.merchantName!.isNotEmpty) {
+        descriptionController.text = prefill.merchantName!;
+      }
+      if (prefill.date != null) {
+        selectedDate = prefill.date!;
+      }
+    }
     _fetchCategories();
   }
 
   Future<void> _fetchCategories() async {
+    setState(() {
+      _categoryError = null;
+      isLoading = true;
+    });
     try {
       // Use TransactionService method but access via SupabaseDatabase (need to expose it or call directly)
       // SupabaseDatabase doesn't expose getPersonalCategories yet.
@@ -57,20 +93,31 @@ class _AddPersonalTransactionScreenState
       // I will do that in next step. For now I write this code assuming it exists.
 
       final fetched = await _supabase.getPersonalCategories(userID: _userID);
+      var list = List<CategoryOnlyModel>.from(fetched);
+
+      list.add(CategoryOnlyModel(
+          category: CategoryDefaults.other,
+          categoryLogo: AppUrls.dicebearInitials(CategoryDefaults.other)));
+      list = ensurePersonalIncomeCategories(list);
+
       setState(() {
-        categories = fetched;
-
-        // Add "Other" category for custom entry if not present (usually not in DB)
-        categories.add(CategoryOnlyModel(
-            category: "Other",
-            categoryLogo:
-                "https://api.dicebear.com/9.x/initials/svg?seed=Other"));
-
+        categories = list;
+        if (_isIncome) {
+          selectedCategory = firstPersonalIncomeCategory(categories);
+          isOtherCategorySelected = false;
+        }
         isLoading = false;
       });
-    } catch (e) {
-      debugPrint("Error fetching categories: $e");
-      setState(() => isLoading = false);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'Failed to fetch personal categories',
+        error: e,
+        stack: stack,
+      );
+      setState(() {
+        _categoryError = AppStrings.errors.categoriesLoadFailed;
+        isLoading = false;
+      });
     }
   }
 
@@ -78,14 +125,14 @@ class _AddPersonalTransactionScreenState
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
-      firstDate: DateTime(2000),
+      firstDate: DateTime(TransactionDateBounds.minYear),
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: neopopBackground,
-              onPrimary: Colors.white,
+              onPrimary: neopopOnPrimary,
               onSurface: neopopBackground,
             ),
           ),
@@ -111,233 +158,182 @@ class _AddPersonalTransactionScreenState
 
   void _saveTransaction() async {
     if (amountController.text.trim().isEmpty) {
-      Fluttertoast.showToast(msg: "Please enter amount");
+      SplitrToast.show(AppStrings.home.enterAmount);
       return;
     }
     if (descriptionController.text.trim().isEmpty) {
-      Fluttertoast.showToast(msg: "Please enter description");
+      SplitrToast.show(AppStrings.home.enterDescription);
       return;
     }
-    if (selectedCategory == null) {
-      Fluttertoast.showToast(msg: "Please select a category");
+    if (!_isIncome && selectedCategory == null) {
+      SplitrToast.show(AppStrings.home.selectCategory);
       return;
     }
 
-    String finalCategory = selectedCategory!.category!;
+    String finalCategory = _resolveCategory();
 
-    // Handle Custom Category
-    if (isOtherCategorySelected) {
-      String customName = otherCategoryController.text.trim();
+    // Handle custom category (expense only).
+    if (!_isIncome && isOtherCategorySelected) {
+      final customName = otherCategoryController.text.trim();
       if (customName.isEmpty) {
-        Fluttertoast.showToast(msg: "Please enter category name");
+        SplitrToast.show(AppStrings.home.enterCategoryName);
         return;
       }
       finalCategory = customName;
 
-      // Save Custom Category
       await _supabase.addPersonalCustomCategory(
         categoryName: customName,
-        iconSvgContent:
-            "https://api.dicebear.com/9.x/initials/svg?seed=$customName",
+        iconSvgContent: AppUrls.dicebearInitials(customName),
         userID: _userID,
       );
     }
 
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+      setState(() => _isSaving = true);
 
-      await _supabase.addPersonalTransaction(
-        userID: _userID,
+      final currency = Get.find<CurrencyController>().code;
+      double exchangeRate = CurrencyDefaults.exchangeRateToInr;
+      try {
+        exchangeRate = await CurrencyService().getExchangeRateToInr(currency);
+      } catch (_) {
+        // Offline or rate API unavailable — sync will use fallback rate.
+      }
+      final transactionId = const Uuid().v4();
+
+      await _personalRepo.addTransaction(
+        transactionId: transactionId,
+        userId: _userID,
         amount: double.parse(amountController.text.trim()),
         description: descriptionController.text.trim(),
         category: finalCategory,
         date: selectedDate,
         paymentMethod: selectedPaymentMethod,
-        currency: Get.find<CurrencyController>().code,
+        currency: currency,
+        exchangeRateToInr: exchangeRate,
+        isCredit: _isIncome,
       );
 
-      Navigator.pop(context); // Close loading
-      Get.back(result: true); // Return to Home with success
-      Fluttertoast.showToast(msg: "Transaction Added Successfully");
-    } catch (e) {
-      Navigator.pop(context); // Close loading
-      debugPrint("Error adding transaction: $e");
-      Fluttertoast.showToast(msg: "Failed to add transaction");
+      await reevaluateBudgetAlerts(_userID);
+
+      Get.back(result: true);
+      SplitrToast.show(AppStrings.home.transactionAdded);
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.home.transactionAddFailed,
+        error: e,
+        stack: stack,
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  String _resolveCategory() {
+    if (_isIncome) {
+      final cat = selectedCategory?.category ?? CategoryDefaults.income;
+      if (kPersonalIncomeCategories.contains(cat.toLowerCase())) return cat;
+      return CategoryDefaults.income;
+    }
+    return selectedCategory?.category ?? CategoryDefaults.general;
+  }
+
+  void _onIncomeChanged(bool income) {
+    setState(() {
+      _isIncome = income;
+      if (income) {
+        categories = ensurePersonalIncomeCategories(categories);
+        selectedCategory = firstPersonalIncomeCategory(categories);
+        isOtherCategorySelected = false;
+      } else if (selectedCategory != null &&
+          kPersonalIncomeCategories
+              .contains(selectedCategory!.category?.toLowerCase())) {
+        selectedCategory = null;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text("Add Personal Expense",
-            style: headline3_text.copyWith(color: neopopBackground)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: neopopBackground),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: _isIncome
+            ? AppStrings.home.addPersonalIncome
+            : AppStrings.home.addPersonalExpense,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(groupGutter),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Amount
             CustomBigTextFormField(
               customBigTextFormFieldTextEditingController: amountController,
               autofocus: true,
-              labelText: "Amount",
+              labelText: AppStrings.home.amount,
             ),
-            SizedBox(height: height_16),
-
-            // 2. Description
+            const SizedBox(height: groupGapMd),
             CustomBigTextFormFieldWithPrefixIcon(
               customBigTextFormFieldTextEditingController:
                   descriptionController,
-              hintText: "What is this for?",
-              prefixIconString:
-                  "assets/icons/svg/hugeicons--note.svg", // Using note icon or similar
-              style: body1_text.copyWith(color: neopopBackground),
+              hintText: AppStrings.home.whatFor,
+              prefixIconString: AppAssets.iconNote,
+              style: body1_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16),
-
-            // 3. Category
-            Text("Category",
-                style: body1_text.copyWith(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            isLoading
-                ? Center(
-                    child: CircularProgressIndicator(color: neopopBackground))
-                : Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: categories.map((cat) {
-                      bool isSelected = selectedCategory == cat;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            selectedCategory = cat;
-                            isOtherCategorySelected = cat.category == "Other";
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? neopopBackground
-                                : Colors.grey[200],
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            cat.category!,
-                            style: body2_text.copyWith(
-                              color: isSelected ? Colors.white : Colors.black,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-            // Custom Category Input
+            const SizedBox(height: groupGapMd),
+            PersonalTransactionTypeToggle(
+              isIncome: _isIncome,
+              enabled: !_isSaving,
+              onChanged: _onIncomeChanged,
+            ),
+            const SizedBox(height: groupGapMd),
+            PersonalCategoryPicker(
+              categories: categories,
+              selected: selectedCategory,
+              isIncome: _isIncome,
+              loading: isLoading,
+              errorMessage: _categoryError,
+              enabled: !_isSaving,
+              onRetry: _fetchCategories,
+              onSelected: (cat) {
+                setState(() {
+                  selectedCategory = cat;
+                  isOtherCategorySelected =
+                      cat?.category == CategoryDefaults.other;
+                });
+              },
+            ),
             if (isOtherCategorySelected) ...[
-              SizedBox(height: height_16),
+              const SizedBox(height: groupGapMd),
               CustomBigTextFormFieldWithPrefixIcon(
                 customBigTextFormFieldTextEditingController:
                     otherCategoryController,
-                hintText: "Category Name",
-                prefixIconString: "assets/icons/svg/hugeicons--tag.svg",
-                style: body1_text.copyWith(color: neopopBackground),
+                hintText: AppStrings.home.categoryName,
+                prefixIconString: AppAssets.iconTag,
+                style: body1_text.copyWith(color: groupOnSurface),
               ),
             ],
-
-            SizedBox(height: height_16 * 2),
-
-            // 4. Details Row (Date & Payment)
-            Row(
-              children: [
-                // Date
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.calendar_today,
-                              size: 20, color: neopopBackground),
-                          SizedBox(width: 8),
-                          Text(
-                            DateFormat('dd MMM yyyy').format(selectedDate),
-                            style: body1_text.copyWith(color: neopopBackground),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: width_16),
-
-                // Payment Method
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedPaymentMethod,
-                        isExpanded: true,
-                        icon: Icon(Icons.payment,
-                            size: 20, color: neopopBackground),
-                        items: paymentMethods.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value,
-                                style: body1_text.copyWith(
-                                    color: neopopBackground)),
-                          );
-                        }).toList(),
-                        onChanged: (newValue) {
-                          setState(() {
-                            selectedPaymentMethod = newValue!;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: groupGapLg),
+            PersonalTransactionMetaRow(
+              date: selectedDate,
+              paymentMethod: selectedPaymentMethod,
+              paymentMethods: paymentMethods,
+              enabled: !_isSaving,
+              onPickDate: () => _selectDate(context),
+              onPaymentChanged: (v) =>
+                  setState(() => selectedPaymentMethod = v),
             ),
-
-            SizedBox(height: height_10 * 6), // Spacer
+            const SizedBox(height: groupGapLg),
+            PersonalTransactionSaveButton(
+              isIncome: _isIncome,
+              loading: _isSaving,
+              enabled: !_isSaving,
+              onPressed: _saveTransaction,
+            ),
+            const SizedBox(height: groupGapXl),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _saveTransaction,
-        backgroundColor: neopopBackground,
-        icon: Icon(Icons.check, color: Colors.white),
-        label: Text("SAVE EXPENSE",
-            style: body1_text.copyWith(
-                color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

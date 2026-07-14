@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 /// Pill-style tab bar matching the Groups screen aesthetic.
 class PillTabBar extends StatelessWidget {
@@ -23,20 +24,20 @@ class PillTabBar extends StatelessWidget {
         vertical: groupGapSm,
       ),
       decoration: BoxDecoration(
-        color: neopopSecondaryGrey.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(32),
+        color: groupMutedFillFaint,
+        borderRadius: BorderRadius.circular(groupPillRadius),
       ),
       child: TabBar(
         controller: controller,
-        dividerColor: Colors.transparent,
-        indicatorColor: Colors.transparent,
+        dividerColor: groupTransparent,
+        indicatorColor: groupTransparent,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
           color: neopopBackground,
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(groupPillRadius),
         ),
-        labelColor: Colors.white,
-        unselectedLabelColor: neopopBackground.withValues(alpha: 0.5),
+        labelColor: groupChipSelectedFg,
+        unselectedLabelColor: groupOnSurfaceMuted,
         labelStyle: body2_text.copyWith(fontWeight: FontWeight.bold),
         tabs: List.generate(tabs.length, (i) {
           final count = badgeCounts != null && i < badgeCounts!.length
@@ -58,19 +59,20 @@ class PillTabBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label),
-          const SizedBox(width: 6),
+          const SizedBox(width: AppDimensions.groupBadgeGap),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(
+                horizontal: groupGapXs, vertical: groupGap2),
             decoration: BoxDecoration(
               color: neopopAccent,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(groupRadiusMd),
             ),
             child: Text(
               '$badge',
               style: caption_text.copyWith(
                 color: neopopOnBackground,
                 fontWeight: FontWeight.w700,
-                fontSize: 10,
+                fontSize: splitrFontMicro,
               ),
             ),
           ),
@@ -88,15 +90,15 @@ class SliverPillTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   SliverPillTabBarDelegate(
     this.child, {
-    this.backgroundColor = Colors.white,
+    this.backgroundColor = groupCardFill,
     this.rebuildToken,
   });
 
   @override
-  double get minExtent => 60;
+  double get minExtent => AppDimensions.groupTabBarHeight;
 
   @override
-  double get maxExtent => 60;
+  double get maxExtent => AppDimensions.groupTabBarHeight;
 
   @override
   Widget build(
@@ -121,7 +123,7 @@ SliverPersistentHeader sliverPillTabBar({
   required TabController controller,
   required List<String> tabs,
   List<int?>? badgeCounts,
-  Color backgroundColor = Colors.white,
+  Color backgroundColor = groupCardFill,
 }) {
   final rebuildToken = badgeCounts?.join(',');
   return SliverPersistentHeader(

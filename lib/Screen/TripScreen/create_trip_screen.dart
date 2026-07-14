@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Services/trip_service.dart';
-import 'package:splitter/Widgets/dark_surface_theme.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Services/trip_service.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/premium_gate.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 /// Screen to create a new trip with name, destination, dates, and member selection.
 class CreateTripScreen extends StatefulWidget {
@@ -23,6 +33,15 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
   DateTimeRange? _dateRange;
   bool _isCreating = false;
+  late String _tripCurrency;
+
+  @override
+  void initState() {
+    super.initState();
+    _tripCurrency = Get.isRegistered<CurrencyController>()
+        ? Get.find<CurrencyController>().code
+        : CurrencyDefaults.code;
+  }
 
   @override
   void dispose() {
@@ -39,12 +58,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
       initialDateRange: _dateRange,
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
               primary: neopopAccent,
-              onPrimary: neopopBackground,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
+              onPrimary: Colors.white,
+              surface: Theme.of(context).colorScheme.surface,
+              onSurface: groupOnSurface,
             ),
           ),
           child: child!,
@@ -60,10 +79,18 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   Future<void> _createTrip() async {
     if (!_formKey.currentState!.validate()) return;
     if (_dateRange == null) {
-      Get.snackbar('Missing Dates', 'Please select trip dates',
-          backgroundColor: Colors.redAccent.withOpacity(0.8),
-          colorText: Colors.white);
+      SplitrToast.show(SplitrToast.join(AppStrings.trips.missingDatesTitle, AppStrings.trips.selectTripDates));
       return;
+    }
+
+    final profileCurrency = Get.isRegistered<CurrencyController>()
+        ? Get.find<CurrencyController>().code
+        : CurrencyDefaults.code;
+    if (_tripCurrency != profileCurrency) {
+      final ok = await requirePremium(
+        featureLabel: AppStrings.trips.multiCurrencyLedger,
+      );
+      if (!ok) return;
     }
 
     setState(() => _isCreating = true);
@@ -76,17 +103,18 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         startDate: _dateRange!.start,
         endDate: _dateRange!.end,
         createdBy: userId,
-        memberIds: [userId], // Creator is always a member
+        memberIds: [userId],
+        tripCurrency: _tripCurrency,
       );
 
       Get.back(result: true);
-      Get.snackbar('🎉 Trip Created', 'Have an amazing trip!',
-          backgroundColor: neopopAccent.withOpacity(0.8),
-          colorText: neopopBackground);
-    } catch (e) {
-      Get.snackbar('Error', 'Could not create trip: $e',
-          backgroundColor: Colors.redAccent.withOpacity(0.8),
-          colorText: Colors.white);
+      SplitrToast.show(SplitrToast.join(AppStrings.trips.tripCreatedTitle, AppStrings.trips.tripCreatedMessage));
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.trips.createFailedPrefix,
+        error: e,
+        stack: stack,
+      );
     } finally {
       setState(() => _isCreating = false);
     }
@@ -94,82 +122,84 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('MMM d, yyyy');
+    final dateFormat = DateFormat(AppDateFormats.shortDayYear);
+    final surface = Theme.of(context).colorScheme.surface;
 
-    return DarkSurfaceTheme(
-      child: SafeArea(
-      child: Scaffold(
-        backgroundColor: neopopBackground,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: neopopBackground,
-          elevation: 0,
-          title: Text('New Trip', style: sub_headline5_text),
+    return Scaffold(
+        backgroundColor: surface,
+        appBar: SplitrDetailAppBar(
+          title: AppStrings.groups.newTrip,
         ),
         body: SingleChildScrollView(
-          padding: EdgeInsets.all(height_16),
+          padding: EdgeInsets.fromLTRB(
+            groupGutter,
+            groupGutter,
+            groupGutter,
+            groupGutter + MediaQuery.paddingOf(context).bottom,
+          ),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Trip name
-                Text('Trip Name',
-                    style: caption_text.copyWith(
-                        color: neopopOnPrimary.withOpacity(0.6))),
-                SizedBox(height: height_10 / 2),
-                TextFormField(
+                Text(
+                  AppStrings.trips.tripName,
+                  style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                ),
+                const SizedBox(height: groupGapSm),
+                BorderedInputField(
                   controller: _nameController,
-                  style: body1_text.copyWith(color: neopopOnPrimary),
-                  decoration: _inputDecoration('e.g. Goa Weekend 2026'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  hintText: AppStrings.trips.tripNameHint,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? AppStrings.validation.required
+                      : null,
                 ),
-
-                SizedBox(height: height_16 * 1.5),
-
-                // Destination
-                Text('Destination',
-                    style: caption_text.copyWith(
-                        color: neopopOnPrimary.withOpacity(0.6))),
-                SizedBox(height: height_10 / 2),
-                TextFormField(
+                const SizedBox(height: groupGapLg),
+                Text(
+                  AppStrings.trips.destination,
+                  style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                ),
+                const SizedBox(height: groupGapSm),
+                BorderedInputField(
                   controller: _destinationController,
-                  style: body1_text.copyWith(color: neopopOnPrimary),
-                  decoration: _inputDecoration('e.g. Goa, India'),
+                  hintText: AppStrings.trips.destinationHint,
                 ),
-
-                SizedBox(height: height_16 * 1.5),
-
-                // Date range
-                Text('Trip Dates',
-                    style: caption_text.copyWith(
-                        color: neopopOnPrimary.withOpacity(0.6))),
-                SizedBox(height: height_10 / 2),
+                const SizedBox(height: groupGapLg),
+                Text(
+                  AppStrings.trips.tripDates,
+                  style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                ),
+                const SizedBox(height: groupGapSm),
                 GestureDetector(
                   onTap: _pickDateRange,
                   child: Container(
                     width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: height_16, vertical: height_16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: groupGutter,
+                      vertical: groupGapMd,
+                    ),
                     decoration: BoxDecoration(
-                      border:
-                          Border.all(color: neopopOnPrimary.withOpacity(0.2)),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: groupMutedBorderHairline,
+                      ),
+                      borderRadius: BorderRadius.circular(groupControlRadius),
                     ),
                     child: Row(
                       children: [
                         const Icon(Icons.calendar_today_rounded,
                             color: neopopAccent, size: 20),
-                        SizedBox(width: height_10),
+                        const SizedBox(width: groupGapSm),
                         Text(
                           _dateRange != null
-                              ? '${dateFormat.format(_dateRange!.start)} → ${dateFormat.format(_dateRange!.end)}'
-                              : 'Select date range',
+                              ? AppStringFormat.tripDateRange(
+                                  dateFormat.format(_dateRange!.start),
+                                  dateFormat.format(_dateRange!.end),
+                                )
+                              : AppStrings.trips.selectDateRange,
                           style: body1_text.copyWith(
                             color: _dateRange != null
-                                ? neopopOnPrimary
-                                : neopopOnPrimary.withOpacity(0.4),
+                                ? groupOnSurface
+                                : groupOnSurfaceMuted,
                           ),
                         ),
                       ],
@@ -179,77 +209,95 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
                 // Duration preview
                 if (_dateRange != null) ...[
-                  SizedBox(height: height_10),
+                  const SizedBox(height: groupGapSm),
                   Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: height_10, vertical: height_10 / 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: groupGapSm,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: neopopAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
+                      color: neopopAccentFillSoft,
+                      borderRadius: BorderRadius.circular(groupCardRadiusLg),
                     ),
                     child: Text(
-                      '${_dateRange!.end.difference(_dateRange!.start).inDays + 1} days',
+                      AppStringFormat.tripDurationDays(
+                        _dateRange!.end.difference(_dateRange!.start).inDays +
+                            1,
+                      ),
                       style: caption_text.copyWith(color: neopopAccent),
                     ),
                   ),
                 ],
 
-                SizedBox(height: height_16 * 1.5),
-
-                // Default currency from profile / locale
-                Text('Trip currency',
-                    style: caption_text.copyWith(
-                        color: neopopOnPrimary.withOpacity(0.6))),
-                SizedBox(height: height_10 / 2),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: height_16, vertical: height_16),
-                  decoration: BoxDecoration(
-                    border:
-                        Border.all(color: neopopOnPrimary.withOpacity(0.2)),
-                    borderRadius: BorderRadius.circular(8),
-                    color: neopopAccent.withOpacity(0.08),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.currency_exchange_rounded,
-                          color: neopopAccent, size: 20),
-                      SizedBox(width: height_10),
-                      Text(
-                        Get.isRegistered<CurrencyController>()
-                            ? '${Get.find<CurrencyController>().symbol} ${Get.find<CurrencyController>().code} — from your profile'
-                            : '₹ INR — default',
-                        style: body1_text.copyWith(color: neopopOnPrimary),
+                const SizedBox(height: groupGapLg),
+                Text(
+                  AppStrings.trips.tripCurrency,
+                  style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                ),
+                const SizedBox(height: groupGapSm),
+                InkWell(
+                  onTap: _pickTripCurrency,
+                  borderRadius: BorderRadius.circular(groupControlRadius),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: groupGutter,
+                      vertical: groupGapMd,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: groupMutedBorderHairline,
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(groupControlRadius),
+                      color: neopopAccentFillFaint,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.currency_exchange_rounded,
+                            color: neopopAccent, size: 20),
+                        const SizedBox(width: groupGapSm),
+                        Expanded(
+                          child: Text(
+                            '${CurrencyService.symbolFor(_tripCurrency)} $_tripCurrency',
+                            style: body1_text.copyWith(color: groupOnSurface),
+                          ),
+                        ),
+                        if (_tripCurrency !=
+                            (Get.isRegistered<CurrencyController>()
+                                ? Get.find<CurrencyController>().code
+                                : CurrencyDefaults.code))
+                          const PremiumLockBadge(),
+                        const Icon(Icons.chevron_right_rounded,
+                            color: neopopGrey),
+                      ],
+                    ),
                   ),
                 ),
 
-                SizedBox(height: height_16 * 3),
-
-                // Create button
+                const SizedBox(height: groupGapXl * 2),
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: groupCtaHeight,
                   child: ElevatedButton(
                     onPressed: _isCreating ? null : _createTrip,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: neopopAccent,
-                      foregroundColor: neopopBackground,
+                      foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(groupControlRadius),
+                      ),
                       elevation: 0,
                     ),
                     child: _isCreating
                         ? const SizedBox(
-                            width: 24,
-                            height: 24,
+                            width: groupProgressIndicatorSize,
+                            height: groupProgressIndicatorSize,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: neopopBackground))
-                        : Text('Create Trip',
+                                strokeWidth: groupProgressStrokeWidth,
+                                color: Colors.black))
+                        : Text(AppStrings.trips.createTrip,
                             style: body1_text.copyWith(
-                                color: neopopBackground,
+                                color: Colors.black,
                                 fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -257,31 +305,55 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
             ),
           ),
         ),
-      ),
-    ),
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: body1_text.copyWith(color: neopopOnPrimary.withOpacity(0.3)),
-      enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: neopopOnPrimary.withOpacity(0.2)),
-        borderRadius: BorderRadius.circular(8),
+  Future<void> _pickTripCurrency() async {
+    final popular = PopularCurrencyCodes.popular;
+    final profileCode = Get.isRegistered<CurrencyController>()
+        ? Get.find<CurrencyController>().code
+        : CurrencyDefaults.code;
+
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: groupSheetTopBorderRadius,
       ),
-      focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: neopopAccent),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.redAccent),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.redAccent),
-        borderRadius: BorderRadius.circular(8),
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(groupGutter),
+              child: Text(
+                AppStrings.trips.tripLedgerCurrency,
+                style: sub_headline5_text.copyWith(color: groupOnSurface),
+              ),
+            ),
+            ...popular.map((code) {
+              final foreign = code != profileCode;
+              return ListTile(
+                leading: Text(
+                  CurrencyService.symbolFor(code),
+                  style: body1_text.copyWith(color: neopopAccent),
+                ),
+                title: Text(
+                  '$code — ${CurrencyService.supportedCurrencies[code] ?? code}',
+                  style: body2_text.copyWith(color: groupOnSurface),
+                ),
+                trailing: foreign ? const PremiumLockBadge() : null,
+                selected: _tripCurrency == code,
+                onTap: () => Navigator.pop(ctx, code),
+              );
+            }),
+          ],
+        ),
       ),
     );
+
+    if (picked != null) {
+      setState(() => _tripCurrency = picked);
+    }
   }
 }

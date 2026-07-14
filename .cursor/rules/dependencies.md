@@ -1,4 +1,4 @@
-# Dependencies Rules — SplitO (Splitter)
+# Dependencies Rules — Splitr
 
 ## Purpose
 
@@ -36,7 +36,7 @@ pubspec dependency policy — what is approved, what is forbidden, and how to ad
 | `avatar_stack` | ^1.2.0 | Member avatars |
 | `flutter_timeline` | ^0.3.0 | Trip timeline |
 | `story_view` | ^0.16.6 | Monthly recap stories |
-| `in_app_purchase` | ^3.2.0 | SplitO Pro subscriptions |
+| `in_app_purchase` | ^3.2.0 | Splitr Pro subscriptions |
 | `pdf` | ^3.11.1 | Premium PDF export |
 | `flutter_contacts` | ^2.1.0 | Friend contact matching |
 | `app_links` | ^7.0.0 | Deep link handling |

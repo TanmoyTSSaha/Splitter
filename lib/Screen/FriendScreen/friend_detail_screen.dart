@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Screen/FriendScreen/quick_split_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/gamification_service.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
-
-const Color _lightBg = Color(0xFFFAFAFA);
-const Color _cardBorder = Color(0xFFEEEEEE);
-const Color _promptnessGood = Color(0xFF2E7D32);
-const Color _promptnessPoor = Color(0xFFE53935);
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Screen/FriendScreen/quick_split_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/gamification_service.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
 Color _promptnessColor(int score) =>
-    score >= 50 ? _promptnessGood : _promptnessPoor;
+    score >= PromptnessScoreTiers.good ? neopopSuccess : neopopAlert;
 
 String _promptnessSubtitle(int score) {
-  if (score >= 75) return 'Usually settles quickly';
-  if (score >= 50) return 'Average settle-up speed';
-  return 'Balances tend to linger';
+  if (score >= PromptnessScoreTiers.excellent) {
+    return AppStrings.friends.promptnessFast;
+  }
+  if (score >= PromptnessScoreTiers.good) {
+    return AppStrings.friends.promptnessAverage;
+  }
+  return AppStrings.friends.promptnessSlow;
 }
 
 class FriendDetailScreen extends StatelessWidget {
@@ -33,37 +40,27 @@ class FriendDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     Color balanceColor;
     String balanceLabel;
-    if (friendBalance.netBalance > 0.01) {
+    if (friendBalance.netBalance > MoneyEpsilon.balanceSettled) {
       balanceColor = neopopAccent;
-      balanceLabel = "owes you";
-    } else if (friendBalance.netBalance < -0.01) {
-      balanceColor = const Color(0xFFE6A800);
-      balanceLabel = "you owe";
+      balanceLabel = AppStrings.friends.owesYou;
+    } else if (friendBalance.netBalance < -MoneyEpsilon.balanceSettled) {
+      balanceColor = ThemeAccentColors.oweWarning(context);
+      balanceLabel = AppStrings.friends.youOwe;
     } else {
       balanceColor = groupOnSurfaceMuted;
-      balanceLabel = "settled up";
+      balanceLabel = AppStrings.friends.settledUp;
     }
 
     return Scaffold(
-      backgroundColor: _lightBg,
-      appBar: AppBar(
-        backgroundColor: _lightBg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: friendBalance.friendName ?? DisplayFallbacks.friend,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: groupOnSurface),
-        ),
-        title: Text(
-          friendBalance.friendName ?? 'Friend',
-          style: headline3_text.copyWith(
-            fontFamily: 'Albra',
-            fontWeight: FontWeight.w600,
-            color: groupOnSurface,
-          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -76,8 +73,8 @@ class FriendDetailScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(groupGapLg),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                color: groupCardFill,
+                borderRadius: BorderRadius.circular(groupCardRadius),
                 border: Border.all(color: balanceColor.withValues(alpha: 0.35)),
                 boxShadow: [
                   BoxShadow(
@@ -91,15 +88,16 @@ class FriendDetailScreen extends StatelessWidget {
                 children: [
                   UserAvatar(
                     userID: friendBalance.friendUserID ?? '',
-                    userName: friendBalance.friendName ?? '?',
+                    userName: friendBalance.friendName ??
+                        DisplayFallbacks.questionMark,
                     radius: 36,
-                    fontSize: 24,
+                    fontSize: splitrFontHeadline3,
                   ),
                   const SizedBox(height: groupGapSm),
                   Text(
-                    friendBalance.friendName ?? 'Unknown',
+                    friendBalance.friendName ?? DisplayFallbacks.unknown,
                     style: headline3_text.copyWith(
-                      fontFamily: 'Albra',
+                      fontFamily: kFontAlbra,
                       color: groupOnSurface,
                     ),
                   ),
@@ -114,7 +112,7 @@ class FriendDetailScreen extends StatelessWidget {
                     style: caption_text.copyWith(color: balanceColor),
                   ),
                   Text(
-                    "₹${friendBalance.netBalance.abs().toStringAsFixed(2)}",
+                    "${userCurrencySymbol()}${friendBalance.netBalance.abs().toStringAsFixed(DefaultDecimalPlaces.amount)}",
                     style: headline2_text.copyWith(
                       color: balanceColor,
                       fontWeight: FontWeight.w700,
@@ -132,12 +130,13 @@ class FriendDetailScreen extends StatelessWidget {
                   final score = snapshot.data;
                   if (score == null) {
                     return const SizedBox(
-                      height: 48,
+                      height: groupCtaHeightCompact,
                       child: Center(
                         child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          width: AppDimensions.loadingIndicatorSm,
+                          height: AppDimensions.loadingIndicatorSm,
+                          child: CircularProgressIndicator(
+                              strokeWidth: groupProgressStrokeWidth),
                         ),
                       ),
                     );
@@ -147,8 +146,8 @@ class FriendDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(groupGapMd),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      color: groupCardFill,
+                      borderRadius: BorderRadius.circular(groupCardRadius),
                       border: Border.all(color: color.withValues(alpha: 0.35)),
                     ),
                     child: Row(
@@ -160,7 +159,7 @@ class FriendDetailScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Settlement promptness',
+                                AppStrings.friends.settlementPromptness,
                                 style: body2_text.copyWith(
                                   color: groupOnSurface,
                                   fontWeight: FontWeight.w600,
@@ -190,9 +189,9 @@ class FriendDetailScreen extends StatelessWidget {
             const SizedBox(height: groupGapLg),
             if (friendBalance.groupBreakdown.isNotEmpty) ...[
               Text(
-                "Group Breakdown",
+                AppStrings.friends.groupBreakdown,
                 style: headline3_text.copyWith(
-                  fontFamily: 'Albra',
+                  fontFamily: kFontAlbra,
                   fontWeight: FontWeight.w600,
                   color: groupOnSurface,
                 ),
@@ -204,9 +203,9 @@ class FriendDetailScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: groupGapSm),
                   padding: const EdgeInsets.all(groupGapMd),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _cardBorder),
+                    color: surface,
+                    borderRadius: BorderRadius.circular(groupCardRadius),
+                    border: Border.all(color: groupMutedBorderHairline),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -224,22 +223,24 @@ class FriendDetailScreen extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              positive ? "they owe you" : "you owe them",
+                              positive
+                                  ? AppStrings.friends.theyOweYou
+                                  : AppStrings.friends.youOweThem,
                               style: caption_text.copyWith(
                                 color: positive
                                     ? neopopAccent
-                                    : const Color(0xFFE6A800),
+                                    : ThemeAccentColors.oweWarning(context),
                               ),
                             ),
                           ],
                         ),
                       ),
                       Text(
-                        "${positive ? '+' : '-'}₹${gb.amount.abs().toStringAsFixed(2)}",
+                        "${positive ? '+' : '-'}${userCurrencySymbol()}${gb.amount.abs().toStringAsFixed(DefaultDecimalPlaces.amount)}",
                         style: sub_headline4_text.copyWith(
                           color: positive
                               ? neopopAccent
-                              : const Color(0xFFE6A800),
+                              : ThemeAccentColors.oweWarning(context),
                         ),
                       ),
                     ],
@@ -251,7 +252,7 @@ class FriendDetailScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.only(top: groupGapXl),
                   child: Text(
-                    "No shared group balances.",
+                    AppStrings.friends.noGroupBalances,
                     style: body2_text.copyWith(color: groupOnSurfaceMuted),
                   ),
                 ),
@@ -269,10 +270,10 @@ class FriendDetailScreen extends StatelessWidget {
                     ));
               },
               backgroundColor: neopopBackground,
-              icon: const Icon(Icons.bolt_rounded, color: Colors.white),
+              icon: const Icon(Icons.bolt_rounded, color: groupChipSelectedFg),
               label: Text(
-                'Quick split',
-                style: button_text.copyWith(color: Colors.white),
+                AppStrings.friends.quickSplit,
+                style: button_text.copyWith(color: groupChipSelectedFg),
               ),
             )
           : null,

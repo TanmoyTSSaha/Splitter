@@ -1,4 +1,4 @@
--- RPC functions, auth trigger, and RLS policies for SplitO.
+-- RPC functions, auth trigger, and RLS policies for Splitr.
 
 -- ─── Auth: auto-create public.users profile ──────────────────────────────────
 CREATE OR REPLACE FUNCTION public.handle_new_user()

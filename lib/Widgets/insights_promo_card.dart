@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Screen/Insights/expense_insights_screen.dart';
-import 'package:splitter/Services/spending_intelligence_service.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/Insights/expense_insights_screen.dart';
+import 'package:splitr/Services/spending_intelligence_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 /// Contextual home-screen card promoting Expense Insights (Cursor-style).
 class InsightsPromoCard extends StatefulWidget {
@@ -16,10 +22,7 @@ class InsightsPromoCard extends StatefulWidget {
 }
 
 class _InsightsPromoCardState extends State<InsightsPromoCard> {
-  static const _prefDismissedAt = 'insights_promo_dismissed_at';
-  static const _prefSessionShown = 'insights_promo_session_shown';
-
-  final SpendingIntelligenceService _service = SpendingIntelligenceService();
+  SpendingIntelligenceService? _service;
   String? _message;
   bool _loading = true;
   bool _visible = false;
@@ -32,24 +35,27 @@ class _InsightsPromoCardState extends State<InsightsPromoCard> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final sessionShown = prefs.getBool(_prefSessionShown) ?? false;
+    final sessionShown =
+        prefs.getBool(PrefKeys.insightsPromoSessionShown) ?? false;
     if (sessionShown) {
       if (mounted) setState(() => _loading = false);
       return;
     }
 
-    final dismissedStr = prefs.getString(_prefDismissedAt);
+    final dismissedStr = prefs.getString(PrefKeys.insightsPromoDismissedAt);
     if (dismissedStr != null) {
       final dismissedAt = DateTime.tryParse(dismissedStr);
       if (dismissedAt != null &&
-          DateTime.now().difference(dismissedAt) < const Duration(hours: 24)) {
+          DateTime.now().difference(dismissedAt) <
+              AppMotion.insightsPromoDismiss) {
         if (mounted) setState(() => _loading = false);
         return;
       }
     }
 
     try {
-      final hook = await _service.getPromoHook();
+      final hook =
+          await (_service ??= SpendingIntelligenceService()).getPromoHook();
       if (mounted) {
         setState(() {
           _message = hook['message'] as String?;
@@ -58,9 +64,14 @@ class _InsightsPromoCardState extends State<InsightsPromoCard> {
         });
       }
       if (_visible) {
-        await prefs.setBool(_prefSessionShown, true);
+        await prefs.setBool(PrefKeys.insightsPromoSessionShown, true);
       }
-    } catch (_) {
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'Insights promo card load failed',
+        error: e,
+        stack: stack,
+      );
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -68,7 +79,7 @@ class _InsightsPromoCardState extends State<InsightsPromoCard> {
   Future<void> _dismiss() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        _prefDismissedAt, DateTime.now().toIso8601String());
+        PrefKeys.insightsPromoDismissedAt, DateTime.now().toIso8601String());
     if (mounted) setState(() => _visible = false);
   }
 
@@ -86,12 +97,16 @@ class _InsightsPromoCardState extends State<InsightsPromoCard> {
       padding: const EdgeInsets.only(bottom: groupGapMd),
       child: GlassCard(
         margin: EdgeInsets.zero,
-        opacity: 0.08,
+        opacity: AppDimensions.glassCardOpacityDefault,
         padding: const EdgeInsets.all(groupGapMd),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.auto_awesome, color: neopopYellow, size: 22),
+            Icon(
+              Icons.auto_awesome,
+              color: ThemeAccentColors.highlight(context),
+              size: AppDimensions.insightsPromoIcon,
+            ),
             const SizedBox(width: groupGapSm),
             Expanded(
               child: GestureDetector(
@@ -100,23 +115,23 @@ class _InsightsPromoCardState extends State<InsightsPromoCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Expense Insights',
+                      AppStrings.insights.title,
                       style: caption_text.copyWith(
                         color: groupOnSurfaceMuted,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: groupGapXxs),
                     Text(
                       _message!,
                       style: body2_text.copyWith(
                         color: groupOnSurface,
-                        height: 1.35,
+                        height: groupLineHeightRelaxed,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: groupGapXs),
                     Text(
-                      'See insights →',
+                      AppStrings.insights.seeInsights,
                       style: caption_text.copyWith(
                         color: neopopAccent,
                         fontWeight: FontWeight.w600,
@@ -127,10 +142,17 @@ class _InsightsPromoCardState extends State<InsightsPromoCard> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close, size: 18, color: groupOnSurfaceMuted),
+              icon: const Icon(
+                Icons.close,
+                size: AppDimensions.insightsPromoDismissIcon,
+                color: groupOnSurfaceMuted,
+              ),
               onPressed: _dismiss,
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(
+                minWidth: AppDimensions.insightsPromoDismissTap,
+                minHeight: AppDimensions.insightsPromoDismissTap,
+              ),
             ),
           ],
         ),

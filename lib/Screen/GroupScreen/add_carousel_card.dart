@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 class AddCarouselCard extends StatelessWidget {
   final String label;
@@ -18,45 +19,45 @@ class AddCarouselCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 150,
-        height: 160,
-        padding: const EdgeInsets.all(16),
+        width: groupCarouselCardWidth,
+        height: groupCarouselCardHeight,
+        padding: const EdgeInsets.all(groupGutter),
         decoration: BoxDecoration(
-          color: neopopAccent.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(16),
+          color: neopopAccentFillSubtle,
+          borderRadius: BorderRadius.circular(groupCardRadius),
           border: Border.all(
-            color: neopopAccent.withOpacity(0.35),
-            width: 1.5,
+            color: neopopAccentBorder,
+            width: groupAccentBorderWidth,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(groupCarouselGap),
               decoration: BoxDecoration(
-                color: neopopAccent.withOpacity(0.12),
+                color: neopopAccentFillLight,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_rounded,
-                color: neopopAccent.withOpacity(0.9),
-                size: 24,
+                color: neopopAccentIconStrong,
+                size: groupCarouselIconLg,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: groupCarouselGap),
             Icon(
               icon,
-              color: neopopAccent.withOpacity(0.5),
-              size: 18,
+              color: neopopAccentIconMuted,
+              size: groupCarouselIconSm,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: groupGapXs),
             Text(
               label,
-              style: body2_text.copyWith(
-                color: neopopBackground,
+              style: caption_text.copyWith(
+                color: groupOnSurface,
                 fontWeight: FontWeight.w600,
-                fontSize: 13,
+                fontStyle: FontStyle.normal,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,

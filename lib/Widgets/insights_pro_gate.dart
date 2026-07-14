@@ -2,10 +2,13 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controllers/premium_subscription_controller.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/premium_gate.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Controllers/premium_subscription_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/premium_gate.dart';
 
 /// Blurs and locks Pro-only insight sections for free users.
 class InsightsProGate extends StatelessWidget {
@@ -20,7 +23,7 @@ class InsightsProGate extends StatelessWidget {
   const InsightsProGate({
     required this.featureLabel,
     required this.child,
-    this.blurSigma = 6,
+    this.blurSigma = AppDimensions.proGateBlur,
     this.testIsPremium,
     super.key,
   });
@@ -42,7 +45,7 @@ class InsightsProGate extends StatelessWidget {
     return Stack(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(groupCardRadius),
           child: ImageFiltered(
             imageFilter: ImageFilter.blur(
               sigmaX: blurSigma,
@@ -53,10 +56,12 @@ class InsightsProGate extends StatelessWidget {
         ),
         Positioned.fill(
           child: Material(
-            color: Colors.white.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(16),
+            color: groupCardFill.withValues(
+              alpha: AppDimensions.proGateScrimOpacity,
+            ),
+            borderRadius: BorderRadius.circular(groupCardRadius),
             child: InkWell(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(groupCardRadius),
               onTap: () => requirePremium(featureLabel: featureLabel),
               child: Center(
                 child: Padding(
@@ -64,20 +69,23 @@ class InsightsProGate extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.lock_rounded, color: neopopYellow, size: 28),
+                      Icon(Icons.lock_rounded,
+                          color: ThemeAccentColors.highlight(context),
+                          size: AppDimensions.proGateIcon),
                       const SizedBox(height: groupGapSm),
                       Text(
-                        'Unlock $featureLabel',
+                        '${AppStrings.insights.unlockFeature}$featureLabel',
                         textAlign: TextAlign.center,
                         style: body1_text.copyWith(
                           color: groupOnSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: groupGapXxs),
                       Text(
-                        'Upgrade to Pro',
-                        style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                        AppStrings.insights.upgradeToPro,
+                        style:
+                            caption_text.copyWith(color: groupOnSurfaceMuted),
                       ),
                     ],
                   ),

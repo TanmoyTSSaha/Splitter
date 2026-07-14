@@ -1,27 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Controller/lending_refresh_controller.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/loan_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Screen/LendingScreen/loan_repayment_schedule_screen.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Controller/lending_refresh_controller.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/LendingScreen/loan_repayment_schedule_screen.dart';
+import 'package:splitr/Screen/LendingScreen/widgets/loan_payment_sheet.dart';
+import 'package:splitr/Screen/LendingScreen/widgets/loan_repayment_progress_bar.dart';
+import 'package:splitr/Repository/loan_repository.dart';
+import 'package:splitr/Services/export_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/premium_gate.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class LoanDetailScreen extends StatefulWidget {
   final LoanModel loan;
+  final double? initialPaymentAmount;
 
-  const LoanDetailScreen({super.key, required this.loan});
+  const LoanDetailScreen({
+    super.key,
+    required this.loan,
+    this.initialPaymentAmount,
+  });
 
   @override
   State<LoanDetailScreen> createState() => _LoanDetailScreenState();
 }
 
 class _LoanDetailScreenState extends State<LoanDetailScreen> {
-  final SupabaseDatabase _supabase = SupabaseDatabase();
+  LoanRepository get _loanRepo => Get.find<LoanRepository>();
   final String _userID = SupabaseAuth().supabaseGetUserID();
   final TextEditingController _paymentController = TextEditingController();
 
@@ -32,6 +48,9 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   void initState() {
     super.initState();
     _loan = widget.loan;
+    if (widget.initialPaymentAmount != null) {
+      _paymentController.text = widget.initialPaymentAmount!.toStringAsFixed(2);
+    }
   }
 
   @override
@@ -41,8 +60,8 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   }
 
   bool get _isLender => _loan.lenderID == _userID;
-  bool get _isActive => _loan.status == 'active';
-  bool get _isPending => _loan.status == 'pending';
+  bool get _isActive => _loan.status == LoanStatusValues.active;
+  bool get _isPending => _loan.status == GroupInviteStatusValues.pending;
 
   bool get _canViewSchedule =>
       _loan.duration != null &&
@@ -54,65 +73,50 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       _isPending && _loan.createdBy != null && _loan.createdBy != _userID;
 
   String get _interestPeriodLabel =>
-      _loan.interestPeriod == 'yearly' ? 'yearly' : 'monthly';
+      _loan.interestPeriod == LoanFrequencyValues.yearly
+          ? LoanFrequencyValues.yearly
+          : LoanFrequencyValues.monthly;
 
   String get _counterpartyName => _isLender
-      ? (_loan.borrowerName ?? 'Borrower')
-      : (_loan.lenderName ?? 'Lender');
+      ? (_loan.borrowerName ?? LoanRoleFallbacks.borrower)
+      : (_loan.lenderName ?? LoanRoleFallbacks.lender);
 
   String get _counterpartyAvatar =>
       _isLender ? (_loan.borrowerAvatar ?? '') : (_loan.lenderAvatar ?? '');
 
-  String get _counterpartyId =>
-      _isLender ? _loan.borrowerID : _loan.lenderID;
+  String get _counterpartyId => _isLender ? _loan.borrowerID : _loan.lenderID;
 
   Future<void> _recordPayment() async {
     final payment = double.tryParse(_paymentController.text);
     if (payment == null || payment <= 0) {
-      Get.snackbar(
-        'Error',
-        'Please enter a valid payment amount',
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
-      );
+      SplitrToast.show(SplitrToast.join(AppStrings.errors.errorTitle, AppStrings.validation.validPaymentAmount));
       return;
     }
 
     if (payment > _loan.currentAmountOwed) {
-      Get.snackbar(
-        'Error',
-        'Payment exceeds remaining balance',
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
-      );
+      SplitrToast.show(SplitrToast.join(AppStrings.errors.errorTitle, AppStrings.validation.paymentExceedsBalance));
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
-      await _supabase.recordLoanPayment(
-        loanID: _loan.id!,
+      await _loanRepo.recordLoanPayment(
+        loanId: _loan.id!,
         paymentAmount: payment,
       );
-      final updated = await _supabase.getLoanById(_loan.id!);
+      final updated = await _loanRepo.getLoanById(_loan.id!);
       if (updated != null && mounted) {
         setState(() {
           _loan = updated;
           _paymentController.clear();
         });
       }
-      Get.snackbar(
-        'Success',
-        'Payment recorded',
-        backgroundColor: neopopBackground,
-        colorText: Colors.white,
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        e.toString().replaceFirst('Exception: ', ''),
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
+      SplitrToast.show(SplitrToast.join(AppStrings.notifications.inviteSuccess, AppStrings.lending.paymentRecorded));
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.lending.paymentRecorded,
+        error: e,
+        stack: stack,
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -124,26 +128,22 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await _supabase.updateLoanStatus(
-        loanID: _loan.id!,
-        status: accept ? 'active' : 'rejected',
+      await _loanRepo.updateLoanStatus(
+        loanId: _loan.id!,
+        status: accept ? LoanStatusValues.active : LoanStatusValues.rejected,
       );
       LendingRefreshController.refreshFromAnywhere();
-      Get.snackbar(
-        accept ? 'Loan Accepted' : 'Loan Rejected',
-        accept
-            ? 'The loan is now active.'
-            : 'You have rejected the loan offer.',
-        backgroundColor: neopopBackground,
-        colorText: Colors.white,
-      );
+      SplitrToast.show(SplitrToast.join(accept
+            ? AppStrings.notifications.loanAcceptedTitle
+            : AppStrings.notifications.loanRejectedTitle, accept
+            ? AppStrings.notifications.loanNowActive
+            : AppStrings.notifications.loanOfferRejected));
       Get.back(result: true);
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        e.toString().replaceFirst('Exception: ', ''),
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.notifications.actionFailed,
+        error: e,
+        stack: stack,
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -158,20 +158,14 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
         if (!didPop) Get.back(result: true);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: groupOnSurface),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: SplitrDetailAppBar(
+          title: AppStrings.lending.contractDetails,
+          centerTitle: true,
+          leading: SplitrDetailAppBar.iosBackLeading(
+            context,
             onPressed: () => Get.back(result: true),
           ),
-          title: Text(
-            'Contract Details',
-            style: sub_headline5_text.copyWith(color: groupOnSurface),
-          ),
-          centerTitle: true,
-          scrolledUnderElevation: 0,
         ),
         body: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
@@ -211,23 +205,22 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           children: [
             Expanded(
               child: SizedBox(
-                height: 56,
+                height: groupCtaHeight,
                 child: OutlinedButton(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => _handleLoanResponse(false),
+                  onPressed:
+                      _isSubmitting ? null : () => _handleLoanResponse(false),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
+                    foregroundColor: neopopError,
+                    side: const BorderSide(color: neopopError),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(groupControlRadius),
                     ),
                   ),
                   child: Text(
-                    'REJECT',
+                    AppStrings.lending.reject,
                     style: body1_text.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: Colors.redAccent,
+                      color: neopopError,
                     ),
                   ),
                 ),
@@ -236,30 +229,29 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: SizedBox(
-                height: 56,
+                height: groupCtaHeight,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => _handleLoanResponse(true),
+                  onPressed:
+                      _isSubmitting ? null : () => _handleLoanResponse(true),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: neopopBackground,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(groupControlRadius),
                     ),
                     elevation: 0,
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
+                          width: groupProgressIndicatorSize,
+                          height: groupProgressIndicatorSize,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                            strokeWidth: groupProgressStrokeWidth,
                             color: Colors.white,
                           ),
                         )
                       : Text(
-                          'ACCEPT',
+                          AppStrings.lending.accept,
                           style: body1_text.copyWith(
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -280,6 +272,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       padding: const EdgeInsets.all(groupGapMd),
       opacity: 0.1,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
@@ -302,7 +295,9 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                       ),
                     ),
                     Text(
-                      _isLender ? 'Borrower' : 'Lender',
+                      _isLender
+                          ? LoanRoleFallbacks.borrower
+                          : LoanRoleFallbacks.lender,
                       style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                   ],
@@ -321,7 +316,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Remaining',
+                      AppStrings.lending.remaining,
                       style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                     Text(
@@ -337,11 +332,11 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Principal',
+                      AppStrings.lending.totalPayable,
                       style: caption_text.copyWith(color: groupOnSurfaceMuted),
                     ),
                     Text(
-                      '$sym${_loan.principalAmount.toStringAsFixed(0)}',
+                      '$sym${_loan.totalContractPayable.toStringAsFixed(0)}',
                       style: body1_text.copyWith(
                         fontWeight: FontWeight.w600,
                         color: groupOnSurface,
@@ -352,37 +347,81 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
               ],
             );
           }),
-          const SizedBox(height: groupGapMd),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: _loan.repaymentProgress,
-              backgroundColor: neopopSecondaryGrey.withValues(alpha: 0.15),
-              valueColor: const AlwaysStoppedAnimation<Color>(neopopAccent),
-              minHeight: 8,
-            ),
-          ),
+          if (_loan.status == LoanStatusValues.active) ...[
+            const SizedBox(height: groupGapMd),
+            LoanRepaymentProgressBar.fromLoan(_loan),
+            const SizedBox(height: groupGapXs),
+            _buildRepaymentProgressLegend(),
+          ],
         ],
       ),
     );
   }
 
+  Widget _buildRepaymentProgressLegend() {
+    Widget legendItem(Color color, String label) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: groupGapXxs),
+          Text(
+            label,
+            style: caption_text.copyWith(
+              color: groupOnSurfaceMuted,
+              fontSize: splitrFontCaptionSm,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: groupGapMd,
+      runSpacing: groupGapXs,
+      children: [
+        legendItem(
+          LoanRepaymentProgressBar.principalPaidColor,
+          AppStrings.lending.principalPaid,
+        ),
+        legendItem(
+          LoanRepaymentProgressBar.interestPaidColor,
+          AppStrings.lending.interestPaid,
+        ),
+        legendItem(
+          LoanRepaymentProgressBar.remainingTrackColor,
+          AppStrings.lending.remaining,
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatusBadge() {
-    final badgeColor = _loan.status == 'active'
+    final badgeColor = _loan.status == LoanStatusValues.active
         ? neopopAccent
-        : (_loan.status == 'pending' ? Colors.orangeAccent : Colors.grey);
+        : (_loan.status == GroupInviteStatusValues.pending
+            ? Colors.orangeAccent
+            : Colors.grey);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+          horizontal: groupGap10, vertical: groupGapXxs),
       decoration: BoxDecoration(
         color: badgeColor.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         border: Border.all(color: badgeColor),
       ),
       child: Text(
         _loan.status.toUpperCase(),
         style: const TextStyle(
-          fontSize: 10,
+          fontSize: splitrFontMicro,
           fontWeight: FontWeight.bold,
           color: Colors.black,
         ),
@@ -399,7 +438,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Terms',
+            AppStrings.lending.terms,
             style: body1_text.copyWith(
               fontWeight: FontWeight.bold,
               color: groupOnSurface,
@@ -407,25 +446,31 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           ),
           const SizedBox(height: groupGapMd),
           _detailRow(
-            'Interest rate',
+            AppStrings.lending.interestRate,
             '${_loan.interestRate.toStringAsFixed(1)}% $_interestPeriodLabel (${_loan.interestType})',
           ),
           if (_loan.duration != null && _loan.durationUnit != null)
-            _detailRow('Duration', '${_loan.duration} ${_loan.durationUnit}'),
+            _detailRow(
+              AppStrings.lending.duration,
+              '${_loan.duration} ${_loan.durationUnit}',
+            ),
           if (_loan.dueDate != null)
             _detailRow(
-              'Due date',
-              DateFormat('MMM d, yyyy').format(_loan.dueDate!),
+              AppStrings.lending.dueDate,
+              DateFormat(AppDateFormats.shortDayYear).format(_loan.dueDate!),
             ),
           if (_loan.repaymentStartDay != null && _loan.repaymentEndDay != null)
             _detailRow(
-              'Repayment window',
-              'Day ${_loan.repaymentStartDay} – ${_loan.repaymentEndDay} each month',
+              AppStrings.lending.repaymentWindow,
+              AppStringFormat.repaymentWindowMonthly(
+                _loan.repaymentStartDay!,
+                _loan.repaymentEndDay!,
+              ),
             ),
           Obx(() {
             final sym = Get.find<CurrencyController>().symbol;
             return _detailRow(
-              'Total repaid',
+              AppStrings.lending.totalRepaid,
               '$sym${_loan.repaymentAmount.toStringAsFixed(0)}',
             );
           }),
@@ -438,7 +483,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                   () => LoanRepaymentScheduleScreen(loan: _loan),
                 ),
                 child: Text(
-                  'View repayment schedule',
+                  AppStrings.lending.viewRepaymentSchedule,
                   style: body2_text.copyWith(
                     fontWeight: FontWeight.w600,
                     color: neopopPrimary,
@@ -450,14 +495,53 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
               ),
             ),
           ],
+          if (_loan.status != LoanStatusValues.rejected) ...[
+            const SizedBox(height: groupGapSm),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading:
+                  const Icon(Icons.description_outlined, color: neopopAccent),
+              title: Text(
+                AppStrings.lending.exportContractPdf,
+                style: body2_text.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: groupOnSurface,
+                ),
+              ),
+              subtitle: Text(
+                AppStrings.lending.contractPdfSummary,
+                style: caption_text.copyWith(color: groupOnSurfaceMuted),
+              ),
+              trailing: const PremiumLockBadge(),
+              onTap: _exportContractPdf,
+            ),
+          ],
         ],
       ),
     );
   }
 
+  Future<void> _exportContractPdf() async {
+    final ok = await requirePremium(
+      featureLabel: AppStrings.lending.contractPdf,
+    );
+    if (!ok) return;
+
+    try {
+      await ExportService().exportLoanContractPdf(loan: _loan);
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.errors.exportFailed,
+        error: e,
+        stack: stack,
+        context: {'feature': 'export'},
+      );
+    }
+  }
+
   Widget _detailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: groupGap10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -483,14 +567,14 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(groupGapMd),
       decoration: BoxDecoration(
-        color: neopopAccent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: neopopAccent.withValues(alpha: 0.25)),
+        color: neopopAccentFillSoft,
+        borderRadius: BorderRadius.circular(groupCardRadius),
+        border: Border.all(color: neopopAccentBorderHairline),
       ),
       child: Text(
         initiatedByMe
-            ? 'Awaiting the other party\'s response.'
-            : 'Review the terms below and accept or reject.',
+            ? AppStrings.lending.awaitingOtherParty
+            : AppStrings.lending.reviewTerms,
         style: body2_text.copyWith(color: groupOnSurface),
       ),
     );
@@ -501,79 +585,11 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.all(groupGapMd),
       opacity: 0.08,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Record Payment',
-            style: body1_text.copyWith(
-              fontWeight: FontWeight.bold,
-              color: groupOnSurface,
-            ),
-          ),
-          const SizedBox(height: groupGapSm),
-          Text(
-            'Either party can log a repayment.',
-            style: caption_text.copyWith(color: groupOnSurfaceMuted),
-          ),
-          const SizedBox(height: groupGapMd),
-          Obx(() {
-            final sym = Get.find<CurrencyController>().symbol;
-            return TextField(
-              controller: _paymentController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: body1_text.copyWith(color: groupOnSurface),
-              decoration: InputDecoration(
-                prefixText: '$sym ',
-                prefixStyle: body1_text.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: groupOnSurface,
-                ),
-                filled: true,
-                fillColor: neopopSecondaryGrey.withValues(alpha: 0.08),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                hintText: '0',
-                hintStyle: body1_text.copyWith(color: groupOnSurfaceMuted),
-              ),
-            );
-          }),
-          const SizedBox(height: groupGapMd),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _recordPayment,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: neopopBackground,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      'RECORD PAYMENT',
-                      style: body1_text.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
-          ),
-        ],
+      child: LoanPaymentForm(
+        loan: _loan,
+        controller: _paymentController,
+        isSubmitting: _isSubmitting,
+        onSubmit: _recordPayment,
       ),
     );
   }

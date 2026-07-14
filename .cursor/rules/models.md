@@ -1,4 +1,4 @@
-# Model Rules — SplitO (Splitter)
+# Model Rules — Splitr
 
 ## Purpose
 

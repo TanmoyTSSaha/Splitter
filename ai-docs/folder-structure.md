@@ -1,4 +1,4 @@
-# SplitO Folder Structure
+# Splitr Folder Structure
 
 ```
 Splitter/
@@ -47,7 +47,7 @@ File counts are approximate Dart files per folder (SQL migrations counted separa
 
 ## Import aliases
 
-Always: `package:splitter/<path>.dart`
+Always: `package:splitr/<path>.dart`
 
 ## Naming
 

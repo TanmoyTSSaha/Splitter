@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:splitr/Constants/app_formats.dart';
 
 /// Decimal numeric field with focus cursor before `.` and auto-advance after typing `.`.
 class SmartDecimalTextField extends StatefulWidget {
@@ -12,7 +13,7 @@ class SmartDecimalTextField extends StatefulWidget {
   const SmartDecimalTextField({
     super.key,
     required this.controller,
-    this.maxDecimalPlaces = 2,
+    this.maxDecimalPlaces = DefaultDecimalPlaces.amount,
     this.style,
     this.decoration,
     this.keyboardType = const TextInputType.numberWithOptions(decimal: true),
@@ -104,7 +105,7 @@ class _DecimalInputFormatter extends TextInputFormatter {
     final text = newValue.text;
     if (text.isEmpty) return newValue;
 
-    if (!RegExp(r'^\d*\.?\d*$').hasMatch(text)) {
+    if (!RegExp(InputPatterns.decimalInput).hasMatch(text)) {
       return oldValue;
     }
 

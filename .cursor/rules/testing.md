@@ -1,8 +1,8 @@
-# Testing Rules — SplitO (Splitter)
+# Testing Rules — Splitr
 
 ## Purpose
 
-Testing strategy for SplitO — minimal today, defined path for when tests are requested or added.
+Testing strategy for Splitr — minimal today, defined path for when tests are requested or added.
 
 ---
 

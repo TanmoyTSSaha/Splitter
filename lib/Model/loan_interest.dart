@@ -1,6 +1,8 @@
 import 'dart:math';
 
-import 'package:splitter/Model/loan_model.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/loan_model.dart';
 
 class LoanInterest {
   static double fullTermInterest({
@@ -13,19 +15,22 @@ class LoanInterest {
     final rate = loan.interestRate;
     final timeUnits = _termUnits(monthCount, loan.interestPeriod);
 
-    if (loan.interestType == 'compound') {
+    if (loan.interestType == LoanInterestTypes.compound) {
       return principal * pow(1 + rate / 100, timeUnits) - principal;
     }
-    if (loan.interestType == 'simple' || loan.interestType == 'flat') {
+    if (loan.interestType == LoanInterestTypes.simple ||
+        loan.interestType == LoanInterestTypes.flat) {
       return principal * (rate / 100) * timeUnits;
     }
     return 0;
   }
 
   static double accruedInterest(LoanModel loan) {
-    if (loan.interestRate == 0 || loan.status != 'active') return 0;
+    if (loan.interestRate == 0 || loan.status != LoanStatusValues.active) {
+      return 0;
+    }
 
-    if (loan.interestType == 'flat') {
+    if (loan.interestType == LoanInterestTypes.flat) {
       final monthCount = resolveMonthCount(loan);
       return fullTermInterest(loan: loan, monthCount: monthCount);
     }
@@ -34,10 +39,10 @@ class LoanInterest {
     final diff = now.difference(loan.startDate);
     double timeUnits = 0;
 
-    if (loan.interestPeriod == 'monthly') {
-      timeUnits = diff.inDays / 30.0;
-    } else if (loan.interestPeriod == 'yearly') {
-      timeUnits = diff.inDays / 365.0;
+    if (loan.interestPeriod == LoanFrequencyValues.monthly) {
+      timeUnits = diff.inDays / LoanInterestDays.daysPerMonth;
+    } else if (loan.interestPeriod == LoanFrequencyValues.yearly) {
+      timeUnits = diff.inDays / LoanInterestDays.daysPerYear;
     } else {
       timeUnits = 1;
     }
@@ -47,10 +52,10 @@ class LoanInterest {
     final principal = loan.principalAmount;
     final rate = loan.interestRate;
 
-    if (loan.interestType == 'simple') {
+    if (loan.interestType == LoanInterestTypes.simple) {
       return principal * (rate / 100) * timeUnits;
     }
-    if (loan.interestType == 'compound') {
+    if (loan.interestType == LoanInterestTypes.compound) {
       return principal * pow(1 + rate / 100, timeUnits) - principal;
     }
     return 0;
@@ -61,9 +66,9 @@ class LoanInterest {
     final unit = loan.durationUnit;
 
     if (duration != null && duration > 0 && unit != null) {
-      if (unit == 'months') return duration;
-      if (unit == 'years') return duration * 12;
-      if (unit == 'days' && loan.dueDate != null) {
+      if (unit == LoanDurationUnits.months) return duration;
+      if (unit == LoanDurationUnits.years) return duration * 12;
+      if (unit == LoanDurationUnits.days && loan.dueDate != null) {
         return _calendarMonthsInclusive(loan.startDate, loan.dueDate!);
       }
     }
@@ -77,7 +82,7 @@ class LoanInterest {
   }
 
   static double _termUnits(int monthCount, String interestPeriod) {
-    if (interestPeriod == 'yearly') return monthCount / 12.0;
+    if (interestPeriod == LoanFrequencyValues.yearly) return monthCount / 12.0;
     return monthCount.toDouble();
   }
 

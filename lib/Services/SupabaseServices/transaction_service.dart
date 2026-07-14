@@ -1,9 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:splitter/Model/personal_transaction_model.dart';
-import 'package:splitter/Model/product_category_model.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Services/currency_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Model/personal_transaction_model.dart';
+import 'package:splitr/Model/product_category_model.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Services/personal_category_cache.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
 
 class TransactionService {
   final supabase = Supabase.instance.client;
@@ -12,13 +19,13 @@ class TransactionService {
       {required String userID, int? limit}) async {
     final data = limit != null
         ? await supabase
-            .from("personal_transaction")
+            .from(SupabaseTables.personalTransaction)
             .select()
             .eq("user_id", userID)
             .order("transaction_date", ascending: false)
             .limit(limit)
         : await supabase
-            .from("personal_transaction")
+            .from(SupabaseTables.personalTransaction)
             .select()
             .eq("user_id", userID)
             .order("transaction_date", ascending: false);
@@ -39,7 +46,7 @@ class TransactionService {
   Future<List<PersonalTransactionWithProductCategoryModel>>
       getHomePhaseExpenseHistory({required String userID}) async {
     final personalTransactionData = await supabase
-        .from("personal_transaction")
+        .from(SupabaseTables.personalTransaction)
         .select()
         .eq("user_id", userID)
         .order("transaction_date", ascending: false)
@@ -59,7 +66,7 @@ class TransactionService {
 
     // Single query for category logos
     final productCategoryData = await supabase
-        .from("master_product_category")
+        .from(SupabaseTables.masterProductCategory)
         .select("category, category_logo")
         .inFilter("category", productCategories.toList());
 
@@ -117,13 +124,22 @@ class TransactionService {
       ));
     }
 
+    cnsGrpTrnsData.sort((a, b) {
+      final aDate = a.transactionDate;
+      final bDate = b.transactionDate;
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate.compareTo(aDate);
+    });
+
     return cnsGrpTrnsData;
   }
 
   Future<List<GroupTransactionModel>> getGroupTransactionsData(
       {required String userID, required String groupID}) async {
     final grpTrnsData = await supabase
-        .from("group_transaction")
+        .from(SupabaseTables.groupTransaction)
         .select()
         .eq("group_id", groupID)
         .order("transaction_date", ascending: false);
@@ -142,11 +158,11 @@ class TransactionService {
     // Run both lookups in parallel instead of sequentially
     final results = await Future.wait([
       supabase
-          .from("master_product_category")
+          .from(SupabaseTables.masterProductCategory)
           .select("category, category_logo")
           .inFilter('category', categories.toList()),
       supabase
-          .from("users")
+          .from(SupabaseTables.users)
           .select("user_id, firstname, lastname")
           .inFilter("user_id", userIDs.toList()),
     ]);
@@ -169,9 +185,10 @@ class TransactionService {
     // Build models using lookup maps (no nested loops)
     List<GroupTransactionModel> groupTransactions = [];
     for (var element in grpTrnsData) {
-      final String paidByName = userNameMap[element["paid_by"]] ?? "Unknown";
+      final String paidByName =
+          userNameMap[element["paid_by"]] ?? DisplayFallbacks.unknown;
       final String sharedWithName =
-          userNameMap[element["shared_with"]] ?? "Unknown";
+          userNameMap[element["shared_with"]] ?? DisplayFallbacks.unknown;
       final String catLogo = categoryLogoMap[element["category"]] ?? '';
 
       groupTransactions.add(
@@ -191,14 +208,14 @@ class TransactionService {
       {String? groupID}) async {
     // 1. Fetch Global Categories
     final globalDataFuture = supabase
-        .from("master_product_category")
+        .from(SupabaseTables.masterProductCategory)
         .select("category, category_logo");
 
     // 2. Fetch Group Custom Categories (if groupID is provided)
     Future<List<Map<String, dynamic>>>? customDataFuture;
     if (groupID != null) {
       customDataFuture = supabase
-          .from("group_custom_category")
+          .from(SupabaseTables.groupCustomCategory)
           .select("category, icon_url")
           .eq("group_id", groupID);
     }
@@ -235,7 +252,7 @@ class TransactionService {
     try {
       // 1. Fetch the transactions to be deleted
       final transactions = await supabase
-          .from("group_transaction")
+          .from(SupabaseTables.groupTransaction)
           .select()
           .eq("transaction_group_id", transactionGroupID);
 
@@ -245,7 +262,7 @@ class TransactionService {
 
       // 2. Fetch current group balances
       final groupData = await supabase
-          .from("groups")
+          .from(SupabaseTables.groups)
           .select("group_balance")
           .eq("group_id", groupID)
           .single();
@@ -332,18 +349,23 @@ class TransactionService {
       }
 
       // 4. Update group balance in DB
-      await supabase.from("groups").update({
+      await supabase.from(SupabaseTables.groups).update({
         "group_balance": currentBalances,
         "updated_on": DateTime.now().toIso8601String(),
       }).eq("group_id", groupID);
 
       // 5. Delete transactions
       await supabase
-          .from("group_transaction")
+          .from(SupabaseTables.groupTransaction)
           .delete()
           .eq("transaction_group_id", transactionGroupID);
-    } catch (e) {
-      debugPrint("DELETE TRANSACTION EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TransactionService.deleteTransaction failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'transactions', 'operation': 'deleteTransaction'},
+      );
       rethrow;
     }
   }
@@ -354,7 +376,7 @@ class TransactionService {
     required String iconSvgContent,
     required String userID,
   }) async {
-    await supabase.from("group_custom_category").insert({
+    await supabase.from(SupabaseTables.groupCustomCategory).insert({
       "group_id": groupID,
       "category": categoryName,
       "icon_url": iconSvgContent,
@@ -365,47 +387,65 @@ class TransactionService {
   Future<List<Map<String, dynamic>>> getUnifiedTransactions({
     required String userID,
     int? limit = 10,
-    String selectedCurrency = 'INR',
+    String selectedCurrency = CurrencyDefaults.code,
+    DateTime? since,
+    DateTime? until,
   }) async {
     // 1. Fetch Personal Transactions
-    var personalQuery = supabase
-        .from("personal_transaction")
+    var personalFilters = supabase
+        .from(SupabaseTables.personalTransaction)
         .select(
-            "amount, currency, exchange_rate_to_inr, category, transaction_description, transaction_date")
-        .eq("user_id", userID)
-        .order("transaction_date", ascending: false);
+            "id, amount, currency, exchange_rate_to_inr, category, transaction_description, transaction_date, payment_method")
+        .eq("user_id", userID);
 
-    if (limit != null) {
-      personalQuery = personalQuery.limit(limit);
+    if (since != null) {
+      personalFilters = personalFilters.gte(
+          'transaction_date', TransactionDateFormatter.toStorageIso(since));
+    }
+    if (until != null) {
+      personalFilters = personalFilters.lte(
+          'transaction_date', TransactionDateFormatter.toStorageIso(until));
     }
 
-    final personalTxns = await personalQuery;
+    var personalOrdered =
+        personalFilters.order("transaction_date", ascending: false);
+
+    final personalTxns =
+        await (limit != null ? personalOrdered.limit(limit) : personalOrdered);
 
     // 2. Fetch Group Transactions where user is involved
-    var groupQuery = supabase
-        .from("group_transaction")
+    var groupFilters = supabase
+        .from(SupabaseTables.groupTransaction)
         .select(
             "shared_transaction_amount, currency, exchange_rate_to_inr, paid_by, shared_with, transaction_group_id, transaction_date, description, category, group_id, *, groups(group_name)")
-        .or("paid_by.eq.$userID,shared_with.eq.$userID")
-        .order("transaction_date", ascending: false);
+        .or("paid_by.eq.$userID,shared_with.eq.$userID");
 
-    if (limit != null) {
-      groupQuery = groupQuery.limit(limit * 3);
+    if (since != null) {
+      groupFilters = groupFilters.gte(
+          'transaction_date', TransactionDateFormatter.toStorageIso(since));
+    }
+    if (until != null) {
+      groupFilters = groupFilters.lte(
+          'transaction_date', TransactionDateFormatter.toStorageIso(until));
     }
 
-    final groupTxns = await groupQuery;
+    var groupOrdered = groupFilters.order("transaction_date", ascending: false);
+
+    final groupTxns =
+        await (limit != null ? groupOrdered.limit(limit * 3) : groupOrdered);
 
     // Fetch live rate for INR -> selectedCurrency conversion
     final Map<String, double> liveRates =
-        await CurrencyService().getRates(base: 'INR');
-    final double inrToSelected =
-        selectedCurrency == 'INR' ? 1.0 : (liveRates[selectedCurrency] ?? 1.0);
+        await CurrencyService().getRates(base: CurrencyDefaults.code);
+    final double inrToSelected = selectedCurrency == CurrencyDefaults.code
+        ? 1.0
+        : (liveRates[selectedCurrency] ?? 1.0);
 
     List<Map<String, dynamic>> unifiedList = [];
 
     // Process Personal
     for (var txn in personalTxns) {
-      final String category = txn["category"] ?? "General";
+      final String category = txn["category"] ?? CategoryDefaults.general;
       final bool isIncome = _isIncomeCategory(category);
       final double storedRate =
           double.tryParse(txn["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
@@ -414,13 +454,24 @@ class TransactionService {
       final double amountInInr = rawAmount * storedRate;
       final double displayAmount = amountInInr * inrToSelected;
       unifiedList.add({
-        "type": "personal",
-        "title": txn["transaction_description"] ?? "Expense",
+        UnifiedTxnResponseKeys.type: TransactionTypes.personal,
+        "id": txn["id"] as String?,
+        UnifiedTxnResponseKeys.title:
+            txn["transaction_description"] ?? TransactionCopy.expense,
         "subtitle": category,
         "amount": displayAmount,
-        "date": DateTime.parse(txn["transaction_date"]),
+        "raw_amount": rawAmount,
+        UnifiedTxnResponseKeys.currency:
+            txn["currency"] ?? CurrencyDefaults.code,
+        "date": TransactionDateFormatter.parseStorage(
+            txn["transaction_date"]) ??
+            TransactionDateFormatter.nowForTransaction(),
         "is_credit": isIncome,
         "category": category,
+        UnifiedTxnResponseKeys.paymentMethod:
+            txn["payment_method"] ?? PaymentMethodDefaults.online,
+        "dedupe_key":
+            'personal_${txn["id"] ?? txn["transaction_date"]}_${txn["transaction_description"]}_$displayAmount',
       });
     }
 
@@ -438,32 +489,41 @@ class TransactionService {
       final double amountInInr = rawAmount * storedRate;
       final double amount = amountInInr * inrToSelected;
       bool isPayer = paidBy == userID;
-      String rawTitle = txn["description"] ?? "Group Expense";
+      String rawTitle = txn["description"] ?? TransactionCopy.groupExpense;
       // Start with raw title
       String title = rawTitle;
 
       title = title
-          .replaceAll(RegExp(r'\s*Notes:.*', caseSensitive: false), '')
+          .replaceAll(
+              RegExp(TransactionNotePatterns.stripNotes, caseSensitive: false),
+              '')
           .trim();
 
       if (!groupedMap.containsKey(groupID)) {
         groupedMap[groupID] = {
-          "type": "group",
-          "title": title,
-          "subtitle": isPayer ? "You paid" : "You owe", // Initial guess
+          UnifiedTxnResponseKeys.type: TransactionTypes.group,
+          UnifiedTxnResponseKeys.title: title,
+          UnifiedTxnResponseKeys.subtitle:
+              isPayer ? TransactionCopy.youPaid : TransactionCopy.youOwe,
           "amount": 0.0,
-          "date": DateTime.parse(txn["transaction_date"]),
+          "date": TransactionDateFormatter.parseStorage(
+            txn["transaction_date"]) ??
+            TransactionDateFormatter.nowForTransaction(),
           "is_credit": isPayer,
           "is_payer": isPayer,
-          "is_settlement": (txn['category'] == 'Settlement'),
-          "category": txn['category'] ?? 'General',
+          UnifiedTxnResponseKeys.isSettlement:
+              (txn['category'] == CategoryDefaults.settlement),
+          UnifiedTxnResponseKeys.category:
+              txn['category'] ?? CategoryDefaults.general,
           "group_id": txn["group_id"],
+          "transaction_group_id": groupID,
+          "dedupe_key": 'group_$groupID',
           "context": txn["groups"] != null ? txn["groups"]["group_name"] : null,
         };
       }
 
       var entry = groupedMap[groupID]!;
-      bool isSettlement = (txn['category'] == 'Settlement');
+      bool isSettlement = (txn['category'] == CategoryDefaults.settlement);
 
       if (isPayer) {
         if (entry["is_payer"] == true || entry["amount"] == 0.0) {
@@ -497,43 +557,59 @@ class TransactionService {
   }
 
   bool _isIncomeCategory(String category) {
-    const incomeCategories = [
-      'income',
-      'salary',
-      'refund',
-      'cashback',
-      'reimbursement',
-    ];
-    return incomeCategories.contains(category.toLowerCase());
+    return kPersonalIncomeCategories.contains(category.toLowerCase());
   }
 
   Future<Map<String, double>> getMonthlySpendAnalytics(
       {required String userID,
-      String selectedCurrency = 'INR',
+      String selectedCurrency = CurrencyDefaults.code,
       DateTime? month}) async {
     final targetMonth = month ?? DateTime.now();
-    final startOfMonth =
-        DateTime(targetMonth.year, targetMonth.month, 1).toIso8601String();
-    final endOfMonth = DateTime(targetMonth.year, targetMonth.month + 1, 1)
-        .subtract(const Duration(seconds: 1))
-        .toIso8601String();
+    final rangeStart = DateTime(targetMonth.year, targetMonth.month, 1);
+    final rangeEnd = DateTime(targetMonth.year, targetMonth.month + 1, 0,
+        23, 59, 59, 999);
+    return getSpendAnalytics(
+      userID: userID,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      selectedCurrency: selectedCurrency,
+      includeGroupExpenses: true,
+      personalDebitsOnly: false,
+    );
+  }
+
+  Future<Map<String, double>> getSpendAnalytics({
+    required String userID,
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+    String selectedCurrency = CurrencyDefaults.code,
+    bool includeGroupExpenses = true,
+    bool personalDebitsOnly = false,
+  }) async {
+    final startIso = TransactionDateFormatter.toStorageIso(rangeStart);
+    final endIso = TransactionDateFormatter.toStorageIso(rangeEnd);
 
     Map<String, double> categoryTotals = {};
     double totalSpendInr = 0;
 
-    // Fetch live rate for INR -> selectedCurrency
     final Map<String, double> liveRates =
-        await CurrencyService().getRates(base: 'INR');
-    final double inrToSelected =
-        selectedCurrency == 'INR' ? 1.0 : (liveRates[selectedCurrency] ?? 1.0);
+        await CurrencyService().getRates(base: CurrencyDefaults.code);
+    final double inrToSelected = selectedCurrency == CurrencyDefaults.code
+        ? 1.0
+        : (liveRates[selectedCurrency] ?? 1.0);
 
-    // 1. Fetch personal transactions for this month
-    final personalTxns = await supabase
-        .from("personal_transaction")
-        .select("amount, category, exchange_rate_to_inr")
+    var personalQuery = supabase
+        .from(SupabaseTables.personalTransaction)
+        .select("amount, category, exchange_rate_to_inr, is_credit")
         .eq("user_id", userID)
-        .gte("transaction_date", startOfMonth)
-        .lte("transaction_date", endOfMonth);
+        .gte("transaction_date", startIso)
+        .lte("transaction_date", endIso);
+
+    if (personalDebitsOnly) {
+      personalQuery = personalQuery.eq(SupabaseColumns.isCredit, false);
+    }
+
+    final personalTxns = await personalQuery;
 
     for (var txn in personalTxns) {
       final double storedRate =
@@ -541,36 +617,36 @@ class TransactionService {
               1.0;
       final double rawAmount = double.parse(txn["amount"].toString());
       final double amountInInr = rawAmount * storedRate;
-      String category = txn["category"] ?? "Others";
+      String category = txn["category"] ?? CategoryDefaults.others;
 
       categoryTotals[category] = (categoryTotals[category] ?? 0) + amountInInr;
       totalSpendInr += amountInInr;
     }
 
-    // 2. Fetch Group Expenses (Where I am SHARED WITH) for this month
-    // EXCLUDE SETTLEMENTS (Receiving money isn't a spend)
-    final groupTxns = await supabase
-        .from("group_transaction")
-        .select("shared_transaction_amount, category, exchange_rate_to_inr")
-        .eq("shared_with", userID) // Only what I consumed
-        .gte("transaction_date", startOfMonth)
-        .lte("transaction_date", endOfMonth)
-        .neq("category", "Settlement");
+    if (includeGroupExpenses) {
+      final groupTxns = await supabase
+          .from(SupabaseTables.groupTransaction)
+          .select("shared_transaction_amount, category, exchange_rate_to_inr")
+          .eq("shared_with", userID)
+          .gte("transaction_date", startIso)
+          .lte("transaction_date", endIso)
+          .neq(SupabaseColumns.category, CategoryDefaults.settlement);
 
-    for (var txn in groupTxns) {
-      final double storedRate =
-          double.tryParse(txn["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
-              1.0;
-      final double rawAmount =
-          double.parse(txn["shared_transaction_amount"].toString());
-      final double amountInInr = rawAmount * storedRate;
-      String category = txn["category"] ?? "Others";
+      for (var txn in groupTxns) {
+        final double storedRate =
+            double.tryParse(txn["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
+                1.0;
+        final double rawAmount =
+            double.parse(txn["shared_transaction_amount"].toString());
+        final double amountInInr = rawAmount * storedRate;
+        String category = txn["category"] ?? CategoryDefaults.others;
 
-      categoryTotals[category] = (categoryTotals[category] ?? 0) + amountInInr;
-      totalSpendInr += amountInInr;
+        categoryTotals[category] =
+            (categoryTotals[category] ?? 0) + amountInInr;
+        totalSpendInr += amountInInr;
+      }
     }
 
-    // Convert all INR totals to selected currency
     final Map<String, double> result = {};
     result["total"] = totalSpendInr * inrToSelected;
     for (var entry in categoryTotals.entries) {
@@ -581,26 +657,27 @@ class TransactionService {
 
   Future<double> getMonthlyCashFlow(
       {required String userID,
-      String selectedCurrency = 'INR',
+      String selectedCurrency = CurrencyDefaults.code,
       DateTime? month}) async {
     final targetMonth = month ?? DateTime.now();
-    final startOfMonth =
-        DateTime(targetMonth.year, targetMonth.month, 1).toIso8601String();
-    final endOfMonth = DateTime(targetMonth.year, targetMonth.month + 1, 1)
-        .subtract(const Duration(seconds: 1))
-        .toIso8601String();
+    final startOfMonth = TransactionDateFormatter.toStorageIso(
+        DateTime(targetMonth.year, targetMonth.month, 1));
+    final endOfMonth = TransactionDateFormatter.toStorageIso(
+        DateTime(targetMonth.year, targetMonth.month + 1, 1)
+            .subtract(AppMotion.transactionDayBoundary));
 
     double totalOutflowInr = 0;
 
     // Fetch live rate for INR -> selectedCurrency
     final Map<String, double> liveRates =
-        await CurrencyService().getRates(base: 'INR');
-    final double inrToSelected =
-        selectedCurrency == 'INR' ? 1.0 : (liveRates[selectedCurrency] ?? 1.0);
+        await CurrencyService().getRates(base: CurrencyDefaults.code);
+    final double inrToSelected = selectedCurrency == CurrencyDefaults.code
+        ? 1.0
+        : (liveRates[selectedCurrency] ?? 1.0);
 
     // 1. Personal
     final personalTxns = await supabase
-        .from("personal_transaction")
+        .from(SupabaseTables.personalTransaction)
         .select("amount, exchange_rate_to_inr")
         .eq("user_id", userID)
         .gte("transaction_date", startOfMonth)
@@ -615,7 +692,7 @@ class TransactionService {
 
     // 2. Group (Paid By Me)
     final groupTxns = await supabase
-        .from("group_transaction")
+        .from(SupabaseTables.groupTransaction)
         .select("shared_transaction_amount, exchange_rate_to_inr")
         .eq("paid_by", userID)
         .gte("transaction_date", startOfMonth)
@@ -634,7 +711,8 @@ class TransactionService {
   }
 
   Future<List<Map<String, dynamic>>> getMonthlyPulseData(
-      {required String userID, String selectedCurrency = 'INR'}) async {
+      {required String userID,
+      String selectedCurrency = CurrencyDefaults.code}) async {
     final now = DateTime.now();
     final DateTime endDate = DateTime(now.year, now.month, now.day);
     final DateTime startDate = endDate.subtract(const Duration(days: 6));
@@ -652,7 +730,7 @@ class TransactionService {
       if (localDate.isBefore(startDate) || localDate.isAfter(endDate)) return;
 
       final key = (category == null || category.trim().isEmpty)
-          ? 'Others'
+          ? CategoryDefaults.others
           : category.trim();
       final dayMap = dailyCategorySpendInr[dateKey(localDate)]!;
       dayMap[key] = (dayMap[key] ?? 0) + amountInInr;
@@ -660,21 +738,24 @@ class TransactionService {
 
     // Fetch live rate for INR -> selectedCurrency
     final Map<String, double> liveRates =
-        await CurrencyService().getRates(base: 'INR');
-    final double inrToSelected =
-        selectedCurrency == 'INR' ? 1.0 : (liveRates[selectedCurrency] ?? 1.0);
+        await CurrencyService().getRates(base: CurrencyDefaults.code);
+    final double inrToSelected = selectedCurrency == CurrencyDefaults.code
+        ? 1.0
+        : (liveRates[selectedCurrency] ?? 1.0);
 
-    final rangeStart = startDate.toIso8601String();
+    final rangeStart = TransactionDateFormatter.toStorageIso(startDate);
 
     // 1. Personal
     final personalTxns = await supabase
-        .from("personal_transaction")
+        .from(SupabaseTables.personalTransaction)
         .select("amount, transaction_date, exchange_rate_to_inr, category")
         .eq("user_id", userID)
         .gte("transaction_date", rangeStart);
 
     for (var txn in personalTxns) {
-      final date = DateTime.parse(txn["transaction_date"]);
+      final date = TransactionDateFormatter.parseStorage(
+              txn["transaction_date"]) ??
+          TransactionDateFormatter.nowForTransaction();
       final double storedRate =
           double.tryParse(txn["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
               1.0;
@@ -685,15 +766,17 @@ class TransactionService {
 
     // 2. Group (My Share)
     final groupTxns = await supabase
-        .from("group_transaction")
+        .from(SupabaseTables.groupTransaction)
         .select(
             "shared_transaction_amount, transaction_date, exchange_rate_to_inr, category")
         .eq("shared_with", userID)
         .gte("transaction_date", rangeStart)
-        .neq("category", "Settlement");
+        .neq(SupabaseColumns.category, CategoryDefaults.settlement);
 
     for (var txn in groupTxns) {
-      final date = DateTime.parse(txn["transaction_date"]);
+      final date = TransactionDateFormatter.parseStorage(
+              txn["transaction_date"]) ??
+          TransactionDateFormatter.nowForTransaction();
       final double storedRate =
           double.tryParse(txn["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
               1.0;
@@ -742,12 +825,12 @@ class TransactionService {
   }) async {
     final double exchangeRate =
         await CurrencyService().getExchangeRateToInr(currency);
-    await supabase.from("personal_transaction").insert({
+    await supabase.from(SupabaseTables.personalTransaction).insert({
       "user_id": userID,
       "amount": amount,
       "transaction_description": description,
       "category": category,
-      "transaction_date": date.toIso8601String(),
+      "transaction_date": TransactionDateFormatter.toStorageIso(date),
       "payment_method": paymentMethod,
       "currency": currency,
       "exchange_rate_to_inr": exchangeRate,
@@ -756,42 +839,54 @@ class TransactionService {
 
   Future<List<CategoryOnlyModel>> getPersonalCategories(
       {required String userID}) async {
-    // 1. Fetch Global Categories
-    final globalDataFuture = supabase
-        .from("master_product_category")
-        .select("category, category_logo");
+    final cache = PersonalCategoryCache();
+    try {
+      // 1. Fetch Global Categories
+      final globalDataFuture = supabase
+          .from(SupabaseTables.masterProductCategory)
+          .select("category, category_logo");
 
-    // 2. Fetch Personal Custom Categories
-    final customDataFuture = supabase
-        .from("personal_custom_category")
-        .select("category, icon_url")
-        .eq("user_id", userID);
+      // 2. Fetch Personal Custom Categories
+      final customDataFuture = supabase
+          .from(SupabaseTables.personalCustomCategory)
+          .select("category, icon_url")
+          .eq("user_id", userID);
 
-    // 3. Wait for both
-    final results = await Future.wait([
-      globalDataFuture,
-      customDataFuture,
-    ]);
+      // 3. Wait for both
+      final results = await Future.wait([
+        globalDataFuture,
+        customDataFuture,
+      ]);
 
-    final globalData = results[0];
-    final customData = results[1];
+      final globalData = results[0];
+      final customData = results[1];
 
-    List<CategoryOnlyModel> categories = [];
+      final categories = <CategoryOnlyModel>[];
 
-    // Add Global
-    for (final element in globalData) {
-      categories.add(CategoryOnlyModel.fromJSON(element));
+      for (final element in globalData) {
+        categories.add(CategoryOnlyModel.fromJSON(element));
+      }
+
+      for (final element in customData) {
+        categories.add(CategoryOnlyModel(
+          category: element["category"],
+          categoryLogo: element["icon_url"],
+        ));
+      }
+
+      await cache.save(categories);
+      return categories;
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TransactionService.getPersonalCategories failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'transactions', 'operation': 'getPersonalCategories'},
+      );
+      final cached = await cache.load();
+      if (cached != null && cached.isNotEmpty) return cached;
+      rethrow;
     }
-
-    // Add Custom
-    for (final element in customData) {
-      categories.add(CategoryOnlyModel(
-        category: element["category"],
-        categoryLogo: element["icon_url"],
-      ));
-    }
-
-    return categories;
   }
 
   Future<void> addPersonalCustomCategory({
@@ -799,7 +894,7 @@ class TransactionService {
     required String iconSvgContent,
     required String userID,
   }) async {
-    await supabase.from("personal_custom_category").insert({
+    await supabase.from(SupabaseTables.personalCustomCategory).insert({
       "user_id": userID,
       "category": categoryName,
       "icon_url": iconSvgContent,
@@ -814,7 +909,7 @@ class TransactionService {
     final results = await Future.wait([
       // 1. Personal transactions (all amounts)
       supabase
-          .from("personal_transaction")
+          .from(SupabaseTables.personalTransaction)
           .select("amount")
           .eq("user_id", userID),
 
@@ -823,17 +918,17 @@ class TransactionService {
       //    "shared_with == userID" (own row) captures the payer's own share.
       //    We include ALL shared_with rows for the user excluding settlements.
       supabase
-          .from("group_transaction")
+          .from(SupabaseTables.groupTransaction)
           .select("shared_transaction_amount")
           .eq("shared_with", userID)
           .neq("category", "Settlement"),
 
       // 3. Settlements received (money came IN to me)
       supabase
-          .from("group_transaction")
+          .from(SupabaseTables.groupTransaction)
           .select("shared_transaction_amount")
           .eq("shared_with", userID)
-          .eq("category", "Settlement"),
+          .eq(SupabaseColumns.category, CategoryDefaults.settlement),
     ]);
 
     final personalRows = results[0] as List<dynamic>;

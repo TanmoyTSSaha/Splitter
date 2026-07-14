@@ -1,8 +1,8 @@
-# Architecture Rules — SplitO (Splitter)
+# Architecture Rules — Splitr
 
 ## Purpose
 
-Define the **layer-by-type architecture** for the SplitO Flutter app (`package:splitter`). This file is the structural map: where code lives, which layers may import which, and how data flows from UI to Supabase/Drift.
+Define the **layer-by-type architecture** for the Splitr Flutter app (`package:splitr`). This file is the structural map: where code lives, which layers may import which, and how data flows from UI to Supabase/Drift.
 
 Use alongside `flutter-rules.md` (general engineering contract) and specialized rules (`getx.md`, `repository.md`, `supabase.md`, etc.).
 
@@ -148,7 +148,7 @@ Existing controllers (reference):
 | `LendingRefreshController` | Lending tab refresh trigger |
 | `NotificationBadgeController` | Notification badge count |
 | `CurrencyController` | Currency preference (`Controllers/`) |
-| `PremiumSubscriptionController` | SplitO Pro IAP (`Controllers/`) |
+| `PremiumSubscriptionController` | Splitr Pro IAP (`Controllers/`) |
 
 ### `lib/Model/` — domain models
 

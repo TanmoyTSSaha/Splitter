@@ -1,3 +1,6 @@
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
+
 class GroupModel {
   String? groupID;
   String? groupName;
@@ -6,6 +9,7 @@ class GroupModel {
   DateTime? updatedOn;
   String? createdBy;
   bool isTrip;
+  bool isArchived;
 
   GroupModel({
     this.groupID,
@@ -15,24 +19,27 @@ class GroupModel {
     this.updatedOn,
     this.createdBy,
     this.isTrip = false,
+    this.isArchived = false,
   });
 
   GroupModel.fromJSON(Map<String, dynamic> data)
-      : isTrip = data["is_trip"] ?? false {
+      : isTrip = data[SupabaseColumns.isTrip] ?? false,
+        isArchived = data[SupabaseColumns.isArchived] == true {
     List<GroupBalanceModel> groupBalanceList = [];
 
-    if (data["group_balance"] != null) {
-      for (var element in (data["group_balance"] as List<dynamic>)) {
+    if (data[SupabaseColumns.groupBalance] != null) {
+      for (var element
+          in (data[SupabaseColumns.groupBalance] as List<dynamic>)) {
         groupBalanceList.add(GroupBalanceModel.fromJSON(element));
       }
     }
 
-    groupID = data["group_id"];
-    groupName = data["group_name"];
+    groupID = data[SupabaseColumns.groupId];
+    groupName = data[SupabaseColumns.groupName];
     groupBalance = groupBalanceList;
-    createdAt = DateTime.tryParse(data["created_at"].toString());
-    updatedOn = DateTime.tryParse(data["updated_on"].toString());
-    createdBy = data["created_by"];
+    createdAt = DateTime.tryParse(data[SupabaseColumns.createdAt].toString());
+    updatedOn = DateTime.tryParse(data[SupabaseColumns.updatedOn].toString());
+    createdBy = data[SupabaseColumns.createdBy];
   }
 
   Map<String, dynamic> toJSON() {
@@ -44,13 +51,13 @@ class GroupModel {
       }
     }
 
-    data["group_id"] = groupID;
-    data["group_name"] = groupName;
-    data["group_balance"] = groupBalanceData;
-    data["created_at"] = createdAt?.toIso8601String();
-    data["updated_on"] = updatedOn?.toIso8601String();
-    data["created_by"] = createdBy;
-    data["is_trip"] = isTrip;
+    data[SupabaseColumns.groupId] = groupID;
+    data[SupabaseColumns.groupName] = groupName;
+    data[SupabaseColumns.groupBalance] = groupBalanceData;
+    data[SupabaseColumns.createdAt] = createdAt?.toIso8601String();
+    data[SupabaseColumns.updatedOn] = updatedOn?.toIso8601String();
+    data[SupabaseColumns.createdBy] = createdBy;
+    data[SupabaseColumns.isTrip] = isTrip;
 
     return data;
   }
@@ -72,21 +79,21 @@ class GroupBalanceModel {
   });
 
   GroupBalanceModel.fromJSON(Map<String, dynamic> data) {
-    donor = data["donor"];
-    donorID = data["donor_id"];
-    receiver = data["receiver"];
-    receiverID = data["receiver_id"];
-    amount = double.parse(data["amount"].toString());
+    donor = data[GroupBalanceKeys.donor];
+    donorID = data[GroupBalanceKeys.donorId];
+    receiver = data[GroupBalanceKeys.receiver];
+    receiverID = data[GroupBalanceKeys.receiverId];
+    amount = double.parse(data[GroupBalanceKeys.amount].toString());
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
 
-    data["donor"] = donor;
-    data["donor_id"] = donorID;
-    data["receiver"] = receiver;
-    data["receiver_id"] = receiverID;
-    data["amount"] = amount;
+    data[GroupBalanceKeys.donor] = donor;
+    data[GroupBalanceKeys.donorId] = donorID;
+    data[GroupBalanceKeys.receiver] = receiver;
+    data[GroupBalanceKeys.receiverId] = receiverID;
+    data[GroupBalanceKeys.amount] = amount;
 
     return data;
   }
@@ -99,15 +106,15 @@ class GroupMembers {
   GroupMembers({this.groupID, this.userID});
 
   GroupMembers.fromJSON(Map<String, dynamic> data) {
-    groupID = data["group_id"];
-    userID = data["user_id"];
+    groupID = data[SupabaseColumns.groupId];
+    userID = data[SupabaseColumns.userId];
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
 
-    data["group_id"] = groupID;
-    data["user_id"] = userID;
+    data[SupabaseColumns.groupId] = groupID;
+    data[SupabaseColumns.userId] = userID;
 
     return data;
   }
@@ -160,48 +167,52 @@ class GroupTransactionModel {
 
   GroupTransactionModel.fromJSON(Map<String, dynamic> data,
       String paidByNameStr, String sharedWithNameStr, String categoryLogoStr) {
-    transactionID = data["transaction_id"];
-    transactionGroupID = data["transaction_group_id"];
-    groupID = data["group_id"];
-    paidByUUID = data["paid_by"];
+    transactionID = data[SupabaseColumns.transactionId];
+    transactionGroupID = data[SupabaseColumns.transactionGroupId];
+    groupID = data[SupabaseColumns.groupId];
+    paidByUUID = data[SupabaseColumns.paidBy];
     paidByName = paidByNameStr;
-    sharedWithUUID = data["shared_with"];
+    sharedWithUUID = data[SupabaseColumns.sharedWith];
     sharedWithName = sharedWithNameStr;
     totalTransactionAmount =
-        double.parse(data["total_transaction_amount"].toString());
+        double.parse(data[SupabaseColumns.totalTransactionAmount].toString());
     sharedTransactionAmount =
-        double.parse(data["shared_transaction_amount"].toString());
-    sharedPercentage = double.parse(data["shared_percentage"].toString());
-    selfShareAmount = double.parse(data["self_share_amount"].toString());
+        double.parse(data[SupabaseColumns.sharedTransactionAmount].toString());
+    sharedPercentage =
+        double.parse(data[SupabaseColumns.sharedPercentage].toString());
+    selfShareAmount =
+        double.parse(data[SupabaseColumns.selfShareAmount].toString());
     selfSharePercentage =
-        double.parse(data["self_share_percentage"].toString());
-    sharingType = data["sharing_type"];
-    category = data["category"];
+        double.parse(data[SupabaseColumns.selfSharePercentage].toString());
+    sharingType = data[SupabaseColumns.sharingType];
+    category = data[SupabaseColumns.category];
     categoryLogo = categoryLogoStr;
-    description = data["description"];
-    transactionPhoto = data["transaction_photo"];
-    transactionNote = data["transaction_note"];
-    isSettledUp = data["is_settled_up"];
-    transactionDate = DateTime.parse(data["transaction_date"]);
+    description = data[SupabaseColumns.description];
+    transactionPhoto = data[SupabaseColumns.transactionPhoto];
+    transactionNote = data[SupabaseColumns.transactionNote];
+    isSettledUp = data[SupabaseColumns.isSettledUp];
+    transactionDate = TransactionDateFormatter.parseStorage(
+      data[SupabaseColumns.transactionDate],
+    );
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
 
-    data["transaction_id"] = transactionID;
-    data["transaction_group_id"] = transactionGroupID;
-    data["group_id"] = groupID;
-    data["paid_by"] = paidByUUID;
-    data["shared_with"] = sharedWithUUID;
-    data["total_transaction_amount"] = totalTransactionAmount;
-    data["shared_transaction_amount"] = sharedTransactionAmount;
-    data["shared_percentage"] = sharedPercentage;
-    data["sharing_type"] = sharingType;
-    data["category"] = category;
-    data["description"] = description;
-    data["transaction_photo"] = transactionPhoto;
-    data["transaction_note"] = transactionNote;
-    data["transaction_date"] = transactionDate;
+    data[SupabaseColumns.transactionId] = transactionID;
+    data[SupabaseColumns.transactionGroupId] = transactionGroupID;
+    data[SupabaseColumns.groupId] = groupID;
+    data[SupabaseColumns.paidBy] = paidByUUID;
+    data[SupabaseColumns.sharedWith] = sharedWithUUID;
+    data[SupabaseColumns.totalTransactionAmount] = totalTransactionAmount;
+    data[SupabaseColumns.sharedTransactionAmount] = sharedTransactionAmount;
+    data[SupabaseColumns.sharedPercentage] = sharedPercentage;
+    data[SupabaseColumns.sharingType] = sharingType;
+    data[SupabaseColumns.category] = category;
+    data[SupabaseColumns.description] = description;
+    data[SupabaseColumns.transactionPhoto] = transactionPhoto;
+    data[SupabaseColumns.transactionNote] = transactionNote;
+    data[SupabaseColumns.transactionDate] = transactionDate;
 
     return data;
   }
@@ -251,10 +262,11 @@ class ConsolidatedGroupTransactionModel {
 
     for (var element in groupTransactionModel) {
       Map<String, dynamic> data = <String, dynamic>{
-        "shared_with_uuid": element.sharedWithUUID,
-        "shared_with_name": element.sharedWithName,
-        "shared_transaction_amount": element.sharedTransactionAmount,
-        "shared_percentage": element.sharedPercentage,
+        ConsolidatedTxnKeys.sharedWithUuid: element.sharedWithUUID,
+        ConsolidatedTxnKeys.sharedWithName: element.sharedWithName,
+        ConsolidatedTxnKeys.sharedTransactionAmount:
+            element.sharedTransactionAmount,
+        ConsolidatedTxnKeys.sharedPercentage: element.sharedPercentage,
       };
 
       sharedWithList.add(
@@ -295,20 +307,21 @@ class ConsolidatedGroupTransactionSharedTransactionModel {
 
   ConsolidatedGroupTransactionSharedTransactionModel.fromJSON(
       Map<String, dynamic> data) {
-    sharedWithUUID = data["shared_with_uuid"];
-    sharedWithName = data["shared_with_name"];
-    sharedTransactionAmount =
-        double.parse(data["shared_transaction_amount"].toString());
-    sharedPercentage = double.parse(data["shared_percentage"].toString());
+    sharedWithUUID = data[ConsolidatedTxnKeys.sharedWithUuid];
+    sharedWithName = data[ConsolidatedTxnKeys.sharedWithName];
+    sharedTransactionAmount = double.parse(
+        data[ConsolidatedTxnKeys.sharedTransactionAmount].toString());
+    sharedPercentage =
+        double.parse(data[ConsolidatedTxnKeys.sharedPercentage].toString());
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
 
-    data["shared_with_uuid"] = sharedWithUUID;
-    data["shared_with_name"] = sharedWithName;
-    data["shared_transaction_amount"] = sharedTransactionAmount;
-    data["shared_percentage"] = sharedPercentage;
+    data[ConsolidatedTxnKeys.sharedWithUuid] = sharedWithUUID;
+    data[ConsolidatedTxnKeys.sharedWithName] = sharedWithName;
+    data[ConsolidatedTxnKeys.sharedTransactionAmount] = sharedTransactionAmount;
+    data[ConsolidatedTxnKeys.sharedPercentage] = sharedPercentage;
 
     return data;
   }

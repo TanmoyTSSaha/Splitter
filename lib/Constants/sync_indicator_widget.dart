@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Services/sync_service.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/sync_service.dart';
 
 /// Subtle dot indicator showing sync status on unsynced items.
 class SyncIndicator extends StatelessWidget {
@@ -9,7 +14,7 @@ class SyncIndicator extends StatelessWidget {
 
   const SyncIndicator({
     required this.status,
-    this.size = 8,
+    this.size = AppDimensions.syncIndicatorSize,
     super.key,
   });
 
@@ -26,7 +31,7 @@ class SyncIndicator extends StatelessWidget {
         icon = null; // Will use animated dot
         break;
       case SyncStatus.error:
-        color = Colors.redAccent;
+        color = neopopError;
         icon = Icons.error_outline_rounded;
         break;
     }
@@ -59,7 +64,7 @@ class _PulsingDotState extends State<_PulsingDot>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: AppMotion.syncPulse,
     )..repeat(reverse: true);
   }
 
@@ -99,25 +104,26 @@ class SyncStatusBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: groupGutter, vertical: groupGapSm),
       color: status == SyncStatus.syncing
-          ? neopopYellow.withOpacity(0.1)
-          : Colors.redAccent.withOpacity(0.1),
+          ? neopopYellowFillSoft
+          : neopopErrorFillSoft,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SyncIndicator(status: status, size: 6),
-          const SizedBox(width: 8),
+          SyncIndicator(status: status, size: AppDimensions.syncIndicatorPulse),
+          const SizedBox(width: AppDimensions.bottomNavBottomPadding),
           Text(
             status == SyncStatus.syncing
-                ? "Syncing changes..."
-                : "Sync error — will retry",
+                ? AppStrings.sync.syncing
+                : AppStrings.sync.errorRetry,
             style: TextStyle(
               color: status == SyncStatus.syncing
-                  ? neopopYellow
-                  : Colors.redAccent,
-              fontSize: 12,
+                  ? ThemeAccentColors.oweWarning(context)
+                  : neopopError,
+              fontSize: splitrFontCaption,
             ),
           ),
         ],

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 
 /// Manages Supabase Realtime subscriptions for live group updates.
 /// When a group member adds/edits an expense, all members see it instantly.
@@ -26,17 +29,19 @@ class RealtimeService {
 
   /// Subscribe to transaction changes in a specific group.
   void subscribeToGroup(String groupId) {
-    if (_channels.containsKey('group_$groupId')) return;
+    if (_channels.containsKey('${RealtimeChannelPrefixes.group}$groupId'))
+      return;
 
-    final channel = _supabase.channel('group_$groupId');
+    final channel =
+        _supabase.channel('${RealtimeChannelPrefixes.group}$groupId');
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'group_transaction',
+          schema: RealtimeSchemas.public,
+          table: SupabaseTables.groupTransaction,
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'group_id',
+            column: SupabaseColumns.groupId,
             value: groupId,
           ),
           callback: (payload) {
@@ -50,52 +55,51 @@ class RealtimeService {
             // Show toast for new expenses
             if (payload.eventType == PostgresChangeEvent.insert) {
               final newData = payload.newRecord;
-              final amount = newData['total_transaction_amount'];
-              final description = newData['description'] ?? 'New expense';
-              Fluttertoast.showToast(
-                msg: "💰 $description — ₹$amount",
-                backgroundColor: neopopAccent,
-                textColor: neopopBackground,
-              );
+              final amount = newData[SupabaseColumns.totalTransactionAmount];
+              final description = newData[SupabaseColumns.description] ??
+                  TransactionCopy.newExpense;
+              SplitrToast.show('${AppStrings.services.realtime.expenseToastPrefix}$description${AppStrings.services.realtime.expenseToastSeparator}${userCurrencySymbol()}$amount');
             }
           },
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'group_wishlists',
+          schema: RealtimeSchemas.public,
+          table: SupabaseTables.groupWishlists,
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'group_id',
+            column: SupabaseColumns.groupId,
             value: groupId,
           ),
           callback: (_) => _wishlistController.add(groupId),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'wishlist_upvotes',
+          schema: RealtimeSchemas.public,
+          table: SupabaseTables.wishlistUpvotes,
           callback: (_) => _wishlistController.add(groupId),
         )
         .subscribe();
 
-    _channels['group_$groupId'] = channel;
+    _channels['${RealtimeChannelPrefixes.group}$groupId'] = channel;
     debugPrint('Subscribed to realtime for group $groupId');
   }
 
   /// Subscribe to friend requests/updates for a user.
   void subscribeToFriends(String userId) {
-    if (_channels.containsKey('friends_$userId')) return;
+    if (_channels.containsKey('${RealtimeChannelPrefixes.friends}$userId'))
+      return;
 
-    final channel = _supabase.channel('friends_$userId');
+    final channel =
+        _supabase.channel('${RealtimeChannelPrefixes.friends}$userId');
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'friends',
+          schema: RealtimeSchemas.public,
+          table: SupabaseTables.friends,
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'friend_id',
+            column: SupabaseColumns.friendId,
             value: userId,
           ),
           callback: (payload) {
@@ -105,28 +109,32 @@ class RealtimeService {
             ));
 
             if (payload.eventType == PostgresChangeEvent.insert) {
-              Fluttertoast.showToast(
-                msg: "👋 New friend request!",
-                backgroundColor: neopopYellow,
-                textColor: neopopBackground,
-              );
+              SplitrToast.show(AppStrings.services.realtime.newFriendRequest);
             }
           },
         )
         .subscribe();
 
-    _channels['friends_$userId'] = channel;
+    _channels['${RealtimeChannelPrefixes.friends}$userId'] = channel;
     debugPrint('Subscribed to friend updates for $userId');
   }
 
   /// Unsubscribe from a specific group.
   void unsubscribeFromGroup(String groupId) {
-    final key = 'group_$groupId';
+    final key = '${RealtimeChannelPrefixes.group}$groupId';
     if (_channels.containsKey(key)) {
       _supabase.removeChannel(_channels[key]!);
       _channels.remove(key);
       debugPrint('Unsubscribed from group $groupId');
     }
+  }
+
+  /// Drop all realtime channels without closing broadcast streams.
+  void unsubscribeAll() {
+    for (final channel in _channels.values) {
+      _supabase.removeChannel(channel);
+    }
+    _channels.clear();
   }
 
   /// Dispose all channels.

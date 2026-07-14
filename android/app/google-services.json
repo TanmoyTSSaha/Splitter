@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "441834862615",
+    "project_id": "splitr-9a35d",
+    "storage_bucket": "splitr-9a35d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:441834862615:android:113986a66e5ccfe3d08452",
+        "android_client_info": {
+          "package_name": "money.splitr.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "441834862615-72ikh83tijbrtpumqdcot9adomq31iq3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "money.splitr.app",
+            "certificate_hash": "47d45ab0b46e386f93d9e16ffc58353dc8984fd5"
+          }
+        },
+        {
+          "client_id": "441834862615-u82p3vtjfca8i10maac3v21ca5n1gln9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyGceZp5q-Lhuwjd_3d-Xugz34eYHXnN4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "441834862615-u82p3vtjfca8i10maac3v21ca5n1gln9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

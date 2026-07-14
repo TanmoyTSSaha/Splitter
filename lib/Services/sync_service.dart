@@ -2,15 +2,22 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
-import 'package:splitter/Services/local/database.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Services/app_logger.dart';
+import 'package:splitr/Services/local/database.dart';
+import 'package:splitr/Utils/sync_operation_planner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Applies a planned sync mutation remotely (Supabase by default).
+typedef SyncPlanExecutor = Future<void> Function(SyncOperationPlan plan);
 
 /// Background sync service — pushes local mutations to Supabase
 /// when connectivity is available.
 class SyncService {
   final AppDatabase _db;
-  final SupabaseClient _supabase;
+  final SupabaseClient? _supabaseOverride;
+  final SyncPlanExecutor? _planExecutor;
   StreamSubscription? _connectivitySub;
   bool _isSyncing = false;
 
@@ -18,7 +25,14 @@ class SyncService {
   final _syncStatusController = StreamController<SyncStatus>.broadcast();
   Stream<SyncStatus> get syncStatus => _syncStatusController.stream;
 
-  SyncService(this._db) : _supabase = Supabase.instance.client;
+  SyncService(
+    this._db, {
+    SupabaseClient? supabaseClient,
+    SyncPlanExecutor? planExecutor,
+  })  : _supabaseOverride = supabaseClient,
+        _planExecutor = planExecutor;
+
+  SupabaseClient get _supabase => _supabaseOverride ?? Supabase.instance.client;
 
   /// Start listening for connectivity changes.
   void startListening() {
@@ -54,15 +68,20 @@ class SyncService {
         try {
           await _processSyncItem(item);
           await _db.markSynced(item.id);
-        } catch (e) {
-          debugPrint('Sync failed for item ${item.id}: $e');
+        } catch (e, stack) {
+          AppLogger.error(
+            'Sync failed for queue item',
+            error: e,
+            stack: stack,
+            data: {'sync_item_id': item.id},
+          );
           await _db.markFailed(item.id);
         }
       }
 
       _syncStatusController.add(SyncStatus.synced);
-    } catch (e) {
-      debugPrint('Sync error: $e');
+    } catch (e, stack) {
+      AppLogger.error('Sync queue processing failed', error: e, stack: stack);
       _syncStatusController.add(SyncStatus.error);
     } finally {
       _isSyncing = false;
@@ -76,41 +95,40 @@ class SyncService {
   /// - Notes: last-write-wins via queued local UPDATE payloads.
   Future<void> _processSyncItem(SyncQueueData item) async {
     final payload = jsonDecode(item.payload) as Map<String, dynamic>;
+    final plan = planSyncOperation(
+      targetTable: item.targetTable,
+      operation: item.operation,
+      recordId: item.recordId,
+      payload: payload,
+    );
 
-    switch (item.operation) {
-      case 'INSERT':
-        await _supabase.from(item.targetTable).insert(payload);
-        break;
-      case 'UPDATE':
-        final idField = _getIdField(item.targetTable);
-        final id = payload[idField];
-        // Notes-only updates use last-write-wins; amount fields defer to server
-        // on the next refreshFromServer pull.
-        await _supabase.from(item.targetTable).update(payload).eq(idField, id);
-        break;
-      case 'DELETE':
-        final idField = _getIdField(item.targetTable);
-        await _supabase
-            .from(item.targetTable)
-            .delete()
-            .eq(idField, item.recordId);
+    switch (plan.operation) {
+      case SyncOperations.insert:
+      case SyncOperations.update:
+      case SyncOperations.delete:
+        if (_planExecutor != null) {
+          await _planExecutor!(plan);
+          return;
+        }
         break;
     }
-  }
 
-  /// Maps table names to their primary key column.
-  String _getIdField(String tableName) {
-    switch (tableName) {
-      case 'groups':
-        return 'group_id';
-      case 'group_transaction':
-        return 'transaction_id';
-      case 'personal_transaction':
-        return 'transaction_id';
-      case 'friends':
-        return 'id';
-      default:
-        return 'id';
+    switch (plan.operation) {
+      case SyncOperations.insert:
+        await _supabase.from(plan.table).insert(plan.payload);
+        break;
+      case SyncOperations.update:
+        await _supabase
+            .from(plan.table)
+            .update(plan.payload)
+            .eq(plan.filterField!, plan.filterValue);
+        break;
+      case SyncOperations.delete:
+        await _supabase
+            .from(plan.table)
+            .delete()
+            .eq(plan.filterField!, plan.filterValue);
+        break;
     }
   }
 
@@ -142,43 +160,46 @@ class SyncService {
       _syncStatusController.add(SyncStatus.syncing);
 
       // Sync groups
-      final memberRows =
-          await _supabase.from('group_members').select().eq('user_id', userId);
+      final memberRows = await _supabase
+          .from(SupabaseTables.groupMembers)
+          .select()
+          .eq(SupabaseColumns.userId, userId);
 
       for (final row in memberRows) {
-        final groupId = row['group_id'] as String;
+        final groupId = row[SupabaseColumns.groupId] as String;
 
         // Save member
         await _db.into(_db.localGroupMembers).insertOnConflictUpdate(
               LocalGroupMembersCompanion.insert(
                 groupId: groupId,
-                userId: row['user_id'] as String,
+                userId: row[SupabaseColumns.userId] as String,
               ),
             );
 
         // Fetch and save group details
         final groupRow = await _supabase
-            .from('groups')
+            .from(SupabaseTables.groups)
             .select()
-            .eq('group_id', groupId)
+            .eq(SupabaseColumns.groupId, groupId)
             .single();
 
         await _db.upsertGroup(LocalGroupsCompanion(
           groupId: Value(groupId),
-          groupName: Value(groupRow['group_name'] as String),
-          groupBalance: Value(jsonEncode(groupRow['group_balance'] ?? [])),
-          createdBy: Value(groupRow['created_by'] as String?),
-          createdAt: Value(
-              DateTime.tryParse(groupRow['created_at']?.toString() ?? '')),
-          updatedOn: Value(
-              DateTime.tryParse(groupRow['updated_on']?.toString() ?? '')),
-          syncStatus: const Value('synced'),
+          groupName: Value(groupRow[SupabaseColumns.groupName] as String),
+          groupBalance:
+              Value(jsonEncode(groupRow[SupabaseColumns.groupBalance] ?? [])),
+          createdBy: Value(groupRow[SupabaseColumns.createdBy] as String?),
+          createdAt: Value(DateTime.tryParse(
+              groupRow[SupabaseColumns.createdAt]?.toString() ?? '')),
+          updatedOn: Value(DateTime.tryParse(
+              groupRow[SupabaseColumns.updatedOn]?.toString() ?? '')),
+          syncStatus: const Value(SyncStatusValues.synced),
         ));
       }
 
       _syncStatusController.add(SyncStatus.synced);
-    } catch (e) {
-      debugPrint('Full sync error: $e');
+    } catch (e, stack) {
+      AppLogger.error('Full sync failed', error: e, stack: stack);
       _syncStatusController.add(SyncStatus.error);
     }
   }

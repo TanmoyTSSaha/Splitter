@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class AnalyticsController extends GetxController {
   final String groupID;
@@ -79,9 +86,15 @@ class AnalyticsController extends GetxController {
       await _processMemberNetBalances(members);
 
       isLoading.value = false;
-    } catch (e) {
-      debugPrint("ANALYTICS EXCEPTION: $e");
-      errorMessage.value = "Failed to load analytics data.";
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AnalyticsController.fetchAnalyticsData failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'analytics', 'operation': 'fetchAnalyticsData'},
+        showToastOnUserFacing: false,
+      );
+      errorMessage.value = AppStrings.errors.loadAnalytics;
       isLoading.value = false;
     }
   }
@@ -96,7 +109,8 @@ class AnalyticsController extends GetxController {
   }
 
   void _reprocessAll() {
-    final consolidated = _filterConsolidatedByDuration(_consolidatedTransactions);
+    final consolidated =
+        _filterConsolidatedByDuration(_consolidatedTransactions);
     final raw = _filterRawByDuration(_rawTransactions);
 
     _processCategoryBreakdown(consolidated);
@@ -112,11 +126,11 @@ class AnalyticsController extends GetxController {
       case DurationLabel.daily:
         return DateTime(now.year, now.month, now.day);
       case DurationLabel.weekly:
-        return now.subtract(const Duration(days: 7));
+        return now.subtract(AppMotion.analyticsWeek);
       case DurationLabel.monthly:
-        return now.subtract(const Duration(days: 30));
+        return now.subtract(AppMotion.analyticsMonth);
       case DurationLabel.yearly:
-        return now.subtract(const Duration(days: 365));
+        return now.subtract(AppMotion.analyticsYear);
     }
   }
 
@@ -129,16 +143,12 @@ class AnalyticsController extends GetxController {
 
   List<ConsolidatedGroupTransactionModel> _filterConsolidatedByDuration(
       List<ConsolidatedGroupTransactionModel> transactions) {
-    return transactions
-        .where((tx) => _isInRange(tx.transactionDate))
-        .toList();
+    return transactions.where((tx) => _isInRange(tx.transactionDate)).toList();
   }
 
   List<GroupTransactionModel> _filterRawByDuration(
       List<GroupTransactionModel> transactions) {
-    return transactions
-        .where((tx) => _isInRange(tx.transactionDate))
-        .toList();
+    return transactions.where((tx) => _isInRange(tx.transactionDate)).toList();
   }
 
   void _processCategoryBreakdown(
@@ -146,7 +156,7 @@ class AnalyticsController extends GetxController {
     final breakdown = <String, double>{};
 
     for (final tx in transactions) {
-      if (tx.sharingType == 'settlement') continue;
+      if (tx.sharingType == SharingTypeValues.settlement) continue;
       if (tx.category != null && tx.totalTransactionAmount != null) {
         breakdown[tx.category!] =
             (breakdown[tx.category!] ?? 0.0) + tx.totalTransactionAmount!;
@@ -156,21 +166,25 @@ class AnalyticsController extends GetxController {
     categoryBreakdown.value = breakdown;
   }
 
-  void _processMemberContributions(List<GroupTransactionModel> rawTransactions) {
+  void _processMemberContributions(
+      List<GroupTransactionModel> rawTransactions) {
     final paidByMember = <String, double>{};
     final shareByMember = <String, double>{};
     final memberNames = <String, String>{};
     final seenPaidGroups = <String>{};
 
     for (final tx in rawTransactions) {
-      if (tx.sharingType == 'settlement') continue;
+      if (tx.sharingType == SharingTypeValues.settlement) continue;
 
       final payerId = tx.paidByUUID;
       if (payerId != null &&
           tx.transactionGroupID != null &&
           tx.totalTransactionAmount != null) {
-        memberNames[payerId] = tx.paidByName ?? 'Unknown';
-        final paidKey = '${payerId}_${tx.transactionGroupID}';
+        memberNames[payerId] = tx.paidByName ?? DisplayFallbacks.unknown;
+        final paidKey = AppStringFormat.payerGroupDedupeKey(
+          payerId,
+          tx.transactionGroupID!,
+        );
         if (!seenPaidGroups.contains(paidKey)) {
           seenPaidGroups.add(paidKey);
           paidByMember[payerId] =
@@ -180,9 +194,10 @@ class AnalyticsController extends GetxController {
 
       final sharedWithId = tx.sharedWithUUID;
       if (sharedWithId != null && tx.sharedTransactionAmount != null) {
-        memberNames[sharedWithId] = tx.sharedWithName ?? 'Unknown';
-        shareByMember[sharedWithId] = (shareByMember[sharedWithId] ?? 0.0) +
-            tx.sharedTransactionAmount!;
+        memberNames[sharedWithId] =
+            tx.sharedWithName ?? DisplayFallbacks.unknown;
+        shareByMember[sharedWithId] =
+            (shareByMember[sharedWithId] ?? 0.0) + tx.sharedTransactionAmount!;
       }
     }
 
@@ -190,9 +205,9 @@ class AnalyticsController extends GetxController {
     for (final memberId in memberNames.keys) {
       final name = memberNames[memberId]!;
       contributions[name] = {
-        'paid': paidByMember[memberId] ?? 0.0,
-        'share': double.parse(
-            (shareByMember[memberId] ?? 0.0).toStringAsFixed(2)),
+        AnalyticsKeys.paid: paidByMember[memberId] ?? 0.0,
+        AnalyticsKeys.share: double.parse((shareByMember[memberId] ?? 0.0)
+            .toStringAsFixed(DefaultDecimalPlaces.amount)),
       };
     }
 
@@ -202,26 +217,15 @@ class AnalyticsController extends GetxController {
   void _processMonthlyTrends(
       List<ConsolidatedGroupTransactionModel> transactions) {
     final trends = <String, double>{};
-    const monthLabels = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
+    const monthLabels = MonthAbbreviations.labels;
 
     for (final tx in transactions) {
-      if (tx.sharingType == 'settlement') continue;
+      if (tx.sharingType == SharingTypeValues.settlement) continue;
       if (tx.transactionDate != null && tx.totalTransactionAmount != null) {
-        final monthKey =
-            '${monthLabels[tx.transactionDate!.month - 1]} ${tx.transactionDate!.year}';
+        final monthKey = AppStringFormat.monthYearLabel(
+          monthLabels[tx.transactionDate!.month - 1],
+          tx.transactionDate!.year,
+        );
         trends[monthKey] =
             (trends[monthKey] ?? 0.0) + tx.totalTransactionAmount!;
       }
@@ -229,10 +233,16 @@ class AnalyticsController extends GetxController {
 
     final sortedEntries = trends.entries.toList()
       ..sort((a, b) {
-        final monthA = monthLabels.indexOf(a.key.split(' ')[0]);
-        final yearA = int.tryParse(a.key.split(' ').last) ?? 0;
-        final monthB = monthLabels.indexOf(b.key.split(' ')[0]);
-        final yearB = int.tryParse(b.key.split(' ').last) ?? 0;
+        final monthA = monthLabels.indexOf(
+          a.key.split(AppSeparators.monthYearJoiner).first,
+        );
+        final yearA =
+            int.tryParse(a.key.split(AppSeparators.monthYearJoiner).last) ?? 0;
+        final monthB = monthLabels.indexOf(
+          b.key.split(AppSeparators.monthYearJoiner).first,
+        );
+        final yearB =
+            int.tryParse(b.key.split(AppSeparators.monthYearJoiner).last) ?? 0;
         final cmp = yearA.compareTo(yearB);
         if (cmp != 0) return cmp;
         return monthA.compareTo(monthB);
@@ -248,7 +258,7 @@ class AnalyticsController extends GetxController {
     final seenUserPaid = <String>{};
 
     for (final tx in rawTransactions) {
-      if (tx.sharingType == 'settlement') continue;
+      if (tx.sharingType == SharingTypeValues.settlement) continue;
       if (tx.category == null ||
           tx.transactionGroupID == null ||
           tx.totalTransactionAmount == null) {
@@ -256,7 +266,10 @@ class AnalyticsController extends GetxController {
       }
 
       final category = tx.category!;
-      final groupKey = '${tx.transactionGroupID}_$category';
+      final groupKey = AppStringFormat.groupCategoryDedupeKey(
+        tx.transactionGroupID!,
+        category,
+      );
 
       if (!seenGroupPaid.contains(groupKey)) {
         seenGroupPaid.add(groupKey);
@@ -274,10 +287,10 @@ class AnalyticsController extends GetxController {
     final comparison = <String, Map<String, double>>{};
     for (final category in groupPaidByCategory.keys) {
       comparison[category] = {
-        'userAmount': userPaidByCategory[category] ?? 0.0,
-        'groupAvgAmount': double.parse(
+        AnalyticsKeys.userAmount: userPaidByCategory[category] ?? 0.0,
+        AnalyticsKeys.groupAvgAmount: double.parse(
           ((groupPaidByCategory[category] ?? 0.0) / _memberCount)
-              .toStringAsFixed(2),
+              .toStringAsFixed(DefaultDecimalPlaces.amount),
         ),
       };
     }
@@ -289,13 +302,14 @@ class AnalyticsController extends GetxController {
     final sorted = categoryBreakdown.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    topCategories.value = sorted.take(5).toList();
+    topCategories.value =
+        sorted.take(InsightsThresholds.topCategoryLimit).toList();
   }
 
   Future<void> _processMemberNetBalances(
       List<GroupMembersWithNameModel> members) async {
-    final groupBalances = await SupabaseDatabase()
-        .getGroupBalancesForSettleUp(groupID: groupID);
+    final groupBalances =
+        await SupabaseDatabase().getGroupBalancesForSettleUp(groupID: groupID);
 
     final netByUserId = _computeNetBalances(groupBalances);
 
@@ -304,10 +318,10 @@ class AnalyticsController extends GetxController {
       final id = member.userID;
       if (id == null) continue;
       balances.add({
-        'name': member.userName ?? 'Unknown',
-        'user_id': id,
-        'netBalance': double.parse(
-            (netByUserId[id] ?? 0.0).toStringAsFixed(2)),
+        AnalyticsKeys.name: member.userName ?? DisplayFallbacks.unknown,
+        AnalyticsKeys.userId: id,
+        AnalyticsKeys.netBalance: double.parse((netByUserId[id] ?? 0.0)
+            .toStringAsFixed(DefaultDecimalPlaces.amount)),
       });
     }
 

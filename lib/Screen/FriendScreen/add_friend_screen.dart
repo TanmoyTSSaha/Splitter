@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Controller/friends_controller.dart';
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
-
-const Color _lightBg = Color(0xFFFAFAFA);
-const Color _cardBorder = Color(0xFFEEEEEE);
-const double _actionButtonMinWidth = 76;
-const Color _disabledButtonBg = Color(0xFFDDDDDD);
-const Color _disabledButtonLabel = Color(0xFF9E9E9E);
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Controller/friends_controller.dart';
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
 TextStyle _actionLabelStyle(Color color) => TextStyle(
-      fontFamily: 'Poppins',
-      fontSize: 12,
+      fontFamily: kFontPoppins,
+      fontSize: splitrFontCaption,
       fontWeight: FontWeight.w600,
       fontStyle: FontStyle.normal,
       color: color,
@@ -56,38 +58,28 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
         await SupabaseDatabase().getCurrentUserProfile(userID: widget.userID);
     final name = '${profile.firstName} ${profile.lastName}'.trim();
     await _friendsController.shareFriendInviteLink(
-      name.isEmpty ? 'A friend' : name,
+      name.isEmpty ? DisplayFallbacks.aFriend : name,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: _lightBg,
-        appBar: AppBar(
-          backgroundColor: _lightBg,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leading: IconButton(
+        backgroundColor: surface,
+        appBar: SplitrDetailAppBar(
+          title: AppStrings.friends.addFriend,
+          leading: SplitrDetailAppBar.iosBackLeading(
+            context,
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                size: 18, color: groupOnSurface),
-          ),
-          title: Text(
-            'Add Friend',
-            style: headline3_text.copyWith(
-              fontFamily: 'Albra',
-              fontWeight: FontWeight.w600,
-              color: groupOnSurface,
-            ),
           ),
           actions: [
             IconButton(
               onPressed: _shareInviteLink,
               icon: const Icon(Icons.link_rounded, color: neopopAccent),
-              tooltip: 'Share invite link',
+              tooltip: AppStrings.a11y.shareInviteLink,
             ),
           ],
           bottom: TabBar(
@@ -95,54 +87,43 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
             labelColor: neopopAccent,
             unselectedLabelColor: groupOnSurfaceMuted,
             labelStyle: const TextStyle(
-              fontFamily: 'Poppins',
+              fontFamily: kFontPoppins,
               fontWeight: FontWeight.w600,
             ),
-            tabs: const [
-              Tab(text: 'Search'),
-              Tab(text: 'Contacts'),
+            tabs: [
+              Tab(text: AppStrings.friends.tabSearch),
+              Tab(text: AppStrings.friends.tabContacts),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            _buildSearchTab(),
-            _buildContactsTab(),
+            _buildSearchTab(context),
+            _buildContactsTab(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSearchTab() {
+  Widget _buildSearchTab(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(groupGutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _cardBorder),
-            ),
-            child: TextField(
-              controller: _searchController,
-              style: body1_text.copyWith(color: groupOnSurface),
-              onChanged: _friendsController.searchUsers,
-              decoration: InputDecoration(
-                hintText: "Search by email...",
-                hintStyle: body2_text.copyWith(color: groupOnSurfaceMuted),
-                prefixIcon:
-                    Icon(Icons.search_rounded, color: groupOnSurfaceMuted),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+          BorderedInputField(
+            controller: _searchController,
+            hintText: AppStrings.friends.searchHint,
+            onChanged: _friendsController.searchUsers,
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: groupOnSurfaceMuted,
             ),
           ),
           const SizedBox(height: groupGapSm),
           Text(
-            'We only use contacts on your device to find friends already on SplitO.',
+            '${AppStrings.friends.contactsPrivacyPrefix}${AppBranding.brandName}.',
             style: body2_text.copyWith(
               color: groupOnSurfaceMuted,
               fontStyle: FontStyle.normal,
@@ -154,11 +135,35 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
               if (_friendsController.isSearching.value) {
                 return const Center(child: LoadingWidget());
               }
+              if (_friendsController.searchError.value != null &&
+                  _searchController.text.isNotEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _friendsController.searchError.value!,
+                        style: body2_text.copyWith(color: groupOnSurfaceMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: groupGapSm),
+                      TextButton(
+                        onPressed: () => _friendsController
+                            .searchUsers(_searchController.text),
+                        child: Text(
+                          AppStrings.actions.tryAgain,
+                          style: body2_text.copyWith(color: neopopAccent),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
               if (_friendsController.searchResults.isEmpty &&
                   _searchController.text.isNotEmpty) {
                 return Center(
                   child: Text(
-                    "No users found.",
+                    AppStrings.friends.noUsersFound,
                     style: body2_text.copyWith(color: groupOnSurfaceMuted),
                   ),
                 );
@@ -166,7 +171,7 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
               if (_friendsController.searchResults.isEmpty) {
                 return Center(
                   child: Text(
-                    "Search for friends by their email address",
+                    AppStrings.friends.searchFriendsHint,
                     style: body2_text.copyWith(color: groupOnSurfaceMuted),
                     textAlign: TextAlign.center,
                   ),
@@ -175,8 +180,8 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
               return ListView.separated(
                 itemCount: _friendsController.searchResults.length,
                 separatorBuilder: (_, __) => const SizedBox(height: groupGapSm),
-                itemBuilder: (context, index) =>
-                    _buildUserTile(_friendsController.searchResults[index]),
+                itemBuilder: (context, index) => _buildUserTile(
+                    context, _friendsController.searchResults[index]),
               );
             }),
           ),
@@ -185,14 +190,14 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
     );
   }
 
-  Widget _buildContactsTab() {
+  Widget _buildContactsTab(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(groupGutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Friends from your contact book who use SplitO',
+            '${AppStrings.friends.contactsFromBookPrefix}${AppBranding.brandName}',
             style: body2_text.copyWith(color: groupOnSurfaceMuted),
           ),
           const SizedBox(height: groupGapMd),
@@ -207,11 +212,11 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.contacts_outlined,
-                          color: groupOnSurfaceMuted.withValues(alpha: 0.5),
-                          size: 48),
+                          color: groupMutedIconMuted,
+                          size: groupCtaHeightCompact),
                       const SizedBox(height: groupGapSm),
                       Text(
-                        'No matching contacts found.\nGrant contact access or share your invite link.',
+                        AppStrings.friends.noMatchingContacts,
                         style: body2_text.copyWith(color: groupOnSurfaceMuted),
                         textAlign: TextAlign.center,
                       ),
@@ -220,7 +225,7 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
                         onPressed: () =>
                             _friendsController.loadContactMatches(),
                         child: Text(
-                          'Retry',
+                          AppStrings.actions.retry,
                           style: body2_text.copyWith(color: neopopAccent),
                         ),
                       ),
@@ -233,12 +238,16 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: groupGapSm),
                 itemBuilder: (context, index) {
                   final match = _friendsController.contactMatches[index];
-                  return _buildUserTile({
-                    'user_id': match.userId,
-                    'user_name': match.userName ?? match.contactName,
-                    'user_email': match.email,
-                    'profile_picture_url': match.userPic,
-                  }, subtitle: match.contactName);
+                  return _buildUserTile(
+                      context,
+                      {
+                        UserSearchResultKeys.userId: match.userId,
+                        UserSearchResultKeys.userName:
+                            match.userName ?? match.contactName,
+                        UserSearchResultKeys.userEmail: match.email,
+                        SupabaseColumns.profilePictureUrl: match.userPic,
+                      },
+                      subtitle: match.contactName);
                 },
               );
             }),
@@ -248,8 +257,11 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
     );
   }
 
-  Widget _buildUserTile(Map<String, dynamic> user, {String? subtitle}) {
-    final uid = user['user_id']?.toString() ?? '';
+  Widget _buildUserTile(BuildContext context, Map<String, dynamic> user,
+      {String? subtitle}) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
+    final uid = user[UserSearchResultKeys.userId]?.toString() ?? '';
 
     return Obx(() {
       final state = _friendsController.relationshipWith(uid);
@@ -258,14 +270,14 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
       return Container(
         padding: const EdgeInsets.all(groupGapMd),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _cardBorder),
+          color: surface,
+          borderRadius: BorderRadius.circular(groupCardRadius),
+          border: Border.all(color: borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: groupSurfaceFillWhisper,
+              blurRadius: AppDimensions.groupCardShadowBlur,
+              offset: Offset(0, AppDimensions.groupCardShadowOffsetSmY),
             ),
           ],
         ),
@@ -274,8 +286,9 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
           children: [
             UserAvatar(
               userID: uid,
-              userName: user['user_name']?.toString() ?? '?',
-              imageUrl: user['profile_picture_url']?.toString(),
+              userName: user[UserSearchResultKeys.userName]?.toString() ??
+                  DisplayFallbacks.questionMark,
+              imageUrl: user[SupabaseColumns.profilePictureUrl]?.toString(),
               radius: 22,
             ),
             const SizedBox(width: groupGapSm),
@@ -284,14 +297,17 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user['user_name']?.toString() ?? 'Unknown',
+                    user[UserSearchResultKeys.userName]?.toString() ??
+                        DisplayFallbacks.unknown,
                     style: body1_text.copyWith(
                       color: groupOnSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
-                    subtitle ?? user['user_email']?.toString() ?? '',
+                    subtitle ??
+                        user[UserSearchResultKeys.userEmail]?.toString() ??
+                        '',
                     style: body2_text.copyWith(
                       color: groupOnSurfaceMuted,
                       fontStyle: FontStyle.normal,
@@ -317,58 +333,77 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
     switch (state) {
       case FriendRelationshipState.none:
         return SizedBox(
-          width: _actionButtonMinWidth,
+          width: FriendScreenLayout.actionButtonMinWidth,
           child: ElevatedButton(
             onPressed: () => _handleAdd(userId),
             style: ElevatedButton.styleFrom(
               backgroundColor: neopopAccent,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              minimumSize: const Size(_actionButtonMinWidth, 36),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGapSm, vertical: groupGapSm),
+              minimumSize: const Size(
+                FriendScreenLayout.actionButtonMinWidth,
+                FriendScreenLayout.actionButtonMinHeight,
+              ),
             ),
-            child: Text('Add', style: _actionLabelStyle(neopopOnBackground)),
+            child: Text(AppStrings.friends.add,
+                style: _actionLabelStyle(neopopOnBackground)),
           ),
         );
       case FriendRelationshipState.pendingOutgoing:
         return SizedBox(
-          width: _actionButtonMinWidth,
+          width: FriendScreenLayout.actionButtonMinWidth,
           child: ElevatedButton(
             onPressed: null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _disabledButtonBg,
-              disabledBackgroundColor: _disabledButtonBg,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              minimumSize: const Size(_actionButtonMinWidth, 36),
+              backgroundColor: neopopDisabledBg,
+              disabledBackgroundColor: neopopDisabledBg,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGapSm, vertical: groupGapSm),
+              minimumSize: const Size(
+                FriendScreenLayout.actionButtonMinWidth,
+                FriendScreenLayout.actionButtonMinHeight,
+              ),
             ),
-            child: Text('Pending', style: _actionLabelStyle(_disabledButtonLabel)),
+            child: Text(AppStrings.lending.pending,
+                style: _actionLabelStyle(neopopDisabledFg)),
           ),
         );
       case FriendRelationshipState.friends:
         return SizedBox(
-          width: _actionButtonMinWidth,
+          width: FriendScreenLayout.actionButtonMinWidth,
           child: ElevatedButton(
             onPressed: null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _disabledButtonBg,
-              disabledBackgroundColor: _disabledButtonBg,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              minimumSize: const Size(_actionButtonMinWidth, 36),
+              backgroundColor: neopopDisabledBg,
+              disabledBackgroundColor: neopopDisabledBg,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGapSm, vertical: groupGapSm),
+              minimumSize: const Size(
+                FriendScreenLayout.actionButtonMinWidth,
+                FriendScreenLayout.actionButtonMinHeight,
+              ),
             ),
-            child: Text('Friends', style: _actionLabelStyle(_disabledButtonLabel)),
+            child: Text(AppStrings.friends.tabFriends,
+                style: _actionLabelStyle(neopopDisabledFg)),
           ),
         );
       case FriendRelationshipState.pendingIncoming:
         return SizedBox(
-          width: _actionButtonMinWidth,
+          width: FriendScreenLayout.actionButtonMinWidth,
           child: ElevatedButton(
-            onPressed: record?.id != null
-                ? () => _handleAccept(record!.id!)
-                : null,
+            onPressed:
+                record?.id != null ? () => _handleAccept(record!.id!) : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: neopopAccent,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              minimumSize: const Size(_actionButtonMinWidth, 36),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGapSm, vertical: groupGapSm),
+              minimumSize: const Size(
+                FriendScreenLayout.actionButtonMinWidth,
+                FriendScreenLayout.actionButtonMinHeight,
+              ),
             ),
-            child: Text('Accept', style: _actionLabelStyle(neopopOnBackground)),
+            child: Text(AppStrings.actions.accept,
+                style: _actionLabelStyle(neopopOnBackground)),
           ),
         );
     }
@@ -376,19 +411,15 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
 
   Future<void> _handleAdd(String userId) async {
     final success = await _friendsController.sendFriendRequest(userId);
-    Fluttertoast.showToast(
-      msg: success ? "Friend request sent!" : "Failed to send request.",
-      backgroundColor: success ? neopopAccent : neopopYellow,
-      textColor: neopopBackground,
-    );
+    SplitrToast.show(success
+          ? AppStrings.friends.friendRequestSent
+          : AppStrings.friends.friendRequestSendFailed);
   }
 
   Future<void> _handleAccept(String requestId) async {
     final success = await _friendsController.acceptFriendRequest(requestId);
-    Fluttertoast.showToast(
-      msg: success ? "Friend request accepted!" : "Failed to accept.",
-      backgroundColor: success ? neopopAccent : neopopYellow,
-      textColor: neopopBackground,
-    );
+    SplitrToast.show(success
+          ? AppStrings.friends.friendRequestAccepted
+          : AppStrings.friends.friendRequestFailed);
   }
 }

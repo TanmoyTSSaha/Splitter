@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:splitter/Controller/group_screen_controller.dart';
-import 'package:splitter/Controller/lending_refresh_controller.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen.dart';
-import 'package:splitter/Screen/HomeScreen/home_screen.dart';
-import 'package:splitter/Screen/ProfileScreen/profile_screen.dart';
-import 'package:splitter/Screen/LendingScreen/lending_dashboard.dart';
-import 'package:splitter/Widgets/animated_glass_bottom_nav_bar.dart';
+import 'package:splitr/Controller/group_screen_controller.dart';
+import 'package:splitr/Controller/lending_refresh_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen.dart';
+import 'package:splitr/Screen/HomeScreen/home_screen.dart';
+import 'package:splitr/Screen/ProfileScreen/profile_screen.dart';
+import 'package:splitr/Screen/LendingScreen/lending_dashboard.dart';
+import 'package:splitr/Widgets/animated_glass_bottom_nav_bar.dart';
+import 'package:splitr/Constants/app_strings.dart';
 
 class BottomNavigationController extends StatefulWidget {
   const BottomNavigationController({super.key});
@@ -20,34 +21,34 @@ class _BottomNavigationControllerState
     extends State<BottomNavigationController> {
   int currIndex = 0;
 
-  static const _navItems = [
+  static final _navItems = [
     BottomNavItemData(
       outlineIcon: Icons.home_outlined,
       filledIcon: Icons.home_rounded,
-      label: 'Home',
+      label: AppStrings.bottomNav.home,
     ),
     BottomNavItemData(
       outlineIcon: Icons.groups_2_outlined,
       filledIcon: Icons.groups_2_rounded,
-      label: 'Groups',
+      label: AppStrings.bottomNav.groups,
     ),
     BottomNavItemData(
       outlineIcon: Icons.account_balance_wallet_outlined,
       filledIcon: Icons.account_balance_wallet,
-      label: 'Lending',
+      label: AppStrings.bottomNav.lending,
     ),
     BottomNavItemData(
       outlineIcon: Icons.person_outline,
       filledIcon: Icons.person_rounded,
-      label: 'Profile',
+      label: AppStrings.bottomNav.profile,
     ),
   ];
 
   final List<Widget> screens = [
-    HomeScreen(),
-    GroupScreen(),
-    LendingDashboard(),
-    ProfileScreen(),
+    const HomeScreen(),
+    const GroupScreen(),
+    const LendingDashboard(),
+    const ProfileScreen(),
   ];
 
   void _onTabTap(int index) {
@@ -62,26 +63,30 @@ class _BottomNavigationControllerState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      extendBody: true,
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: currIndex,
-            children: screens,
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AnimatedGlassBottomNavBar(
-              currentIndex: currIndex,
-              onTap: _onTabTap,
-              items: _navItems,
+    final surface = Theme.of(context).colorScheme.surface;
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: surface,
+        extendBody: true,
+        body: Stack(
+          children: [
+            IndexedStack(
+              index: currIndex,
+              children: screens,
             ),
-          ),
-        ],
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedGlassBottomNavBar(
+                currentIndex: currIndex,
+                onTap: _onTabTap,
+                items: _navItems,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/app_themes.dart';
+import 'package:splitr/Constants/app_themes.dart';
 
 /// Applies dark input/text defaults for screens with a dark scaffold background.
 class DarkSurfaceTheme extends StatelessWidget {

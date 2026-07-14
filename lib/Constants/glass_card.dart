@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 /// Reusable glassmorphism container with frosted-glass effect.
 /// Creates visual depth over gradient mesh backgrounds.
@@ -14,9 +16,9 @@ class GlassCard extends StatelessWidget {
 
   const GlassCard({
     required this.child,
-    this.blur = 15.0,
-    this.opacity = 0.08,
-    this.borderRadius = 16.0,
+    this.blur = AppDimensions.glassCardBlurDefault,
+    this.opacity = AppDimensions.glassCardOpacityDefault,
+    this.borderRadius = groupCardRadius,
     this.padding,
     this.margin,
     super.key,
@@ -31,20 +33,26 @@ class GlassCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: Container(
-            padding: padding ?? EdgeInsets.all(height_16),
+            padding: padding ?? const EdgeInsets.all(groupGutter),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(borderRadius),
               color: neopopOnBackground.withOpacity(opacity),
               border: Border.all(
-                color: neopopOnBackground.withOpacity(0.1),
-                width: 1,
+                color: neopopOnBackground.withOpacity(
+                  AppDimensions.glassCardBorderOpacity,
+                ),
+                width: AppDimensions.borderWidthHairline,
               ),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  neopopOnBackground.withOpacity(opacity + 0.03),
-                  neopopOnBackground.withOpacity(opacity - 0.02),
+                  neopopOnBackground.withOpacity(
+                    opacity + AppDimensions.glassCardGradientOpacityBump,
+                  ),
+                  neopopOnBackground.withOpacity(
+                    opacity - AppDimensions.glassCardGradientOpacityDip,
+                  ),
                 ],
               ),
             ),

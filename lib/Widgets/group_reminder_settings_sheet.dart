@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Model/reminder_settings_model.dart';
-import 'package:splitter/Services/reminder_settings_service.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Model/reminder_settings_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/premium_gate.dart';
+import 'package:splitr/Controllers/premium_subscription_controller.dart';
+import 'package:splitr/Services/reminder_settings_service.dart';
 
 /// Bottom sheet for per-group reminder cadence, tone, and muted members.
 class GroupReminderSettingsSheet extends StatefulWidget {
@@ -23,22 +28,17 @@ class GroupReminderSettingsSheet extends StatefulWidget {
     required String groupId,
     required List<GroupMembersWithNameModel> members,
   }) {
+    final surface = Theme.of(context).colorScheme.surface;
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: groupSheetTopBorderRadiusLg,
       ),
-      builder: (_) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark.copyWith(
-          systemNavigationBarColor: Colors.white,
-          systemNavigationBarIconBrightness: Brightness.dark,
-        ),
-        child: GroupReminderSettingsSheet(
-          groupId: groupId,
-          members: members,
-        ),
+      builder: (_) => GroupReminderSettingsSheet(
+        groupId: groupId,
+        members: members,
       ),
     );
   }
@@ -48,7 +48,8 @@ class GroupReminderSettingsSheet extends StatefulWidget {
       _GroupReminderSettingsSheetState();
 }
 
-class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet> {
+class _GroupReminderSettingsSheetState
+    extends State<GroupReminderSettingsSheet> {
   final _service = Get.find<ReminderSettingsService>();
   late ReminderSettings _settings;
   bool _loading = true;
@@ -59,8 +60,8 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
         useMaterial3: true,
         colorScheme: const ColorScheme.light(
           primary: neopopAccent,
-          onPrimary: Colors.white,
-          surface: Colors.white,
+          onPrimary: neopopOnPrimary,
+          surface: groupCardFill,
           onSurface: neopopBackground,
         ),
       );
@@ -89,7 +90,7 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
   Widget build(BuildContext context) {
     if (_loading) {
       return SizedBox(
-        height: devSysHeight * 0.4,
+        height: devSysHeight * AppDimensions.reminderSheetHeightRatio,
         child: const Center(child: LoadingWidget()),
       );
     }
@@ -98,80 +99,99 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
       data: _lightSheetTheme,
       child: Padding(
         padding: EdgeInsets.only(
-          left: width_16,
-          right: width_16,
-          top: height_16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + height_16,
+          left: groupGutter,
+          right: groupGutter,
+          top: groupGutter,
+          bottom: MediaQuery.of(context).viewInsets.bottom + groupGutter,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Settlement reminders',
+              AppStrings.reminders.settlementTitle,
               style: sub_headline4_text.copyWith(color: neopopBackground),
             ),
-            SizedBox(height: height_10),
+            SizedBox(height: groupGap10),
             Text(
-              'Friendly nudges when balances are still open.',
+              AppStrings.reminders.settlementSubtitle,
               style: caption_text.copyWith(
                 color: neopopGrey,
                 fontStyle: FontStyle.normal,
               ),
             ),
-            SizedBox(height: height_16),
+            SizedBox(height: groupGutter),
             Text(
-              'Cadence',
+              AppStrings.reminders.cadence,
               style: body2_text.copyWith(
                 fontWeight: FontWeight.w600,
                 color: neopopBackground,
               ),
             ),
-            SizedBox(height: height_10),
+            SizedBox(height: groupGap10),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: groupGapSm,
+              runSpacing: groupGapSm,
               children: ReminderCadence.values.map((c) {
                 final selected = _settings.cadence == c;
+                final proOnly = reminderCadenceRequiresPro(c);
                 return ChoiceChip(
-                  label: Text(
-                    c.name,
-                    style: body2_text.copyWith(
-                      color: Colors.white,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _reminderCadenceLabel(c),
+                        style: body2_text.copyWith(
+                          color: groupChipSelectedFg,
+                          fontWeight:
+                              selected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      if (proOnly) ...[
+                        const SizedBox(width: groupGapXxs),
+                        const PremiumLockBadge(),
+                      ],
+                    ],
                   ),
                   selected: selected,
                   showCheckmark: true,
-                  checkmarkColor: Colors.white,
-                  onSelected: (_) => setState(() => _settings.cadence = c),
-                  selectedColor: neopopAccent.withValues(alpha: 0.45),
+                  checkmarkColor: groupChipSelectedFg,
+                  onSelected: (_) async {
+                    if (proOnly &&
+                        !Get.find<PremiumSubscriptionController>()
+                            .isPremium
+                            .value) {
+                      final ok = await requirePremium(
+                        featureLabel: AppStrings.reminders.escalatedCadence,
+                      );
+                      if (!ok) return;
+                    }
+                    setState(() => _settings.cadence = c);
+                  },
+                  selectedColor: neopopAccentSelected,
                   backgroundColor: neopopBackground,
                   side: BorderSide(
-                    color: selected
-                        ? neopopAccent
-                        : neopopGrey.withValues(alpha: 0.35),
+                    color: selected ? neopopAccent : neopopGreyBorderMedium,
                   ),
                 );
               }).toList(),
             ),
-            SizedBox(height: height_16),
+            SizedBox(height: groupGutter),
             Text(
-              'Tone',
+              AppStrings.reminders.tone,
               style: body2_text.copyWith(
                 fontWeight: FontWeight.w600,
                 color: neopopBackground,
               ),
             ),
-            SizedBox(height: height_10),
+            SizedBox(height: groupGap10),
             SegmentedButton<ReminderTone>(
               style: ButtonStyle(
                 backgroundColor: WidgetStateProperty.resolveWith((states) {
                   if (states.contains(WidgetState.selected)) {
-                    return neopopAccent.withValues(alpha: 0.25);
+                    return neopopAccentBorderHairline;
                   }
-                  return neopopSecondaryGrey.withValues(alpha: 0.12);
+                  return groupChipTrackBg;
                 }),
                 foregroundColor: WidgetStateProperty.resolveWith((states) {
                   if (states.contains(WidgetState.selected)) {
@@ -180,34 +200,52 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
                   return neopopGrey;
                 }),
               ),
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: ReminderTone.friendly,
-                  label: Text('Friendly'),
+                  label: Text(AppStrings.reminders.friendly),
                 ),
                 ButtonSegment(
                   value: ReminderTone.casual,
-                  label: Text('Casual'),
+                  label: Text(AppStrings.reminders.casual),
                 ),
                 ButtonSegment(
                   value: ReminderTone.formal,
-                  label: Text('Formal'),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(AppStrings.reminders.formal),
+                      SizedBox(width: groupGapXxs),
+                      PremiumLockBadge(),
+                    ],
+                  ),
                 ),
               ],
               selected: {_settings.tone},
-              onSelectionChanged: (s) =>
-                  setState(() => _settings.tone = s.first),
+              onSelectionChanged: (s) async {
+                final tone = s.first;
+                if (reminderToneRequiresPro(tone) &&
+                    !Get.find<PremiumSubscriptionController>()
+                        .isPremium
+                        .value) {
+                  final ok = await requirePremium(
+                    featureLabel: AppStrings.reminders.professionalTone,
+                  );
+                  if (!ok) return;
+                }
+                setState(() => _settings.tone = tone);
+              },
             ),
             if (widget.members.isNotEmpty) ...[
-              SizedBox(height: height_16),
+              SizedBox(height: groupGutter),
               Text(
-                'Mute reminders for',
+                AppStrings.reminders.muteFor,
                 style: body2_text.copyWith(
                   fontWeight: FontWeight.w600,
                   color: neopopBackground,
                 ),
               ),
-              SizedBox(height: height_10),
+              SizedBox(height: groupGap10),
               ...widget.members.map((m) {
                 final id = m.userID!;
                 final muted = _settings.mutedMemberIds.contains(id);
@@ -228,7 +266,7 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
                     });
                   },
                   title: Text(
-                    m.userName ?? 'Member',
+                    m.userName ?? DisplayFallbacks.member,
                     style: body2_text.copyWith(color: neopopBackground),
                   ),
                   activeColor: neopopAccent,
@@ -237,7 +275,7 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
                 );
               }),
             ],
-            SizedBox(height: height_16),
+            SizedBox(height: groupGutter),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -248,12 +286,14 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
                 ),
                 child: _saving
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        height: AppDimensions.loadingIndicatorSm,
+                        width: AppDimensions.loadingIndicatorSm,
+                        child: CircularProgressIndicator(
+                          strokeWidth: groupProgressStrokeWidth,
+                        ),
                       )
                     : Text(
-                        'Save',
+                        AppStrings.actions.save,
                         style: button_text.copyWith(color: neopopBackground),
                       ),
               ),
@@ -262,5 +302,20 @@ class _GroupReminderSettingsSheetState extends State<GroupReminderSettingsSheet>
         ),
       ),
     );
+  }
+
+  String _reminderCadenceLabel(ReminderCadence cadence) {
+    switch (cadence) {
+      case ReminderCadence.off:
+        return AppStrings.reminders.cadenceOff;
+      case ReminderCadence.daily:
+        return AppStrings.reminders.cadenceDaily;
+      case ReminderCadence.weekly:
+        return AppStrings.reminders.cadenceWeekly;
+      case ReminderCadence.biweekly:
+        return AppStrings.reminders.cadenceBiweekly;
+      case ReminderCadence.monthly:
+        return AppStrings.reminders.cadenceMonthly;
+    }
   }
 }

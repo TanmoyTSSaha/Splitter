@@ -1,4 +1,4 @@
--- SplitO initial schema for a fresh Supabase project.
+-- Splitr initial schema for a fresh Supabase project.
 -- Core tables, RPCs, RLS, seed categories, and auth profile trigger.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

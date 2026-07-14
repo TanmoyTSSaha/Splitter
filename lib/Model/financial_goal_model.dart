@@ -1,3 +1,7 @@
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+
 class FinancialGoalModel {
   String? id;
   String? userId;
@@ -34,56 +38,63 @@ class FinancialGoalModel {
     this.description,
     this.goalType,
     this.currency,
-    this.exchangeRateToInr = 1.0,
+    this.exchangeRateToInr = CurrencyDefaults.exchangeRateToInr,
   });
 
   FinancialGoalModel.fromJSON(Map<String, dynamic> json)
       : exchangeRateToInr = double.tryParse(
-                json["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
-            1.0 {
-    id = json["id"];
-    userId = json["user_id"];
-    title = json["title"];
-    targetAmount =
-        double.tryParse(json["target_amount"]?.toString() ?? "0") ?? 0.0;
-    currentAmount =
-        double.tryParse(json["current_amount"]?.toString() ?? "0") ?? 0.0;
-    deadline =
-        json["deadline"] != null ? DateTime.tryParse(json["deadline"]) : null;
-    status = json["status"];
-    icon = json["icon"];
-    createdAt = json["created_at"] != null
-        ? DateTime.tryParse(json["created_at"])
+                json[SupabaseColumns.exchangeRateToInr]?.toString() ??
+                    CurrencyDefaults.exchangeRateToInrString) ??
+            CurrencyDefaults.exchangeRateToInr {
+    id = json[SupabaseColumns.id];
+    userId = json[SupabaseColumns.userId];
+    title = json[SupabaseColumns.title];
+    targetAmount = double.tryParse(
+            json[SupabaseColumns.targetAmount]?.toString() ??
+                AppAmountHints.zero) ??
+        0.0;
+    currentAmount = double.tryParse(
+            json[SupabaseColumns.currentAmount]?.toString() ??
+                AppAmountHints.zero) ??
+        0.0;
+    deadline = json[SupabaseColumns.deadline] != null
+        ? DateTime.tryParse(json[SupabaseColumns.deadline])
         : null;
-    colorHex = json["color_hex"];
-    iconKey = json["icon_key"];
-    smartRecommendationId = json["smart_recommendation_id"];
-    estimatedCompletionDate = json["estimated_completion_date"] != null
-        ? DateTime.tryParse(json["estimated_completion_date"])
+    status = json[SupabaseColumns.status];
+    icon = json[SupabaseColumns.icon];
+    createdAt = json[SupabaseColumns.createdAt] != null
+        ? DateTime.tryParse(json[SupabaseColumns.createdAt])
         : null;
-    description = json["description"];
-    goalType = json["goal_type"];
-    currency = json["currency"] ?? 'INR';
+    colorHex = json[SupabaseColumns.colorHex];
+    iconKey = json[SupabaseColumns.iconKey];
+    smartRecommendationId = json[SupabaseColumns.smartRecommendationId];
+    estimatedCompletionDate =
+        json[SupabaseColumns.estimatedCompletionDate] != null
+            ? DateTime.tryParse(json[SupabaseColumns.estimatedCompletionDate])
+            : null;
+    description = json[SupabaseColumns.description];
+    goalType = json[SupabaseColumns.goalType];
+    currency = json[SupabaseColumns.currency] ?? CurrencyDefaults.code;
   }
 
   Map<String, dynamic> toJSON() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data["user_id"] = userId;
-    data["title"] = title;
-    data["target_amount"] = targetAmount;
-    data["current_amount"] = currentAmount;
-    data["deadline"] = deadline?.toIso8601String();
-    data["status"] = status;
-    data["icon"] = icon;
-    data["color_hex"] = colorHex;
-    data["icon_key"] = iconKey;
-    data["smart_recommendation_id"] = smartRecommendationId;
-    data["estimated_completion_date"] =
+    data[SupabaseColumns.userId] = userId;
+    data[SupabaseColumns.title] = title;
+    data[SupabaseColumns.targetAmount] = targetAmount;
+    data[SupabaseColumns.currentAmount] = currentAmount;
+    data[SupabaseColumns.deadline] = deadline?.toIso8601String();
+    data[SupabaseColumns.status] = status;
+    data[SupabaseColumns.icon] = icon;
+    data[SupabaseColumns.colorHex] = colorHex;
+    data[SupabaseColumns.iconKey] = iconKey;
+    data[SupabaseColumns.smartRecommendationId] = smartRecommendationId;
+    data[SupabaseColumns.estimatedCompletionDate] =
         estimatedCompletionDate?.toIso8601String();
-    data["description"] = description;
-    data["goal_type"] = goalType;
-    data["currency"] = currency ?? 'INR';
-    data["exchange_rate_to_inr"] = exchangeRateToInr;
+    data[SupabaseColumns.description] = description;
+    data[SupabaseColumns.goalType] = goalType;
+    data[SupabaseColumns.currency] = currency ?? CurrencyDefaults.code;
+    data[SupabaseColumns.exchangeRateToInr] = exchangeRateToInr;
     return data;
   }
 }

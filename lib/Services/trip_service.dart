@@ -1,5 +1,9 @@
-import 'package:flutter/foundation.dart';
-import 'package:splitter/Model/trip_model.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/trip_model.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Service for Trip Mode — CRUD, per-day bucketing, summary stats.
@@ -15,12 +19,15 @@ class TripService {
     required DateTime endDate,
     required String createdBy,
     required List<String> memberIds,
+    String tripCurrency = CurrencyDefaults.code,
   }) async {
-    final result = await _supabase.rpc('create_trip_with_member', params: {
+    final result =
+        await _supabase.rpc(SupabaseRpc.createTripWithMember, params: {
       'p_trip_name': tripName,
       'p_destination': destination,
       'p_start_date': startDate.toIso8601String(),
       'p_end_date': endDate.toIso8601String(),
+      'p_trip_currency': tripCurrency,
     });
 
     final groupId = result['group_id'] as String;
@@ -33,6 +40,7 @@ class TripService {
       endDate: endDate,
       createdBy: createdBy,
       memberIds: memberIds,
+      tripCurrency: tripCurrency,
     );
   }
 
@@ -40,7 +48,7 @@ class TripService {
   Future<List<TripModel>> getTrips(String userId) async {
     try {
       final memberRows = await _supabase
-          .from('group_members')
+          .from(SupabaseTables.groupMembers)
           .select('group_id')
           .eq('user_id', userId);
 
@@ -49,14 +57,19 @@ class TripService {
       if (groupIds.isEmpty) return [];
 
       final tripRows = await _supabase
-          .from('trip_metadata')
+          .from(SupabaseTables.tripMetadata)
           .select()
           .inFilter('group_id', groupIds)
           .order('start_date', ascending: false);
 
       return tripRows.map((r) => TripModel.fromJSON(r)).toList();
-    } catch (e) {
-      debugPrint('Error fetching trips: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TripService.getTrips failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'trips', 'operation': 'getTrips'},
+      );
       return [];
     }
   }
@@ -65,10 +78,10 @@ class TripService {
   Future<List<Map<String, dynamic>>> getTripTransactions(String groupId) async {
     try {
       final response = await _supabase
-          .from('group_transaction')
+          .from(SupabaseTables.groupTransaction)
           .select()
           .eq('group_id', groupId)
-          .neq('sharing_type', 'settlement')
+          .neq(SupabaseColumns.sharingType, SharingTypeValues.settlement)
           .order('transaction_date', ascending: false);
 
       final seen = <String>{};
@@ -84,8 +97,13 @@ class TripService {
       }
 
       return consolidated;
-    } catch (e) {
-      debugPrint("Error fetching trip transactions: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TripService.getTripTransactions failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'trips', 'operation': 'getTripTransactions'},
+      );
       return [];
     }
   }
@@ -94,29 +112,32 @@ class TripService {
   Future<List<Map<String, dynamic>>> getTripMembers(String groupId) async {
     try {
       final memberRows = await _supabase
-          .from('group_members')
+          .from(SupabaseTables.groupMembers)
           .select('user_id')
           .eq('group_id', groupId);
 
-      final userIds =
-          memberRows.map((r) => r['user_id'] as String).toList();
+      final userIds = memberRows.map((r) => r['user_id'] as String).toList();
       if (userIds.isEmpty) return [];
 
       final users = await _supabase
-          .from('users')
+          .from(SupabaseTables.users)
           .select('user_id, firstname, lastname')
           .inFilter('user_id', userIds);
 
       return users.map((u) {
-        final name =
-            '${u['firstname'] ?? ''} ${u['lastname'] ?? ''}'.trim();
+        final name = '${u['firstname'] ?? ''} ${u['lastname'] ?? ''}'.trim();
         return {
           'id': u['user_id'] as String,
-          'name': name.isEmpty ? 'Unknown' : name,
+          'name': name.isEmpty ? DisplayFallbacks.unknown : name,
         };
       }).toList();
-    } catch (e) {
-      debugPrint("Error fetching trip members: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TripService.getTripMembers failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'trips', 'operation': 'getTripMembers'},
+      );
       return [];
     }
   }
@@ -132,13 +153,15 @@ class TripService {
     for (int i = 0; i < trip.totalDays; i++) {
       final day = trip.startDate.add(Duration(days: i));
       final dayStart = DateTime(day.year, day.month, day.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
+      final dayEnd = dayStart.add(AppMotion.reminderDaily);
 
       final dayTxns = transactions.where((t) {
-        final txDate =
-            DateTime.tryParse(t['transaction_date']?.toString() ?? '');
+        final txDate = TransactionDateFormatter.parseStorage(
+            t['transaction_date']);
         if (txDate == null) return false;
-        return txDate.isAfter(dayStart) && txDate.isBefore(dayEnd);
+        final local = txDate.toLocal();
+        final localDay = DateTime(local.year, local.month, local.day);
+        return !localDay.isBefore(dayStart) && localDay.isBefore(dayEnd);
       }).toList();
 
       double total = 0;
@@ -150,18 +173,19 @@ class TripService {
             double.tryParse(t['total_transaction_amount'].toString()) ?? 0;
         total += amount;
 
-        final cat = t['category'] as String? ?? 'Other';
+        final cat = t['category'] as String? ?? CategoryDefaults.other;
         categoryTotals[cat] = (categoryTotals[cat] ?? 0) + amount;
 
         final paidBy = t['paid_by'] as String? ?? '';
         entries.add(TripExpenseEntry(
           transactionId: t['transaction_id'] as String? ?? '',
-          description: t['description'] as String? ?? 'Expense',
+          description: t['description'] as String? ?? CategoryDefaults.expense,
           amount: amount,
-          paidByName: userNameMap[paidBy] ?? 'Unknown',
+          paidByName: userNameMap[paidBy] ?? DisplayFallbacks.unknown,
           category: cat,
-          timestamp:
-              DateTime.tryParse(t['transaction_date']?.toString() ?? '') ?? day,
+          timestamp: TransactionDateFormatter.parseStorage(
+                  t['transaction_date']) ??
+              day,
         ));
       }
 
@@ -205,13 +229,13 @@ class TripService {
 
       if (amount > biggestAmount) {
         biggestAmount = amount;
-        biggestDesc = t['description'] as String? ?? 'Expense';
+        biggestDesc = t['description'] as String? ?? CategoryDefaults.expense;
       }
 
       final paidBy = t['paid_by'] as String? ?? '';
       memberTotals[paidBy] = (memberTotals[paidBy] ?? 0) + amount;
 
-      final cat = t['category'] as String? ?? 'Other';
+      final cat = t['category'] as String? ?? CategoryDefaults.other;
       categoryTotals[cat] = (categoryTotals[cat] ?? 0) + amount;
     }
 
@@ -226,7 +250,7 @@ class TripService {
     });
 
     // Top category
-    String topCat = 'Other';
+    String topCat = CategoryDefaults.other;
     if (categoryTotals.isNotEmpty) {
       topCat = categoryTotals.entries
           .reduce((a, b) => a.value > b.value ? a : b)
@@ -238,7 +262,7 @@ class TripService {
       avgPerDay: trip.totalDays > 0 ? totalSpent / trip.totalDays : 0,
       biggestExpenseDesc: biggestDesc,
       biggestExpenseAmount: biggestAmount,
-      mvpMemberName: userNameMap[mvpId] ?? 'Unknown',
+      mvpMemberName: userNameMap[mvpId] ?? DisplayFallbacks.unknown,
       mvpAmount: mvpAmount,
       topCategory: topCat,
       totalTransactions: transactions.length,

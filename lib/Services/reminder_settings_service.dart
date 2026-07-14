@@ -1,25 +1,25 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:splitter/Model/reminder_settings_model.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Model/reminder_settings_model.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Persists per-group reminder preferences (Supabase with local fallback).
 class ReminderSettingsService extends GetxService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  static const _silentKey = 'reminders_silent_mode';
-  static const _localPrefix = 'reminder_settings_';
 
   Future<bool> isSilentMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_silentKey) ?? false;
+    return prefs.getBool(PrefKeys.remindersSilentMode) ?? false;
   }
 
   Future<void> setSilentMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_silentKey, value);
+    await prefs.setBool(PrefKeys.remindersSilentMode, value);
   }
 
   Future<ReminderSettings> getSettings(String groupId) async {
@@ -30,17 +30,22 @@ class ReminderSettingsService extends GetxService {
 
     try {
       final row = await _supabase
-          .from('reminder_settings')
+          .from(SupabaseTables.reminderSettings)
           .select()
-          .eq('user_id', userId)
-          .eq('group_id', groupId)
+          .eq(SupabaseColumns.userId, userId)
+          .eq(SupabaseColumns.groupId, groupId)
           .maybeSingle();
 
       if (row != null) {
         return ReminderSettings.fromJSON(row);
       }
-    } catch (e) {
-      debugPrint('ReminderSettingsService.getSettings remote: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ReminderSettingsService.getSettings remote failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'reminders', 'operation': 'getSettings'},
+      );
     }
 
     return await _loadLocal(groupId) ?? ReminderSettings(groupId: groupId);
@@ -53,34 +58,38 @@ class ReminderSettingsService extends GetxService {
     await _saveLocal(settings);
 
     try {
-      await _supabase.from('reminder_settings').upsert({
-        'user_id': userId,
-        'group_id': settings.groupId,
-        'cadence': settings.cadence.name,
-        'tone': settings.tone.name,
-        'muted_member_ids': settings.mutedMemberIds,
-        'updated_at': DateTime.now().toIso8601String(),
+      await _supabase.from(SupabaseTables.reminderSettings).upsert({
+        SupabaseColumns.userId: userId,
+        SupabaseColumns.groupId: settings.groupId,
+        SupabaseColumns.cadence: settings.cadence.name,
+        SupabaseColumns.tone: settings.tone.name,
+        SupabaseColumns.mutedMemberIds: settings.mutedMemberIds,
+        SupabaseColumns.updatedAt: DateTime.now().toIso8601String(),
       });
-    } catch (e) {
-      debugPrint('ReminderSettingsService.saveSettings remote: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ReminderSettingsService.saveSettings remote failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'reminders', 'operation': 'saveSettings'},
+      );
     }
   }
 
   Future<void> _saveLocal(ReminderSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      '$_localPrefix${settings.groupId}',
+      '${PrefKeys.reminderSettingsPrefix}${settings.groupId}',
       jsonEncode(settings.toJSON()),
     );
   }
 
   Future<ReminderSettings?> _loadLocal(String groupId) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('$_localPrefix$groupId');
+    final raw = prefs.getString('${PrefKeys.reminderSettingsPrefix}$groupId');
     if (raw == null) return null;
     try {
-      return ReminderSettings.fromJSON(
-          jsonDecode(raw) as Map<String, dynamic>);
+      return ReminderSettings.fromJSON(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       return null;
     }
@@ -93,13 +102,13 @@ extension ReminderCadenceDuration on ReminderCadence {
       case ReminderCadence.off:
         return null;
       case ReminderCadence.daily:
-        return const Duration(days: 1);
+        return AppMotion.reminderDaily;
       case ReminderCadence.weekly:
-        return const Duration(days: 7);
+        return AppMotion.reminderWeekly;
       case ReminderCadence.biweekly:
-        return const Duration(days: 14);
+        return AppMotion.reminderBiweekly;
       case ReminderCadence.monthly:
-        return const Duration(days: 30);
+        return AppMotion.reminderMonthly;
     }
   }
 }

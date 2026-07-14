@@ -1,8 +1,8 @@
-# Security Rules — SplitO (Splitter)
+# Security Rules — Splitr
 
 ## Purpose
 
-Credential management and sensitive data handling for SplitO. This project stores API keys in a dedicated Dart file — not environment variables or `--dart-define`.
+Credential management and sensitive data handling for Splitr. This project stores API keys in a dedicated Dart file — not environment variables or `--dart-define`.
 
 ---
 
@@ -17,7 +17,7 @@ lib/git_ignore.dart
 Despite the name, this file is **committed source** (project convention). Import:
 
 ```dart
-import 'package:splitter/git_ignore.dart';
+import 'package:splitr/git_ignore.dart';
 ```
 
 ### Contents
@@ -54,12 +54,12 @@ await Supabase.initialize(
 ### Adding new API keys
 
 1. Add constant to `lib/git_ignore.dart` with comment describing service.
-2. Import from `package:splitter/git_ignore.dart` in the service that needs it.
+2. Import from `package:splitr/git_ignore.dart` in the service that needs it.
 3. **Never** inline keys in screens, controllers, or widgets.
 
 ```dart
 // Good
-import 'package:splitter/git_ignore.dart';
+import 'package:splitr/git_ignore.dart';
 final model = GenerativeModel(apiKey: geminiApiKey, ...);
 
 // Forbidden
@@ -127,7 +127,7 @@ If moving to `--dart-define` or CI secrets later:
 ## AI Instructions
 
 1. All new secrets go in `lib/git_ignore.dart`.
-2. Import via `package:splitter/git_ignore.dart`.
+2. Import via `package:splitr/git_ignore.dart`.
 3. Never hardcode API keys in generated service or screen code.
 4. Do not add `debugPrint` of sessions, tokens, or passwords.
 5. Do not store credentials in SharedPreferences or SQLite.

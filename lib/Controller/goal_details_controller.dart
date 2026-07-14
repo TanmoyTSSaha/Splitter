@@ -1,11 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Model/financial_goal_model.dart';
-import 'package:splitter/Model/goal_transaction_model.dart';
-import 'package:splitter/Services/SupabaseServices/goal_service.dart';
-import 'package:splitter/Services/SupabaseServices/goal_transaction_service.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Model/financial_goal_model.dart';
+import 'package:splitr/Model/goal_transaction_model.dart';
+import 'package:splitr/Services/SupabaseServices/goal_service.dart';
+import 'package:splitr/Services/SupabaseServices/goal_transaction_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class GoalDetailsController extends GetxController {
   final GoalService _goalService = GoalService();
@@ -33,13 +35,19 @@ class GoalDetailsController extends GetxController {
       // Update local goal amount just in case
       double current = 0;
       for (var t in transactions) {
-        if (t.type == 'deposit') current += t.amount ?? 0;
-        if (t.type == 'withdraw') current -= t.amount ?? 0;
+        if (t.type == GoalTransactionTypes.deposit) current += t.amount ?? 0;
+        if (t.type == GoalTransactionTypes.withdraw) current -= t.amount ?? 0;
       }
       goal.currentAmount = current;
       update(); // trigger UI update if using GetBuilder for goal object
-    } catch (e) {
-      debugPrint("Error fetching transactions: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalDetailsController.fetchTransactions failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'fetchTransactions'},
+        showToastOnUserFacing: false,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -59,18 +67,23 @@ class GoalDetailsController extends GetxController {
       await _transactionService.addTransaction(trx);
 
       // Update Goal Current Amount directly in DB
-      double newAmount =
-          (goal.currentAmount ?? 0) + (type == 'deposit' ? amount : -amount);
+      double newAmount = (goal.currentAmount ?? 0) +
+          (type == GoalTransactionTypes.deposit ? amount : -amount);
       await _goalService.updateGoalAmount(goal.id!, newAmount);
 
       dataChanged = true;
       await fetchTransactions();
       Get.back(); // close dialog
-      Get.snackbar("Success", "Transaction added",
-          backgroundColor: neopopAccent, colorText: Colors.black);
-    } catch (e) {
-      Get.snackbar("Error", "Failed to add transaction",
-          backgroundColor: neopopError, colorText: Colors.white);
+      SplitrToast.show(SplitrToast.join(AppStrings.goals.goalSuccess, AppStrings.goals.transactionAdded));
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalDetailsController.addTransaction failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'addTransaction'},
+        showToastOnUserFacing: false,
+      );
+      SplitrToast.show(SplitrToast.join(AppStrings.errors.errorTitle, AppStrings.goals.failedAddTransaction));
     }
   }
 
@@ -79,11 +92,16 @@ class GoalDetailsController extends GetxController {
       await _goalService.deleteGoal(goal.id!);
       dataChanged = true;
       Get.back(result: true);
-      Get.snackbar("Deleted", "Goal deleted successfully",
-          backgroundColor: neopopGrey, colorText: Colors.white);
-    } catch (e) {
-      Get.snackbar("Error", "Failed to delete goal",
-          backgroundColor: neopopError, colorText: Colors.white);
+      SplitrToast.show(SplitrToast.join(AppStrings.goals.goalDeleted, AppStrings.goals.goalDeletedSuccess));
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalDetailsController.deleteGoal failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'deleteGoal'},
+        showToastOnUserFacing: false,
+      );
+      SplitrToast.show(SplitrToast.join(AppStrings.errors.errorTitle, AppStrings.goals.failedDeleteGoal));
     }
   }
 }

@@ -1,46 +1,52 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-
-import 'package:splitter/Model/financial_goal_model.dart';
-import 'package:splitter/Services/insights_briefing_cache.dart';
-import 'package:splitter/git_ignore.dart';
+import 'package:splitr/Constants/ai_config.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/financial_goal_model.dart';
+import 'package:splitr/Services/insights_briefing_cache.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/config/app_secrets.dart';
 
 class AIService {
   late GenerativeModel _model;
 
   AIService() {
-    // Use the variable from git_ignore.dart
     _model = GenerativeModel(
-      model: 'gemini-3-flash-preview',
-      apiKey: geminiApiKey,
+      model: AiConfig.model,
+      apiKey: AppSecrets.geminiApiKey,
     );
   }
 
-  // Generate suggestions based on user profile/history
   Future<List<FinancialGoalModel>> getGoalSuggestions() async {
-    if (geminiApiKey == 'YOUR_GEMINI_API_KEY') {
-      debugPrint("Gemini API Key not set. Skipping suggestions.");
+    if (AppSecrets.geminiApiKey.isEmpty) {
+      debugPrint('Gemini API Key not set. Skipping suggestions.');
       return [];
     }
 
     try {
-      // Future implementation:
-      // Define prompt, call API, parse JSON.
-      // For now, returning empty to avoid mock data as requested.
       return [];
-    } catch (e) {
-      debugPrint("Error fetching goal suggestions: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AIService.getGoalSuggestions failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'ai', 'operation': 'getGoalSuggestions'},
+      );
       return [];
     }
   }
 
-  // Returns a message about feasibility using Gemini
   Future<String> checkFeasibility(
       double targetAmount, DateTime deadline) async {
-    if (geminiApiKey == 'YOUR_GEMINI_API_KEY') {
-      debugPrint("Gemini API Key not set. Skipping feasibility check.");
-      return "";
+    if (AppSecrets.geminiApiKey.isEmpty) {
+      debugPrint('Gemini API Key not set. Skipping feasibility check.');
+      return '';
     }
 
     try {
@@ -48,95 +54,84 @@ class AIService {
       final difference = deadline.difference(now).inDays;
       final months = difference / 30;
 
-      if (months <= 0) return "Deadline must be in the future";
+      if (months <= 0) return AppStrings.services.ai.deadlineFuture;
 
       final monthlySaving = targetAmount / months;
 
-      final prompt = '''
-      Analyze this financial goal:
-      Target: ₹$targetAmount
-      Deadline: ${deadline.toIso8601String().split('T')[0]} (${months.toStringAsFixed(1)} months from now)
-      Required Monthly Saving: ₹${monthlySaving.toStringAsFixed(0)}
-      
-      Give a 1-sentence feedback on feasibility. Be encouraging but realistic. 
-      If it's > ₹50,000/month, call it "Ambitious". 
-      If > ₹1,00,000/month, call it "Extreme".
-      ''';
+      final prompt = AiPrompts.feasibility(
+        currencySymbol: userCurrencySymbol(),
+        targetAmount: targetAmount,
+        deadlineIso: deadline
+            .toIso8601String()
+            .split(AppStrings.services.ai.isoDateSplit)[0],
+        months: months.toStringAsFixed(1),
+        monthlySaving: monthlySaving.toStringAsFixed(0),
+      );
 
       final content = [Content.text(prompt)];
       final response = await _model.generateContent(content);
-      return response.text ?? "";
-    } catch (e) {
-      debugPrint("Error checking feasibility: $e");
-      return "";
+      return response.text ?? '';
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AIService.checkFeasibility failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'ai', 'operation': 'checkFeasibility'},
+      );
+      return '';
     }
   }
 
   Future<Map<String, dynamic>> getEstimatedAmount(
       String title, String description, String category) async {
-    if (geminiApiKey == 'YOUR_GEMINI_API_KEY') {
+    if (AppSecrets.geminiApiKey.isEmpty) {
       return {
-        "estimated_amount": 0.0,
-        "currency": "INR",
-        "reasoning": "AI key not configured. Please enter amount manually."
+        AiResponseKeys.estimatedAmount: 0.0,
+        AiResponseKeys.currency: CurrencyDefaults.code,
+        AiResponseKeys.reasoning: AppStrings.services.ai.keyNotConfigured,
       };
     }
 
     try {
-      final prompt = '''
-      User wants to save for "$title" (Category: $category).
-      Description: "$description".
-      Estimate the cost in INR (Indian Rupees).
-      Return strictly a JSON object with no markdown formatting.
-      Format:
-      {
-        "estimated_amount": 150000,
-        "currency": "INR",
-        "reasoning": "Based on average costs for..."
-      }
-      ''';
+      final prompt = AiPrompts.estimateAmount(
+        title: title,
+        description: description,
+        category: category,
+      );
 
       final content = [Content.text(prompt)];
       final response = await _model.generateContent(content);
       final text = response.text
-              ?.replaceAll('```json', '')
-              .replaceAll('```', '')
+              ?.replaceAll(AiResponseCleanup.jsonFenceOpen, '')
+              .replaceAll(AiResponseCleanup.fenceClose, '')
               .trim() ??
-          "{}";
+          AiResponseCleanup.emptyJsonBraces;
       return jsonDecode(text);
-    } catch (e) {
-      debugPrint("AI ESTIMATE ERROR: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AIService.getEstimatedAmount failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'ai', 'operation': 'getEstimatedAmount'},
+      );
       return {
-        "estimated_amount": 0.0,
-        "currency": "INR",
-        "reasoning": "Could not estimate cost. Please enter manually."
+        AiResponseKeys.estimatedAmount: 0.0,
+        AiResponseKeys.currency: CurrencyDefaults.code,
+        AiResponseKeys.reasoning: AppStrings.services.ai.couldNotEstimate,
       };
     }
   }
 
-  String getIconForGoal(String title) {
-    final lower = title.toLowerCase();
-    if (lower.contains("trip") ||
-        lower.contains("travel") ||
-        lower.contains("vacation")) {
-      return "✈️";
-    }
-    if (lower.contains("car") || lower.contains("bike")) return "🚗";
-    if (lower.contains("home") || lower.contains("house")) return "🏠";
-    if (lower.contains("gift") || lower.contains("birthday")) return "🎁";
-    if (lower.contains("phone") || lower.contains("laptop")) return "📱";
-    if (lower.contains("emergency")) return "sos";
-    return "🎯";
-  }
+  String getIconForGoal(String title) => GoalIconHeuristics.iconForTitle(title);
 
-  /// Generates or returns cached AI insights briefing for the Expense Insights screen.
   Future<Map<String, dynamic>> generateInsightsBriefing({
     required Map<String, dynamic> context,
     required String fallbackDigest,
     bool forceRefresh = false,
   }) async {
     final monthSpend =
-        (context['this_month_total'] as num?)?.toDouble() ?? 0.0;
+        (context[InsightsContextKeys.thisMonthTotal] as num?)?.toDouble() ??
+            0.0;
 
     if (!forceRefresh) {
       final fresh = await InsightsBriefingCache.isFresh(
@@ -148,50 +143,35 @@ class AIService {
       }
     }
 
-    if (geminiApiKey == 'YOUR_GEMINI_API_KEY') {
+    if (AppSecrets.geminiApiKey.isEmpty) {
       return _fallbackBriefing(context, fallbackDigest);
     }
 
     try {
-      final prompt = '''
-You are a personal finance copilot for a bill-splitting app called Splitter.
-Analyze this structured spending summary and return actionable insights.
-Be concise, encouraging, and specific. Use the currency symbol from context.
-
-Context JSON:
-${jsonEncode(context)}
-
-Return strictly a JSON object with no markdown:
-{
-  "headline": "short punchy headline under 60 chars",
-  "narrative": "3-4 sentences weaving spending, groups, and goals",
-  "actions": [
-    {
-      "title": "action label",
-      "reason": "why this matters",
-      "action_type": "settle_up|review_category|view_goal|view_expense"
-    }
-  ]
-}
-Provide 2-3 actions max. action_type must be one of the listed values.
-''';
+      final prompt = AiPrompts.insightsBriefing.replaceFirst(
+        AiPromptPlaceholders.context,
+        jsonEncode(context),
+      );
 
       final content = [Content.text(prompt)];
       final response = await _model.generateContent(content);
       final text = response.text
-              ?.replaceAll('```json', '')
-              .replaceAll('```', '')
+              ?.replaceAll(AiResponseCleanup.jsonFenceOpen, '')
+              .replaceAll(AiResponseCleanup.fenceClose, '')
               .trim() ??
-          '{}';
+          AiResponseCleanup.emptyJson;
       final parsed = jsonDecode(text) as Map<String, dynamic>;
       final briefing = {
-        'headline': parsed['headline'] ?? 'Your monthly briefing',
-        'narrative': parsed['narrative'] ?? fallbackDigest,
-        'actions': (parsed['actions'] as List<dynamic>?)
-                ?.map((a) => Map<String, dynamic>.from(a as Map))
-                .toList() ??
-            <Map<String, dynamic>>[],
-        'is_ai': true,
+        AiResponseKeys.headline: parsed[AiResponseKeys.headline] ??
+            AppStrings.services.ai.monthlyBriefing,
+        AiResponseKeys.narrative:
+            parsed[AiResponseKeys.narrative] ?? fallbackDigest,
+        AiResponseKeys.actions:
+            (parsed[AiResponseKeys.actions] as List<dynamic>?)
+                    ?.map((a) => Map<String, dynamic>.from(a as Map))
+                    .toList() ??
+                <Map<String, dynamic>>[],
+        AiResponseKeys.isAi: true,
       };
 
       await InsightsBriefingCache.write(
@@ -199,8 +179,13 @@ Provide 2-3 actions max. action_type must be one of the listed values.
         monthSpendSnapshot: monthSpend,
       );
       return briefing;
-    } catch (e) {
-      debugPrint('generateInsightsBriefing: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AIService.generateInsightsBriefing failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'ai', 'operation': 'generateInsightsBriefing'},
+      );
       return _fallbackBriefing(context, fallbackDigest);
     }
   }
@@ -210,34 +195,38 @@ Provide 2-3 actions max. action_type must be one of the listed values.
     String fallbackDigest,
   ) {
     final actions = <Map<String, dynamic>>[];
-    final openExposure = (context['open_exposure'] as num?)?.toDouble() ?? 0;
-    if (openExposure >= 500) {
+    final openExposure =
+        (context[InsightsContextKeys.openExposure] as num?)?.toDouble() ?? 0;
+    if (openExposure >= AiThresholds.openExposureSettleUpInr) {
       actions.add({
-        'title': 'Settle group balances',
-        'reason':
-            '${context['currency'] ?? '₹'}${openExposure.toStringAsFixed(0)} still open',
-        'action_type': 'settle_up',
+        BriefingActionKeys.title: AppStrings.services.ai.settleGroupBalances,
+        BriefingActionKeys.reason:
+            '${context[InsightsContextKeys.currency] ?? userCurrencySymbol()}${openExposure.toStringAsFixed(0)}${AppStrings.services.ai.stillOpen}',
+        BriefingActionKeys.actionType: InsightActionTypes.settleUp,
       });
     }
-    final topCat = context['top_category'] as String?;
-    if (topCat != null && topCat != '-') {
+    final topCat = context[InsightsContextKeys.topCategory] as String?;
+    if (topCat != null && topCat != CategoryDefaults.dash) {
       actions.add({
-        'title': 'Review $topCat spending',
-        'reason': 'Your top category this month',
-        'action_type': 'review_category',
-        'category': topCat,
+        BriefingActionKeys.title:
+            '${AppStrings.services.ai.reviewSpendingPrefix}$topCat${AppStrings.services.ai.reviewSpendingSuffix}',
+        BriefingActionKeys.reason: AppStrings.services.ai.topCategoryReason,
+        BriefingActionKeys.actionType: InsightActionTypes.reviewCategory,
+        BriefingActionKeys.category: topCat,
       });
     }
 
     return {
-      'headline': 'Your ${_monthFromContext(context)} snapshot',
-      'narrative': fallbackDigest,
-      'actions': actions,
-      'is_ai': false,
+      AiResponseKeys.headline:
+          '${AppStrings.services.ai.monthlySnapshotPrefix}${_monthFromContext(context)}${AppStrings.services.ai.monthlySnapshotSuffix}',
+      AiResponseKeys.narrative: fallbackDigest,
+      AiResponseKeys.actions: actions,
+      AiResponseKeys.isAi: false,
     };
   }
 
   String _monthFromContext(Map<String, dynamic> context) {
-    return context['month']?.toString() ?? 'monthly';
+    return context[InsightsContextKeys.month]?.toString() ??
+        AppStrings.services.ai.monthlyFallback;
   }
 }

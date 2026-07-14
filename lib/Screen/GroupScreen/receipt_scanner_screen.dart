@@ -1,16 +1,24 @@
 import 'dart:io';
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Model/receipt_model.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Services/receipt_parser_service.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Model/receipt_model.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Services/receipt_parser_service.dart';
 
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 import '../../Constants/shared.dart';
+import '../../Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 /// Camera → OCR → Itemized bill → Per-person assignment → Auto-split.
 class ReceiptScannerScreen extends StatefulWidget {
@@ -74,12 +82,12 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
           _assignments[i] = {};
         }
       });
-    } catch (e) {
+    } catch (e, stack) {
       setState(() => _isProcessing = false);
-      Fluttertoast.showToast(
-        msg: "Failed to process receipt: $e",
-        backgroundColor: neopopYellow,
-        textColor: neopopBackground,
+      AppErrorReporter.reportActionFailure(
+        AppStrings.errors.failedProcessReceiptPrefix,
+        error: e,
+        stack: stack,
       );
     }
   }
@@ -138,54 +146,40 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   void _createTransaction() {
     final shares = _calculateMemberShares();
     if (shares.isEmpty) {
-      Fluttertoast.showToast(
-        msg: "Assign at least one item to a member",
-        backgroundColor: neopopYellow,
-        textColor: neopopBackground,
-      );
+      SplitrToast.show(AppStrings.validation.assignItemToMember);
       return;
     }
 
     final total = shares.values.fold(0.0, (sum, v) => sum + v);
     widget.onTransactionCreated(
-      "Food & Dining",
+      CategoryDefaults.foodAndDining,
       total,
-      _receiptData?.merchantName ?? "Receipt expense",
+      _receiptData?.merchantName ?? CategoryDefaults.receiptExpense,
       shares,
     );
 
     Navigator.of(context).pop();
-    Fluttertoast.showToast(
-      msg: "Transaction created from receipt! 🧾",
-      backgroundColor: neopopAccent,
-      textColor: neopopBackground,
-    );
+    SplitrToast.show(AppStrings.groups.receiptExpenseCreated);
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        scrolledUnderElevation: 0,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: groupOnSurface),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.groups.scanReceipt,
+        centerTitle: true,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          "Scan Receipt",
-          style: sub_headline4_text.copyWith(color: groupOnSurface),
-        ),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: groupOnSurface),
         actions: [
           if (_receiptData != null)
             TextButton(
               onPressed: _createTransaction,
               child: Text(
-                "Done",
+                AppStrings.actions.done,
                 style: button_text.copyWith(color: neopopAccent),
               ),
             ),
@@ -206,27 +200,27 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
         children: [
           Icon(
             Icons.receipt_long_rounded,
-            size: 80,
-            color: neopopAccent.withOpacity(0.5),
+            size: AppDimensions.receiptPickerIconLg,
+            color: neopopAccentIconMuted,
           ),
-          SizedBox(height: height_16),
+          SizedBox(height: groupGutter),
           Text(
-            "Scan a receipt to auto-split",
+            AppStrings.groups.scanReceiptSubtitle,
             style: body1_text.copyWith(color: neopopGrey),
           ),
-          SizedBox(height: height_16 * 2),
+          const SizedBox(height: groupGapXl),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildPickerButton(
                 icon: Icons.camera_alt_rounded,
-                label: "Camera",
+                label: AppStrings.groups.camera,
                 onTap: () => _pickImage(ImageSource.camera),
               ),
-              SizedBox(width: width_16 * 2),
+              const SizedBox(width: groupGapXl),
               _buildPickerButton(
                 icon: Icons.photo_library_rounded,
-                label: "Gallery",
+                label: AppStrings.groups.gallery,
                 onTap: () => _pickImage(ImageSource.gallery),
               ),
             ],
@@ -244,12 +238,13 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     return GestureDetector(
       onTap: onTap,
       child: GlassCard(
-        padding: EdgeInsets.symmetric(
-            horizontal: width_16 * 2, vertical: height_16 * 1.5),
+        padding:
+            EdgeInsets.symmetric(horizontal: groupGapXl, vertical: groupGapLg),
         child: Column(
           children: [
-            Icon(icon, color: neopopAccent, size: 40),
-            SizedBox(height: height_10),
+            Icon(icon,
+                color: neopopAccent, size: AppDimensions.receiptPickerIconMd),
+            SizedBox(height: groupGap10),
             Text(label, style: caption_text),
           ],
         ),
@@ -263,15 +258,15 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const LoadingWidget(),
-          SizedBox(height: height_16),
+          SizedBox(height: groupGutter),
           Text(
-            "Scanning receipt...",
+            AppStrings.groups.scanningReceipt,
             style: body1_text.copyWith(color: neopopGrey),
           ),
-          SizedBox(height: height_10),
+          SizedBox(height: groupGap10),
           Text(
-            "All processing is on-device 🔒",
-            style: caption_text.copyWith(color: neopopGrey.withOpacity(0.6)),
+            AppStrings.groups.onDeviceProcessing,
+            style: caption_text.copyWith(color: neopopGreyIconDim),
           ),
         ],
       ),
@@ -283,7 +278,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.all(width_16),
+      padding: EdgeInsets.all(groupGutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -299,20 +294,24 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                   ),
                 if (receipt.date != null)
                   Padding(
-                    padding: EdgeInsets.only(top: height_10 / 2),
+                    padding: const EdgeInsets.only(top: groupGapSm),
                     child: Text(
                       "${receipt.date!.day}/${receipt.date!.month}/${receipt.date!.year}",
                       style: caption_text.copyWith(color: neopopGrey),
                     ),
                   ),
-                SizedBox(height: height_10),
+                SizedBox(height: groupGap10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("${receipt.lineItems.length} items found",
+                    Text(AppStringFormat.itemsFound(receipt.lineItems.length),
                         style: body2_text),
                     Text(
-                      "Total: ₹${receipt.total?.toStringAsFixed(2) ?? '0.00'}",
+                      AppStringFormat.totalWithSymbol(
+                        userCurrencySymbol(),
+                        receipt.total?.toStringAsFixed(2) ??
+                            AppAmountHints.decimal,
+                      ),
                       style: body1_text.copyWith(
                         fontWeight: FontWeight.w700,
                         color: neopopAccent,
@@ -324,14 +323,14 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
             ),
           ),
 
-          SizedBox(height: height_16),
+          SizedBox(height: groupGutter),
 
           // Instructions
           Text(
-            "Tap members to assign items",
+            AppStrings.groups.tapMembersToAssign,
             style: caption_text.copyWith(color: neopopGrey),
           ),
-          SizedBox(height: height_10),
+          SizedBox(height: groupGap10),
 
           // Line items with member assignment
           ...List.generate(receipt.lineItems.length, (index) {
@@ -339,10 +338,10 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
             final assigned = _assignments[index] ?? {};
 
             return Padding(
-              padding: EdgeInsets.only(bottom: height_10),
+              padding: EdgeInsets.only(bottom: groupGap10),
               child: GlassCard(
-                opacity: 0.05,
-                padding: EdgeInsets.all(height_10 * 1.2),
+                opacity: AppDimensions.glassCardOpacitySubtle,
+                padding: EdgeInsets.all(groupCarouselGap),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -359,44 +358,45 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                           ),
                         ),
                         Text(
-                          "₹${item.totalPrice.toStringAsFixed(2)}",
+                          "${userCurrencySymbol()}${item.totalPrice.toStringAsFixed(2)}",
                           style: body1_text.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: neopopYellow,
+                            color: ThemeAccentColors.amount(context),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: height_10),
+                    SizedBox(height: groupGap10),
                     // Member chips
                     Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                      spacing: groupGapXs,
+                      runSpacing: groupGapXs,
                       children: [
-                        // "All" chip
+                        // AppStrings.trips.all chip
                         GestureDetector(
                           onTap: () => _assignAllToItem(index),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
+                                horizontal: groupGap10, vertical: groupGap5),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(groupControlRadius),
                               color: assigned.length == widget.members.length
-                                  ? neopopAccent.withOpacity(0.3)
-                                  : neopopGrey.withOpacity(0.15),
+                                  ? neopopAccentBorderSoft
+                                  : neopopGreyFillMedium,
                               border: Border.all(
                                 color: assigned.length == widget.members.length
                                     ? neopopAccent
-                                    : Colors.transparent,
+                                    : groupTransparent,
                               ),
                             ),
                             child: Text(
-                              "All",
+                              AppStrings.trips.all,
                               style: caption_text.copyWith(
                                 color: assigned.length == widget.members.length
                                     ? neopopAccent
                                     : neopopGrey,
-                                fontSize: 11,
+                                fontSize: splitrFontCaptionSm,
                               ),
                             ),
                           ),
@@ -409,23 +409,25 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                                 _toggleMemberAssignment(index, member.userID!),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                                  horizontal: groupGap10, vertical: groupGap5),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius:
+                                    BorderRadius.circular(groupControlRadius),
                                 color: isAssigned
-                                    ? neopopAccent.withOpacity(0.3)
-                                    : neopopGrey.withOpacity(0.15),
+                                    ? neopopAccentBorderSoft
+                                    : neopopGreyFillMedium,
                                 border: Border.all(
                                   color: isAssigned
                                       ? neopopAccent
-                                      : Colors.transparent,
+                                      : groupTransparent,
                                 ),
                               ),
                               child: Text(
-                                member.userName ?? "?",
+                                member.userName ??
+                                    DisplayFallbacks.questionMark,
                                 style: caption_text.copyWith(
                                   color: isAssigned ? neopopAccent : neopopGrey,
-                                  fontSize: 11,
+                                  fontSize: splitrFontCaptionSm,
                                 ),
                               ),
                             ),
@@ -442,38 +444,39 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
           // Tax and tip info
           if (receipt.tax != null || receipt.tip != null)
             Padding(
-              padding: EdgeInsets.only(top: height_10),
+              padding: EdgeInsets.only(top: groupGap10),
               child: GlassCard(
-                opacity: 0.04,
+                opacity: AppDimensions.glassCardOpacityWhisper,
                 child: Column(
                   children: [
                     if (receipt.tax != null)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Tax/GST",
+                          Text(AppStrings.groups.taxGst,
                               style: body2_text.copyWith(color: neopopGrey)),
-                          Text("₹${receipt.tax!.toStringAsFixed(2)}",
+                          Text(
+                              "${userCurrencySymbol()}${receipt.tax!.toStringAsFixed(2)}",
                               style: body2_text),
                         ],
                       ),
                     if (receipt.tip != null) ...[
-                      SizedBox(height: height_10 / 2),
+                      const SizedBox(height: groupGapSm),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Tip/Service",
+                          Text(AppStrings.groups.tipService,
                               style: body2_text.copyWith(color: neopopGrey)),
-                          Text("₹${receipt.tip!.toStringAsFixed(2)}",
+                          Text(
+                              "${userCurrencySymbol()}${receipt.tip!.toStringAsFixed(2)}",
                               style: body2_text),
                         ],
                       ),
                     ],
-                    SizedBox(height: height_10 / 2),
+                    const SizedBox(height: groupGapSm),
                     Text(
-                      "Tax & tip will be split proportionally",
-                      style: caption_text.copyWith(
-                          color: neopopGrey.withOpacity(0.6)),
+                      AppStrings.groups.taxTipSplitProportionally,
+                      style: caption_text.copyWith(color: neopopGreyIconDim),
                     ),
                   ],
                 ),
@@ -482,14 +485,14 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
 
           // Per-member breakdown
           if (_assignments.values.any((s) => s.isNotEmpty)) ...[
-            SizedBox(height: height_16),
-            Text("Per-person breakdown",
-                style: sub_headline4_text.copyWith(fontSize: 16)),
-            SizedBox(height: height_10),
+            SizedBox(height: groupGutter),
+            Text(AppStrings.groups.perPersonBreakdown,
+                style: sub_headline4_text.copyWith(fontSize: splitrFontBodyLg)),
+            SizedBox(height: groupGap10),
             ..._buildMemberBreakdown(),
           ],
 
-          SizedBox(height: height_16 * 4),
+          SizedBox(height: AppDimensions.swipeSettleTrackHeight),
         ],
       ),
     );
@@ -502,32 +505,34 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
         .map((member) {
       final amount = shares[member.userID] ?? 0;
       return Padding(
-        padding: EdgeInsets.only(bottom: height_10 / 2),
+        padding: const EdgeInsets.only(bottom: groupGapSm),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: AppDimensions.receiptAvatarSize,
+                  height: AppDimensions.receiptAvatarSize,
                   decoration: BoxDecoration(
-                    color: neopopAccent.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(14),
+                    color: neopopAccentFillStrong,
+                    borderRadius: BorderRadius.circular(groupRadiusLgSm),
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    (member.userName ?? "?")[0].toUpperCase(),
+                    (member.userName ?? DisplayFallbacks.questionMark)[0]
+                        .toUpperCase(),
                     style: caption_text.copyWith(
                         color: neopopAccent, fontWeight: FontWeight.w700),
                   ),
                 ),
-                SizedBox(width: width_10),
-                Text(member.userName ?? "?", style: body2_text),
+                SizedBox(width: groupGap10),
+                Text(member.userName ?? DisplayFallbacks.questionMark,
+                    style: body2_text),
               ],
             ),
             Text(
-              "₹${amount.toStringAsFixed(2)}",
+              "${userCurrencySymbol()}${amount.toStringAsFixed(2)}",
               style: body1_text.copyWith(
                 fontWeight: FontWeight.w600,
                 color: neopopAccent,

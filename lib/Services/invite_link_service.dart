@@ -1,5 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -8,18 +11,20 @@ class InviteLinkService {
   final SupabaseClient _supabase = Supabase.instance.client;
   static const _uuid = Uuid();
 
-  static const String webBaseUrl = 'https://splito.app';
-  static const String appScheme = 'splito';
+  static String get webBaseUrl => AppBranding.webBaseUrl;
+  static String get appScheme => AppBranding.appScheme;
 
   String buildFriendInviteUri(String inviterUserId) =>
-      '$appScheme://invite/friend/$inviterUserId';
+      '$appScheme://${DeepLinkPaths.invite}/${InviteTypes.friend}/$inviterUserId';
 
   String buildFriendInviteWebUrl(String inviterUserId) =>
-      '$webBaseUrl/invite/friend/$inviterUserId';
+      '$webBaseUrl/${DeepLinkPaths.invite}/${InviteTypes.friend}/$inviterUserId';
 
-  String buildGroupJoinUri(String token) => '$appScheme://join/$token';
+  String buildGroupJoinUri(String token) =>
+      '$appScheme://${DeepLinkPaths.join}/$token';
 
-  String buildGroupJoinWebUrl(String token) => '$webBaseUrl/join/$token';
+  String buildGroupJoinWebUrl(String token) =>
+      '$webBaseUrl/${DeepLinkPaths.join}/$token';
 
   /// Share a friend invite link via the system share sheet.
   Future<void> shareFriendInvite({
@@ -28,8 +33,8 @@ class InviteLinkService {
   }) async {
     final link = buildFriendInviteWebUrl(inviterUserId);
     await Share.share(
-      '$inviterName invited you to SplitO! Add them as a friend: $link',
-      subject: 'Join me on SplitO',
+      '$inviterName${GroupInviteCopy.invitedYouTo}${AppBranding.brandName}${GroupInviteCopy.addThemAsFriend}$link',
+      subject: '${GroupInviteCopy.joinMeOn}${AppBranding.brandName}',
     );
   }
 
@@ -41,18 +46,18 @@ class InviteLinkService {
     final token = _uuid.v4();
     final userId = _supabase.auth.currentUser!.id;
 
-    await _supabase.from('shareable_invites').insert({
-      'token': token,
-      'invite_type': 'group',
-      'creator_id': userId,
-      'group_id': groupId,
-      'status': 'active',
+    await _supabase.from(SupabaseTables.shareableInvites).insert({
+      SupabaseColumns.token: token,
+      SupabaseColumns.inviteType: InviteTypes.group,
+      SupabaseColumns.creatorId: userId,
+      SupabaseColumns.groupId: groupId,
+      SupabaseColumns.status: InviteStatusValues.active,
     });
 
     final url = buildGroupJoinWebUrl(token);
     await Share.share(
-      'Join "$groupName" on SplitO: $url',
-      subject: 'Group invite — $groupName',
+      '${GroupInviteCopy.joinGroupOn}$groupName${GroupInviteCopy.onBrandSuffix}${AppBranding.brandName}: $url',
+      subject: '${GroupInviteCopy.groupInviteSubject}$groupName',
     );
     return url;
   }
@@ -60,107 +65,120 @@ class InviteLinkService {
   /// Send a friend request to the user encoded in a friend invite link.
   Future<void> acceptFriendInvite(String inviterUserId) async {
     final currentUserId = _supabase.auth.currentUser?.id;
-    if (currentUserId == null) throw 'Not signed in';
-    if (currentUserId == inviterUserId) throw 'Cannot add yourself';
+    if (currentUserId == null) throw ServiceErrors.notSignedIn;
+    if (currentUserId == inviterUserId) throw ServiceErrors.cannotAddYourself;
 
-    final existing = await _supabase
-        .from('friends')
-        .select()
-        .or('and(user_id.eq.$currentUserId,friend_id.eq.$inviterUserId),'
-            'and(user_id.eq.$inviterUserId,friend_id.eq.$currentUserId)');
+    final existing = await _supabase.from(SupabaseTables.friends).select().or(
+        'and(${SupabaseColumns.userId}.eq.$currentUserId,${SupabaseColumns.friendId}.eq.$inviterUserId),'
+        'and(${SupabaseColumns.userId}.eq.$inviterUserId,${SupabaseColumns.friendId}.eq.$currentUserId)');
 
     if (existing.isNotEmpty) {
       final row = existing.first;
-      if (row['status'] == 'pending' && row['friend_id'] == currentUserId) {
-        await _supabase
-            .from('friends')
-            .update({'status': 'accepted'}).eq('id', row['id']);
+      if (row[SupabaseColumns.status] == FriendStatusValues.pending &&
+          row[SupabaseColumns.friendId] == currentUserId) {
+        await _supabase.from(SupabaseTables.friends).update({
+          SupabaseColumns.status: FriendStatusValues.accepted,
+        }).eq(SupabaseColumns.id, row[SupabaseColumns.id]);
         return;
       }
-      if (row['status'] == 'accepted') return;
+      if (row[SupabaseColumns.status] == FriendStatusValues.accepted) return;
     }
 
-    await _supabase.from('friends').insert({
-      'user_id': currentUserId,
-      'friend_id': inviterUserId,
-      'status': 'pending',
+    await _supabase.from(SupabaseTables.friends).insert({
+      SupabaseColumns.userId: currentUserId,
+      SupabaseColumns.friendId: inviterUserId,
+      SupabaseColumns.status: FriendStatusValues.pending,
     });
   }
 
   /// Join a group using a shareable invite token.
   Future<String> acceptGroupInvite(String token) async {
     final currentUserId = _supabase.auth.currentUser?.id;
-    if (currentUserId == null) throw 'Not signed in';
+    if (currentUserId == null) throw ServiceErrors.notSignedIn;
 
     final rows = await _supabase
-        .from('shareable_invites')
+        .from(SupabaseTables.shareableInvites)
         .select()
-        .eq('token', token)
-        .eq('status', 'active')
+        .eq(SupabaseColumns.token, token)
+        .eq(SupabaseColumns.status, InviteStatusValues.active)
         .limit(1);
 
-    if (rows.isEmpty) throw 'Invite link is invalid or expired';
+    if (rows.isEmpty) throw ServiceErrors.inviteInvalidOrExpired;
 
     final invite = rows.first;
-    final groupId = invite['group_id'] as String?;
+    final groupId = invite[SupabaseColumns.groupId] as String?;
 
-    if (groupId == null) throw 'Invalid group invite';
+    if (groupId == null) throw ServiceErrors.invalidGroupInvite;
 
     final memberCheck = await _supabase
-        .from('group_members')
+        .from(SupabaseTables.groupMembers)
         .select()
-        .eq('group_id', groupId)
-        .eq('user_id', currentUserId);
+        .eq(SupabaseColumns.groupId, groupId)
+        .eq(SupabaseColumns.userId, currentUserId);
 
     if (memberCheck.isEmpty) {
-      await _supabase.rpc('join_group_as_member', params: {
-        'p_group_id': groupId,
+      await _supabase.rpc(SupabaseRpc.joinGroupAsMember, params: {
+        SupabaseColumns.pGroupId: groupId,
       });
     }
 
-    await _supabase
-        .from('shareable_invites')
-        .update({'status': 'used'}).eq('token', token);
+    await _supabase.from(SupabaseTables.shareableInvites).update({
+      SupabaseColumns.status: InviteStatusValues.used,
+    }).eq(SupabaseColumns.token, token);
 
     return groupId;
   }
 
-  /// Parse invite payloads from deep link URIs.
+  static bool _isKnownWebHost(String host) {
+    return host == AppBranding.legacyWebHost ||
+        host.endsWith('.${AppBranding.legacyWebHost}') ||
+        host == Uri.parse(AppBranding.webBaseUrl).host ||
+        host.endsWith('.${Uri.parse(AppBranding.webBaseUrl).host}');
+  }
+
+  static bool _isKnownAppScheme(String scheme) {
+    return scheme == AppBranding.appScheme ||
+        scheme == AppBranding.legacyAppScheme;
+  }
+
+  /// Parse invite payloads from deep link URIs (supports splitr and legacy splito).
   static InviteLinkPayload? parseUri(Uri uri) {
     try {
-      final isAppScheme = uri.scheme == appScheme;
-      final isWebHost =
-          uri.host == 'splito.app' || uri.host.endsWith('.splito.app');
+      final isAppScheme = _isKnownAppScheme(uri.scheme);
+      final isWebHost = _isKnownWebHost(uri.host);
 
       if (!isAppScheme && !isWebHost) return null;
 
-      List<String> segments = List.from(uri.pathSegments);
+      final segments = List<String>.from(uri.pathSegments);
 
-      // splito://invite/friend/{id} → host=invite, path=/friend/{id}
-      if (isAppScheme && uri.host == 'invite') {
-        if (segments.length >= 2 && segments[0] == 'friend') {
+      if (isAppScheme && uri.host == DeepLinkPaths.invite) {
+        if (segments.length >= 2 && segments[0] == InviteTypes.friend) {
           return InviteLinkPayload.friend(segments[1]);
         }
       }
 
-      // splito://join/{token} → host=join, path=/{token}
-      if (isAppScheme && uri.host == 'join' && segments.isNotEmpty) {
+      if (isAppScheme &&
+          uri.host == DeepLinkPaths.join &&
+          segments.isNotEmpty) {
         return InviteLinkPayload.group(segments.first);
       }
 
-      // https://splito.app/invite/friend/{id}
       if (segments.length >= 3 &&
-          segments[0] == 'invite' &&
-          segments[1] == 'friend') {
+          segments[0] == DeepLinkPaths.invite &&
+          segments[1] == InviteTypes.friend) {
         return InviteLinkPayload.friend(segments[2]);
       }
 
-      // https://splito.app/join/{token}
-      if (segments.length >= 2 && segments[0] == 'join') {
+      if (segments.length >= 2 && segments[0] == DeepLinkPaths.join) {
         return InviteLinkPayload.group(segments[1]);
       }
-    } catch (e) {
-      debugPrint('InviteLinkService.parseUri: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'InviteLinkService.parseUri failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'invites', 'operation': 'parseUri'},
+      );
     }
     return null;
   }

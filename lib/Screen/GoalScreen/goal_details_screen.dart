@@ -1,25 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controller/goal_details_controller.dart';
-import 'package:splitter/Model/financial_goal_model.dart';
-import 'package:splitter/Widgets/dark_surface_theme.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controller/goal_details_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
 
-class GoalDetailsScreen extends StatelessWidget {
+class GoalDetailsScreen extends StatefulWidget {
   const GoalDetailsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<GoalDetailsScreen> createState() => _GoalDetailsScreenState();
+}
+
+class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
+  late final GoalDetailsController controller;
+
+  @override
+  void initState() {
+    super.initState();
     if (Get.isRegistered<GoalDetailsController>()) {
       Get.delete<GoalDetailsController>(force: true);
     }
-    final controller = Get.put(GoalDetailsController());
-    // ignore: unused_local_variable
-    final FinancialGoalModel goalArgument = Get.arguments;
+    controller = Get.put(GoalDetailsController());
+  }
 
-    return DarkSurfaceTheme(
-      child: PopScope(
+  @override
+  void dispose() {
+    if (Get.isRegistered<GoalDetailsController>()) {
+      Get.delete<GoalDetailsController>(force: true);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+
+    return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
@@ -27,280 +51,316 @@ class GoalDetailsScreen extends StatelessWidget {
         }
       },
       child: Scaffold(
-      backgroundColor: neopopBackground,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(result: controller.dataChanged),
+        backgroundColor: surface,
+        appBar: SplitrDetailAppBar(
+          titleWidget: const SizedBox.shrink(),
+          automaticallyImplyLeading: false,
+          leading: SplitrDetailAppBar.iosBackLeading(
+            context,
+            onPressed: () => Get.back(result: controller.dataChanged),
+          ),
+          actions: [
+            IconButton(
+              onPressed: () => _showDeleteConfirmation(controller),
+              icon: const Icon(Icons.delete_outline, color: neopopError),
+            )
+          ],
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () => _showDeleteConfirmation(controller),
-            icon: const Icon(Icons.delete_outline, color: neopopError),
-          )
-        ],
-      ),
-      body: GetBuilder<GoalDetailsController>(builder: (ctrl) {
-        double progress =
-            (ctrl.goal.currentAmount ?? 0) / (ctrl.goal.targetAmount ?? 1);
-        Color goalColor = ctrl.goal.colorHex != null
-            ? Color(int.parse(ctrl.goal.colorHex!))
-            : neopopAccent;
+        body: GetBuilder<GoalDetailsController>(builder: (ctrl) {
+          final progress =
+              (ctrl.goal.currentAmount ?? 0) / (ctrl.goal.targetAmount ?? 1);
+          final goalColor = ctrl.goal.colorHex != null
+              ? Color(int.parse(ctrl.goal.colorHex!))
+              : neopopAccent;
 
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: width_16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 1. Hero Progress Circle
-              SizedBox(height: height_16),
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    height: 200,
-                    width: 200,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 12,
-                      backgroundColor: Colors.white10,
-                      valueColor: AlwaysStoppedAnimation<Color>(goalColor),
-                    ),
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        ctrl.goal.icon ?? "🎯",
-                        style: const TextStyle(fontSize: 48),
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: width_16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: height_16),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      height: AppDimensions.groupGoalRingSize,
+                      width: AppDimensions.groupGoalRingSize,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: AppDimensions.groupProgressStroke,
+                        backgroundColor: groupMutedFillMedium,
+                        valueColor: AlwaysStoppedAnimation<Color>(goalColor),
                       ),
-                      SizedBox(height: 8),
-                      Text("${(progress * 100).toInt()}%",
-                          style: headline2_text.copyWith(
-                              color: Colors.white, fontWeight: FontWeight.bold))
-                    ],
-                  )
-                ],
-              ),
-              SizedBox(height: height_16 * 2),
-
-              Text(ctrl.goal.title ?? "Goal",
-                  style: headline2_text.copyWith(color: Colors.white)),
-              SizedBox(height: 8),
-              Text(
-                "₹${ctrl.goal.currentAmount?.toStringAsFixed(0)} / ₹${ctrl.goal.targetAmount?.toStringAsFixed(0)}",
-                style: body1_text.copyWith(color: Colors.white54),
-              ),
-
-              if (ctrl.goal.description != null &&
-                  ctrl.goal.description!.isNotEmpty)
-                Padding(
-                  padding: EdgeInsets.only(bottom: height_16),
-                  child: Text(
-                    ctrl.goal.description!,
-                    textAlign: TextAlign.center,
-                    style: body1_text.copyWith(
-                        color: Colors.white70, fontStyle: FontStyle.italic),
-                  ),
-                ),
-
-              if (ctrl.goal.goalType != null && ctrl.goal.goalType!.isNotEmpty)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white24)),
-                  child: Text(
-                    ctrl.goal.goalType!,
-                    style: caption_text.copyWith(color: neopopAccent),
-                  ),
-                ),
-
-              SizedBox(height: height_16 * 2),
-
-              // 2. Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _showTransactionDialog(
-                          context, controller, "deposit"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: neopopAccent,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text("ADD FUNDS",
-                          style: button_text.copyWith(color: Colors.black)),
                     ),
-                  ),
-                  SizedBox(width: width_16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _showTransactionDialog(
-                          context, controller, "withdraw"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white10,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text("WITHDRAW",
-                          style: button_text.copyWith(color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: height_16 * 3),
-
-              // 3. History
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text("History",
-                    style: headline3_text.copyWith(color: Colors.white)),
-              ),
-              SizedBox(height: height_16),
-
-              Obx(() {
-                if (controller.transactions.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Text("No transactions yet.",
-                          style: caption_text.copyWith(color: neopopGrey)),
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: controller.transactions.length,
-                  itemBuilder: (context, index) {
-                    final t = controller.transactions[index];
-                    bool isDeposit = t.type == 'deposit';
-                    return Container(
-                      margin: EdgeInsets.only(bottom: 12),
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: isDeposit
-                                      ? Colors.green.withOpacity(0.2)
-                                      : Colors.red.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isDeposit
-                                      ? Icons.arrow_downward
-                                      : Icons.arrow_upward,
-                                  color: isDeposit ? Colors.green : Colors.red,
-                                  size: 16,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isDeposit ? "Deposit" : "Withdrawal",
-                                    style: body2_text.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    DateFormat('MMM d').format(
-                                        t.transactionDate ?? DateTime.now()),
-                                    style: caption_text.copyWith(
-                                        color: Colors.white54),
-                                  ),
-                                ],
-                              ),
-                            ],
+                    Column(
+                      children: [
+                        Text(
+                          ctrl.goal.icon ?? GoalDefaults.defaultEmoji,
+                          style: const TextStyle(fontSize: splitrFontRecapXl),
+                        ),
+                        const SizedBox(height: groupGapSm),
+                        Text(
+                          AppStringFormat.progressPercent(
+                            (progress * 100).toInt(),
                           ),
-                          Text(
-                            "${isDeposit ? '+' : '-'} ₹${t.amount?.toStringAsFixed(0)}",
-                            style: body1_text.copyWith(
-                              color: isDeposit ? Colors.green : Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        ],
+                          style: headline2_text.copyWith(
+                            color: groupOnSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      ],
+                    )
+                  ],
+                ),
+                SizedBox(height: height_16 * 2),
+                Text(
+                  ctrl.goal.title ?? DisplayFallbacks.goal,
+                  style: headline2_text.copyWith(color: groupOnSurface),
+                ),
+                const SizedBox(height: groupGapSm),
+                Text(
+                  '${userCurrencySymbol()}${ctrl.goal.currentAmount?.toStringAsFixed(0)} / ${userCurrencySymbol()}${ctrl.goal.targetAmount?.toStringAsFixed(0)}',
+                  style: body1_text.copyWith(color: groupOnSurfaceMuted),
+                ),
+                if (ctrl.goal.description != null &&
+                    ctrl.goal.description!.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: height_16),
+                    child: Text(
+                      ctrl.goal.description!,
+                      textAlign: TextAlign.center,
+                      style: body1_text.copyWith(
+                        color: groupOnSurfaceMuted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                if (ctrl.goal.goalType != null &&
+                    ctrl.goal.goalType!.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: groupCarouselGap, vertical: groupGapXs),
+                    decoration: BoxDecoration(
+                      color: neopopAccentFillSoft,
+                      borderRadius: BorderRadius.circular(groupCardRadiusLg),
+                      border: Border.all(
+                        color: neopopAccentBorderSoft,
+                      ),
+                    ),
+                    child: Text(
+                      ctrl.goal.goalType!,
+                      style: caption_text.copyWith(color: neopopAccent),
+                    ),
+                  ),
+                SizedBox(height: height_16 * 2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _showTransactionDialog(
+                            context, controller, GoalTransactionTypes.deposit),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: neopopAccent,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: groupGutter),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(groupControlRadius),
+                          ),
+                        ),
+                        child: Text(
+                          AppStrings.goals.addFunds,
+                          style: button_text.copyWith(color: groupOnSurface),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: width_16),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _showTransactionDialog(
+                            context, controller, GoalTransactionTypes.withdraw),
+                        style: OutlinedButton.styleFrom(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: groupGutter),
+                          side: BorderSide(
+                            color: groupMutedBorderHeavy,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(groupControlRadius),
+                          ),
+                        ),
+                        child: Text(
+                          AppStrings.goals.withdraw,
+                          style: button_text.copyWith(color: groupOnSurface),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: height_16 * 3),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    AppStrings.goals.history,
+                    style: headline3_text.copyWith(color: groupOnSurface),
+                  ),
+                ),
+                SizedBox(height: height_16),
+                Obx(() {
+                  if (controller.transactions.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Text(
+                          AppStrings.goals.historyEmpty,
+                          style: caption_text.copyWith(
+                            color: groupOnSurfaceMuted,
+                          ),
+                        ),
                       ),
                     );
-                  },
-                );
-              })
-            ],
-          ),
-        );
-      }),
-    ),
-    ),
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: controller.transactions.length,
+                    itemBuilder: (context, index) {
+                      final t = controller.transactions[index];
+                      final isDeposit = t.type == GoalTransactionTypes.deposit;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: groupCarouselGap),
+                        padding: const EdgeInsets.all(groupCarouselGap),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          borderRadius:
+                              BorderRadius.circular(groupControlRadius),
+                          border: Border.all(
+                            color: groupMutedBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(groupGapSm),
+                                  decoration: BoxDecoration(
+                                    color: isDeposit
+                                        ? neopopSuccessBright.withValues(
+                                            alpha: 0.15)
+                                        : neopopError.withValues(alpha: 0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isDeposit
+                                        ? Icons.arrow_downward
+                                        : Icons.arrow_upward,
+                                    color: isDeposit
+                                        ? neopopSuccessBright
+                                        : neopopError,
+                                    size: groupIconMd,
+                                  ),
+                                ),
+                                const SizedBox(width: groupCarouselGap),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isDeposit
+                                          ? AppStrings.goals.deposit
+                                          : AppStrings.goals.withdrawal,
+                                      style: body2_text.copyWith(
+                                        color: groupOnSurface,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      DateFormat(AppDateFormats.shortDay)
+                                          .format(t.transactionDate ??
+                                              DateTime.now()),
+                                      style: caption_text.copyWith(
+                                        color: groupOnSurfaceMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '${isDeposit ? '+' : '-'} ${userCurrencySymbol()}${t.amount?.toStringAsFixed(0)}',
+                              style: body1_text.copyWith(
+                                color: isDeposit
+                                    ? neopopSuccessBright
+                                    : groupOnSurface,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                })
+              ],
+            ),
+          );
+        }),
+      ),
     );
   }
 
   void _showTransactionDialog(
       BuildContext context, GoalDetailsController controller, String type) {
-    TextEditingController amountCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final surface = Theme.of(context).colorScheme.surface;
+
     Get.bottomSheet(
       Container(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(groupGutter),
         decoration: BoxDecoration(
-          color: neopopBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border.all(color: neopopAccent),
+          color: surface,
+          borderRadius: groupSheetTopBorderRadiusLg,
+          border: Border.all(color: neopopAccentBorderStrong),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              type == "deposit" ? "Add to Goal" : "Withdraw from Goal",
-              style: headline3_text.copyWith(color: Colors.white),
+              type == GoalTransactionTypes.deposit
+                  ? AppStrings.goals.addToGoal
+                  : AppStrings.goals.withdrawFromGoal,
+              style: headline3_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: 16),
-            TextField(
+            const SizedBox(height: groupGapMd),
+            BorderedInputField(
               controller: amountCtrl,
+              hintText: AppAmountHints.zero,
+              prefixText: currencyPrefixText(),
               keyboardType: TextInputType.number,
-              autofocus: true,
-              style: headline1_text.copyWith(color: Colors.white),
-              decoration: InputDecoration(
-                prefixText: "₹ ",
-                prefixStyle: headline1_text.copyWith(color: Colors.white),
-                hintText: "0",
-                hintStyle: headline1_text.copyWith(color: Colors.white24),
-                border: InputBorder.none,
-              ),
+              style: headline1_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: groupGapLg),
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  double? val = double.tryParse(amountCtrl.text);
+                  final val = double.tryParse(amountCtrl.text);
                   if (val != null && val > 0) {
-                    controller.addTransaction(val, type, "Manual Entry");
+                    controller.addTransaction(
+                        val, type, GoalDefaults.manualEntry);
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: neopopAccent),
-                child: Text("CONFIRM",
-                    style: button_text.copyWith(color: Colors.black)),
+                child: Text(
+                  AppStrings.actions.confirm,
+                  style: button_text.copyWith(color: groupOnSurface),
+                ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: groupGapMd),
           ],
         ),
       ),
@@ -309,18 +369,20 @@ class GoalDetailsScreen extends StatelessWidget {
 
   void _showDeleteConfirmation(GoalDetailsController controller) {
     Get.defaultDialog(
-      title: "Delete Goal?",
+      title: AppStrings.goals.deleteGoalTitle,
       titleStyle: headline3_text.copyWith(color: neopopError),
-      middleText: "This action cannot be undone.",
-      middleTextStyle: body2_text.copyWith(color: Colors.white),
-      backgroundColor: neopopBackground,
+      middleText: AppStrings.goals.deleteGoalBody,
+      middleTextStyle: body2_text.copyWith(color: groupOnSurfaceMuted),
+      backgroundColor: Theme.of(Get.context!).colorScheme.surface,
       confirm: TextButton(
         onPressed: () => controller.deleteGoal(),
-        child: Text("DELETE", style: TextStyle(color: neopopError)),
+        child: Text(AppStrings.actions.delete.toUpperCase(),
+            style: const TextStyle(color: neopopError)),
       ),
       cancel: TextButton(
         onPressed: () => Get.back(),
-        child: Text("Cancel", style: TextStyle(color: Colors.white)),
+        child: Text(AppStrings.actions.cancel,
+            style: const TextStyle(color: groupOnSurface)),
       ),
     );
   }

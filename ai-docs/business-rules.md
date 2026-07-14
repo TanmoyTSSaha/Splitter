@@ -1,4 +1,4 @@
-# SplitO Business Rules (Inferred)
+# Splitr Business Rules (Inferred)
 
 Domain rules inferred from models, sharing tabs, and services. Confirm with product owner before treating as authoritative.
 
@@ -89,7 +89,7 @@ Transactions store: `paidBy`, `sharedWith`, `totalTransactionAmount`, `sharedTra
 
 ## Premium / Pro
 
-- `PremiumSubscriptionController` — monthly/yearly IAP product IDs (`splito_pro_monthly`, `splito_pro_yearly`).
+- `PremiumSubscriptionController` — monthly/yearly IAP product IDs (`splitr_pro_monthly`, `splitr_pro_yearly`).
 - Status synced to Supabase `premium_subscriptions` + local SharedPreferences cache.
 - Pro gates: insights sections, group export (PDF via `export_service`), and other premium features in `premium_gate.dart`.
 - `premium_plan_screen.dart` for subscription UI.

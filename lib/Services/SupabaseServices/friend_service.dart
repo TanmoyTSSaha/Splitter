@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Services/SupabaseServices/group_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Services/SupabaseServices/group_service.dart';
 
 class FriendService {
   final supabase = Supabase.instance.client;
@@ -12,12 +14,16 @@ class FriendService {
   Future<List<FriendModel>> getFriends({required String userID}) async {
     try {
       // Fetch where user is the sender
-      final sentResponse =
-          await supabase.from('friends').select().eq('user_id', userID);
+      final sentResponse = await supabase
+          .from(SupabaseTables.friends)
+          .select()
+          .eq('user_id', userID);
 
       // Fetch where user is the receiver
-      final receivedResponse =
-          await supabase.from('friends').select().eq('friend_id', userID);
+      final receivedResponse = await supabase
+          .from(SupabaseTables.friends)
+          .select()
+          .eq('friend_id', userID);
 
       List<FriendModel> friends = [];
 
@@ -34,7 +40,7 @@ class FriendService {
       Map<String, Map<String, dynamic>> userDetailsMap = {};
       if (friendUserIDs.isNotEmpty) {
         final usersData = await supabase
-            .from('users')
+            .from(SupabaseTables.users)
             .select('user_id, user_name, user_email, profile_picture_url')
             .inFilter('user_id', friendUserIDs.toList());
         for (var u in usersData) {
@@ -50,6 +56,7 @@ class FriendService {
           id: row['id']?.toString(),
           userID: row['user_id']?.toString(),
           friendUserID: fid,
+          tableFriendId: row['friend_id']?.toString(),
           friendName: details?['user_name']?.toString(),
           friendEmail: details?['user_email']?.toString(),
           friendPic: details?['profile_picture_url']?.toString(),
@@ -68,6 +75,7 @@ class FriendService {
           id: row['id']?.toString(),
           userID: row['user_id']?.toString(),
           friendUserID: uid,
+          tableFriendId: row['friend_id']?.toString(),
           friendName: details?['user_name']?.toString(),
           friendEmail: details?['user_email']?.toString(),
           friendPic: details?['profile_picture_url']?.toString(),
@@ -79,25 +87,62 @@ class FriendService {
       }
 
       return friends;
-    } catch (e) {
-      debugPrint('GET FRIENDS EXCEPTION: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'FriendService.getFriends failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'friends', 'operation': 'getFriends'},
+      );
       return [];
     }
   }
 
-  /// Sends a friend request.
-  Future<void> sendFriendRequest({
+  /// Sends a friend request. Returns true when a new pending request was created.
+  Future<bool> sendFriendRequest({
     required String fromUserID,
     required String toUserID,
   }) async {
     try {
-      await supabase.from('friends').insert({
+      final existing = await supabase.from(SupabaseTables.friends).select().or(
+            'and(${SupabaseColumns.userId}.eq.$fromUserID,${SupabaseColumns.friendId}.eq.$toUserID),'
+            'and(${SupabaseColumns.userId}.eq.$toUserID,${SupabaseColumns.friendId}.eq.$fromUserID)',
+          );
+
+      for (final row in existing) {
+        final status = row[SupabaseColumns.status]?.toString();
+        final rowUserId = row[SupabaseColumns.userId]?.toString();
+        final rowFriendId = row[SupabaseColumns.friendId]?.toString();
+
+        if (status == FriendStatusValues.accepted) {
+          return false;
+        }
+        if (status == FriendStatusValues.pending) {
+          if (rowUserId == fromUserID && rowFriendId == toUserID) {
+            return false;
+          }
+          if (rowUserId == toUserID && rowFriendId == fromUserID) {
+            await acceptFriendRequest(
+              requestID: row[SupabaseColumns.id].toString(),
+            );
+            return false;
+          }
+        }
+      }
+
+      await supabase.from(SupabaseTables.friends).insert({
         'user_id': fromUserID,
         'friend_id': toUserID,
-        'status': 'pending',
+        'status': FriendStatusValues.pending,
       });
-    } catch (e) {
-      debugPrint('SEND FRIEND REQUEST EXCEPTION: $e');
+      return true;
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'FriendService.sendFriendRequest failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'friends', 'operation': 'sendFriendRequest'},
+      );
       rethrow;
     }
   }
@@ -105,11 +150,55 @@ class FriendService {
   /// Accepts a friend request by its row ID.
   Future<void> acceptFriendRequest({required String requestID}) async {
     try {
+      final rows = await supabase
+          .from(SupabaseTables.friends)
+          .select()
+          .eq(SupabaseColumns.id, requestID)
+          .limit(1);
+      if (rows.isEmpty) return;
+
+      final row = rows.first;
+      final senderId = row[SupabaseColumns.userId]?.toString();
+      final receiverId = row[SupabaseColumns.friendId]?.toString();
+      if (senderId == null || receiverId == null) return;
+
+      final oppositeRows = await supabase
+          .from(SupabaseTables.friends)
+          .select()
+          .eq(SupabaseColumns.userId, receiverId)
+          .eq(SupabaseColumns.friendId, senderId)
+          .limit(1);
+
+      if (oppositeRows.isNotEmpty &&
+          oppositeRows.first[SupabaseColumns.status] ==
+              FriendStatusValues.accepted) {
+        await supabase
+            .from(SupabaseTables.friends)
+            .delete()
+            .eq(SupabaseColumns.id, requestID)
+            .eq(SupabaseColumns.status, FriendStatusValues.pending);
+        return;
+      }
+
       await supabase
-          .from('friends')
-          .update({'status': 'accepted'}).eq('id', requestID);
-    } catch (e) {
-      debugPrint('ACCEPT FRIEND REQUEST EXCEPTION: $e');
+          .from(SupabaseTables.friends)
+          .update({SupabaseColumns.status: FriendStatusValues.accepted})
+          .eq(SupabaseColumns.id, requestID);
+
+      await supabase
+          .from(SupabaseTables.friends)
+          .delete()
+          .eq(SupabaseColumns.userId, receiverId)
+          .eq(SupabaseColumns.friendId, senderId)
+          .eq(SupabaseColumns.status, FriendStatusValues.pending)
+          .neq(SupabaseColumns.id, requestID);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'FriendService.acceptFriendRequest failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'friends', 'operation': 'acceptFriendRequest'},
+      );
       rethrow;
     }
   }
@@ -121,13 +210,18 @@ class FriendService {
   }) async {
     try {
       await supabase
-          .from('friends')
+          .from(SupabaseTables.friends)
           .delete()
           .eq('id', requestID)
           .eq('user_id', fromUserID)
-          .eq('status', 'pending');
-    } catch (e) {
-      debugPrint('CANCEL FRIEND REQUEST EXCEPTION: $e');
+          .eq(SupabaseColumns.status, FriendStatusValues.pending);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'FriendService.cancelFriendRequest failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'friends', 'operation': 'cancelFriendRequest'},
+      );
       rethrow;
     }
   }
@@ -162,7 +256,7 @@ class FriendService {
                 balance.receiverID == userID) {
               totalOwed += balance.amount ?? 0.0;
               groupBreakdowns.add(GroupBalanceBreakdown(
-                groupName: group.groupName ?? 'Unknown',
+                groupName: group.groupName ?? DisplayFallbacks.unknown,
                 groupID: group.groupID ?? '',
                 amount: balance.amount ?? 0.0, // Positive: they owe me
               ));
@@ -172,7 +266,7 @@ class FriendService {
                 balance.receiverID == friend.friendUserID) {
               totalOwing += balance.amount ?? 0.0;
               groupBreakdowns.add(GroupBalanceBreakdown(
-                groupName: group.groupName ?? 'Unknown',
+                groupName: group.groupName ?? DisplayFallbacks.unknown,
                 groupID: group.groupID ?? '',
                 amount: -(balance.amount ?? 0.0), // Negative: I owe them
               ));
@@ -195,8 +289,13 @@ class FriendService {
       }
 
       return balances;
-    } catch (e) {
-      debugPrint('GET FRIEND BALANCES EXCEPTION: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'FriendService.getFriendBalances failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'friends', 'operation': 'getFriendBalances'},
+      );
       return [];
     }
   }

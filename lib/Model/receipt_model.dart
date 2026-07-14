@@ -1,4 +1,5 @@
 /// Models for the AI Receipt Scanner feature.
+library;
 
 class ReceiptData {
   String? merchantName;

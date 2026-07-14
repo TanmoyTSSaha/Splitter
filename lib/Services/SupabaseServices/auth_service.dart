@@ -1,12 +1,26 @@
-import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Services/local/database.dart';
+import 'package:splitr/Services/local/database.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/config/app_secrets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   final supabase = Supabase.instance.client;
+  static bool _googleSignInInitialized = false;
+
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (_googleSignInInitialized) return;
+    await GoogleSignIn.instance.initialize(
+      serverClientId: AppSecrets.googleWebClientId,
+    );
+    _googleSignInInitialized = true;
+  }
 
   Future<void> _clearLocalUserCache() async {
     if (Get.isRegistered<AppDatabase>()) {
@@ -18,13 +32,9 @@ class AuthService {
     final currentUser = supabase.auth.currentUser;
 
     if (currentUser == null) {
-      Fluttertoast.showToast(
-        msg: "Something went wrong.",
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
+      SplitrToast.show(AppStrings.services.auth.somethingWentWrong);
 
-      return "";
+      return '';
     }
 
     return currentUser.id;
@@ -38,17 +48,10 @@ class AuthService {
         password: userPassword,
       );
 
-      final Session? session = response.session;
       final User? user = response.user;
 
-      debugPrint("Session: $session |\t User: $user");
-
       if (user == null) {
-        Fluttertoast.showToast(
-          msg: "Invalid user details!",
-          textColor: neopopBackground,
-          backgroundColor: neopopYellow,
-        );
+        SplitrToast.show(AppStrings.services.auth.invalidUserDetails);
 
         return false;
       }
@@ -57,19 +60,14 @@ class AuthService {
 
       return true;
     } on AuthException catch (e) {
-      debugPrint(e.toString());
-      Fluttertoast.showToast(
-        msg: e.message.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
+      AppErrorReporter.userFacing(e.message, error: e, context: {'feature': 'auth'});
       return false;
-    } catch (e) {
-      debugPrint(e.toString());
-      Fluttertoast.showToast(
-        msg: e.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AuthService.supabaseEmailPassSignIn failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'auth', 'operation': 'emailPassSignIn'},
       );
       return false;
     }
@@ -79,16 +77,13 @@ class AuthService {
     try {
       await supabase.auth.signOut();
       await _clearLocalUserCache();
-      Fluttertoast.showToast(
-        msg: "Logged out successfully.",
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
-    } catch (e) {
-      Fluttertoast.showToast(
-        msg: e.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
+      SplitrToast.show(AppStrings.services.auth.loggedOutSuccess);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'AuthService.supabaseSignOut failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'auth', 'operation': 'signOut'},
       );
     }
   }
@@ -105,61 +100,44 @@ class AuthService {
         email: userEmail,
         password: userPassword,
         data: {
-          'user_name': userName,
-          'first_name': firstName,
-          'last_name': lastName,
+          SupabaseAuthMetadata.userName: userName,
+          SupabaseAuthMetadata.firstName: firstName,
+          SupabaseAuthMetadata.lastName: lastName,
         },
-        emailRedirectTo: 'io.supabase.flutterquickstart://login-callback/',
+        emailRedirectTo: AppBranding.authRedirectUrl,
       );
 
       final User? user = response.user;
 
       if (user == null) {
-        Fluttertoast.showToast(
-          msg: "Sign up failed! Please try again.",
-          textColor: neopopBackground,
-          backgroundColor: neopopYellow,
-        );
+        SplitrToast.show(AppStrings.services.auth.signUpFailed);
         return false;
       }
 
-      // Explicitly check/create user profile in public.users to ensure data consistency
-      // in case backend triggers are missing.
       if (response.session != null) {
         try {
-          await supabase.from('users').upsert({
-            'user_id': user.id,
-            'user_name': userName,
-            'firstname': firstName,
-            'lastname': lastName,
-            'user_email': userEmail,
-            'created_at': DateTime.now().toIso8601String(),
+          await supabase.from(SupabaseTables.users).upsert({
+            SupabaseColumns.userId: user.id,
+            SupabaseColumns.userName: userName,
+            SupabaseColumns.firstname: firstName,
+            SupabaseColumns.lastname: lastName,
+            SupabaseColumns.userEmail: userEmail,
+            SupabaseColumns.createdAt: DateTime.now().toIso8601String(),
           });
         } catch (e) {
-          debugPrint("Profile creation warning: $e");
-          // Proceeding as Auth was successful.
-          // If trigger worked, update might fail due to RLS if session is missing, which is fine.
+          // Profile upsert is best-effort when triggers already created the row.
         }
-      } else {
-        debugPrint(
-            "Session is null (Email confirmation enabled?). Relying on DB Trigger for profile creation.");
       }
 
       return true;
     } on AuthException catch (e) {
-      debugPrint(e.toString());
-      Fluttertoast.showToast(
-        msg: e.message.toString(),
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
-      );
+      AppErrorReporter.userFacing(e.message, error: e, context: {'feature': 'auth'});
       return false;
     } catch (e) {
-      debugPrint(e.toString());
-      Fluttertoast.showToast(
-        msg: "An unexpected error occurred.",
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
+      AppErrorReporter.userFacing(
+        AppStrings.services.auth.unexpectedError,
+        error: e,
+        context: {'feature': 'auth', 'operation': 'signUp'},
       );
       return false;
     }
@@ -167,19 +145,79 @@ class AuthService {
 
   Future<bool> googleSignIn() async {
     try {
-      // Using signInWithOAuth which handles the browser flow on mobile.
+      if (AppSecrets.googleWebClientId.isNotEmpty) {
+        await _ensureGoogleSignInInitialized();
+        GoogleSignInAccount account;
+        try {
+          account = await GoogleSignIn.instance.authenticate();
+        } on GoogleSignInException catch (e) {
+          if (e.code == GoogleSignInExceptionCode.canceled) return false;
+          rethrow;
+        }
+
+        const scopes = [OAuthScopes.googleEmail, OAuthScopes.googleProfile];
+        final authorization =
+            await account.authorizationClient.authorizationForScopes(scopes) ??
+                await account.authorizationClient.authorizeScopes(scopes);
+
+        final idToken = account.authentication.idToken;
+        if (idToken == null) {
+          SplitrToast.show(AppStrings.services.auth.googleNoIdToken);
+          return false;
+        }
+
+        await supabase.auth.signInWithIdToken(
+          provider: OAuthProvider.google,
+          idToken: idToken,
+          accessToken: authorization.accessToken,
+        );
+        await _clearLocalUserCache();
+        return true;
+      }
+
       final bool result = await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'io.supabase.flutterquickstart://login-callback/',
+        redirectTo: AppBranding.authRedirectUrl,
       );
 
       return result;
     } catch (e) {
-      debugPrint("Google Sign In Error: $e");
-      Fluttertoast.showToast(
-        msg: "Google Sign In failed.",
-        textColor: neopopBackground,
-        backgroundColor: neopopYellow,
+      AppErrorReporter.userFacing(
+        AppStrings.services.auth.googleSignInFailed,
+        error: e,
+        context: {'feature': 'auth', 'operation': 'googleSignIn'},
+      );
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword({required String email}) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) {
+      SplitrToast.show(AppStrings.services.auth.enterEmailFirst);
+      return false;
+    }
+
+    try {
+      await supabase.auth.resetPasswordForEmail(
+        trimmed,
+        redirectTo: AppBranding.authRedirectUrl,
+      );
+      SplitrToast.show(AppStrings.services.auth.passwordResetSent);
+      return true;
+    } on AuthException catch (e) {
+      final msg = e.message
+              .toLowerCase()
+              .contains(AppStrings.services.auth.rateLimitKeyword)
+          ? AppStrings.services.auth.tooManyResetEmails
+          : e.message;
+      AppErrorReporter.userFacing(msg, error: e, context: {'feature': 'auth'});
+      return false;
+    } catch (e) {
+      AppErrorReporter.userFacing(
+        AppStrings.services.auth.couldNotSendResetLink,
+        error: e,
+        context: {'feature': 'auth', 'operation': 'resetPassword'},
       );
       return false;
     }
@@ -190,7 +228,6 @@ class AuthService {
       final Session? session = supabase.auth.currentSession;
 
       if (session == null) {
-        debugPrint("SESSION STATUS: $session");
         return false;
       }
 

@@ -1,10 +1,10 @@
-# SplitO Engineering Principles
+# Splitr Engineering Principles
 
 Applied to this repository — not generic Flutter theory.
 
 ## 1. Match the codebase first
 
-Generated code must look like existing SplitO code: GetX, layer-by-type folders, Neopop UI, manual models. Generic clean-architecture advice yields wrong output here.
+Generated code must look like existing Splitr code: GetX, layer-by-type folders, Neopop UI, manual models. Generic clean-architecture advice yields wrong output here.
 
 ## 2. Layer discipline
 

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controllers/premium_subscription_controller.dart';
-import 'package:splitter/Screen/ProfileScreen/premium_plan_screen.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Controllers/premium_subscription_controller.dart';
+import 'package:splitr/Screen/ProfileScreen/premium_plan_screen.dart';
 
 /// Returns true if the user has Pro, otherwise opens the paywall.
 Future<bool> requirePremium({String? featureLabel}) async {
@@ -20,18 +24,25 @@ class PremiumLockBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+          horizontal: groupGapSm, vertical: groupGap2),
       decoration: BoxDecoration(
-        color: neopopYellow.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: neopopYellow.withOpacity(0.5)),
+        color: neopopYellowFillStrong,
+        borderRadius: BorderRadius.circular(groupControlRadius),
+        border: Border.all(color: neopopYellowBorderStrong),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_rounded, size: 12, color: neopopYellow),
-          const SizedBox(width: 4),
-          Text('PRO', style: caption_text.copyWith(color: neopopYellow)),
+          Icon(
+            Icons.lock_rounded,
+            size: AppDimensions.chartLegendDot,
+            color: ThemeAccentColors.highlight(context),
+          ),
+          const SizedBox(width: groupGapXxs),
+          Text(AppStrings.insights.proBadge,
+              style: caption_text.copyWith(
+                  color: ThemeAccentColors.highlight(context))),
         ],
       ),
     );

@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 enum BiometricAuthStatus { success, cancelled, unavailable, failed }
 
@@ -22,7 +25,6 @@ class BiometricAuthService {
   BiometricAuthService._();
 
   final LocalAuthentication _auth = LocalAuthentication();
-  static const String _enabledKey = 'biometric_lock_enabled';
 
   /// Whether the device supports biometric authentication.
   Future<bool> isDeviceSupported() async {
@@ -32,8 +34,13 @@ class BiometricAuthService {
 
       final availableBiometrics = await _auth.getAvailableBiometrics();
       return availableBiometrics.isNotEmpty;
-    } catch (e) {
-      debugPrint('BiometricAuthService: isDeviceSupported error — $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'BiometricAuthService.isDeviceSupported failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'biometric'},
+      );
       return false;
     }
   }
@@ -41,30 +48,32 @@ class BiometricAuthService {
   /// Whether the user has enabled biometric lock for the app.
   Future<bool> isEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_enabledKey) ?? false;
+    return prefs.getBool(PrefKeys.biometricLockEnabled) ?? false;
   }
 
   /// Toggles biometric lock on or off.
   Future<void> setEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_enabledKey, value);
+    await prefs.setBool(PrefKeys.biometricLockEnabled, value);
   }
 
   /// Authenticates the user using biometrics.
   Future<BiometricAuthResult> authenticate({
-    String reason = 'Authenticate to unlock SplitO',
+    String? reason,
   }) async {
+    final localizedReason = reason ??
+        '${AppStrings.services.biometric.authenticateReason}${AppBranding.brandName}';
     try {
       final canAuthenticate = await _auth.canCheckBiometrics;
       if (!canAuthenticate) {
-        return const BiometricAuthResult(
+        return BiometricAuthResult(
           BiometricAuthStatus.unavailable,
-          message: 'Biometrics are not available on this device.',
+          message: AppStrings.services.biometric.notAvailable,
         );
       }
 
       final didAuthenticate = await _auth.authenticate(
-        localizedReason: reason,
+        localizedReason: localizedReason,
         options: const AuthenticationOptions(
           stickyAuth: true,
           biometricOnly: false,
@@ -77,7 +86,16 @@ class BiometricAuthService {
 
       return const BiometricAuthResult(BiometricAuthStatus.cancelled);
     } on PlatformException catch (e) {
-      debugPrint('BiometricAuthService: auth error — ${e.code}: ${e.message}');
+      final isUserCancel = e.code == 'UserCancel' ||
+          e.code == 'userCancel' ||
+          e.code == 'Canceled' ||
+          e.code == 'canceled';
+      AppErrorReporter.report(
+        'BiometricAuthService.authenticate failed',
+        error: e,
+        context: {'feature': 'biometric', 'code': e.code},
+        showToastOnUserFacing: !isUserCancel,
+      );
       return _mapPlatformException(e);
     }
   }
@@ -92,20 +110,20 @@ class BiometricAuthService {
       case 'passcodeNotSet':
         return BiometricAuthResult(
           BiometricAuthStatus.unavailable,
-          message: e.message ?? 'Set up fingerprint unlock in device settings.',
+          message: AppStrings.services.biometric.setupFingerprint,
         );
       case 'LockedOut':
       case 'lockedOut':
       case 'PermanentlyLockedOut':
       case 'permanentlyLockedOut':
-        return const BiometricAuthResult(
+        return BiometricAuthResult(
           BiometricAuthStatus.failed,
-          message: 'Too many attempts. Try again later.',
+          message: AppStrings.services.biometric.tooManyAttempts,
         );
       default:
         return BiometricAuthResult(
           BiometricAuthStatus.failed,
-          message: e.message ?? 'Authentication failed. Tap to retry.',
+          message: AppStrings.services.biometric.authFailed,
         );
     }
   }

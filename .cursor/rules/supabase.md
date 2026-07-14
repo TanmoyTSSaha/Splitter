@@ -1,8 +1,8 @@
-# Supabase Rules — SplitO (Splitter)
+# Supabase Rules — Splitr
 
 ## Purpose
 
-Backend access conventions for SplitO's Supabase stack. All remote data goes through `supabase_flutter` — no Dio, no REST clients.
+Backend access conventions for Splitr's Supabase stack. All remote data goes through `supabase_flutter` — no Dio, no REST clients.
 
 ---
 
@@ -217,7 +217,7 @@ Legacy: `AuthService` shows `Fluttertoast` — do not replicate in new services.
 1. Use `supabase_flutter` only — never add Dio or `http` for Supabase data.
 2. Place new Supabase queries in `Services/SupabaseServices/`, not in controllers or screens.
 3. Table and column names: snake_case matching Supabase schema (`group_id`, `transaction_note`).
-4. Credentials: import from `package:splitter/git_ignore.dart` — never inline keys.
+4. Credentials: import from `package:splitr/git_ignore.dart` — never inline keys.
 5. For group/transaction CRUD, prefer repository over `SupabaseDatabase()`.
 6. Add SQL migrations for schema changes under `supabase/migrations/`.
 7. Wire `RealtimeService` subscriptions in controllers for live group screens.

@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/staggered_list_animation.dart';
-import 'package:splitter/Model/trip_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Screen/TripScreen/shareable_trip_summary_card.dart';
-import 'package:splitter/Services/trip_service.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Constants/staggered_list_animation.dart';
+import 'package:splitr/Model/trip_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/TripScreen/shareable_trip_summary_card.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Services/trip_service.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 /// Trip Timeline Tab — chronological expense feed with day selector.
 class TripTimelineTab extends StatefulWidget {
@@ -27,15 +34,18 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
     totalSpent: 0,
     avgPerDay: 0,
     totalTransactions: 0,
-    mvpMemberName: 'N/A',
+    mvpMemberName: DisplayFallbacks.na,
     mvpAmount: 0,
-    biggestExpenseDesc: 'N/A',
+    biggestExpenseDesc: DisplayFallbacks.na,
     biggestExpenseAmount: 0,
-    topCategory: 'N/A',
+    topCategory: DisplayFallbacks.na,
   );
   int _selectedDay = 0;
   bool _isLoading = true;
+  String? _loadError;
   final GlobalKey _shareCardKey = GlobalKey();
+
+  String get _tripSym => CurrencyService.symbolFor(widget.trip.tripCurrency);
 
   @override
   void initState() {
@@ -45,6 +55,10 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
 
   Future<void> _fetchTripData() async {
     try {
+      setState(() {
+        _loadError = null;
+        if (!_isLoading) _isLoading = true;
+      });
       // 1. Fetch transactions
       final transactions =
           await _tripService.getTripTransactions(widget.trip.groupId);
@@ -52,7 +66,8 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
       // 2. Fetch members for name mapping
       final members = await _tripService.getTripMembers(widget.trip.groupId);
       final userNameMap = {
-        for (var m in members) m['id'] as String: m['name'] as String
+        for (var m in members)
+          m[SupabaseColumns.id] as String: m['name'] as String
       };
 
       // 3. Process data
@@ -71,9 +86,18 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      debugPrint("Error fetching trip timeline data: $e");
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        AppStrings.errors.loadTripTimeline,
+        error: e,
+        stack: stack,
+      );
+      if (mounted) {
+        setState(() {
+          _loadError = AppStrings.errors.loadTripTimeline;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -82,6 +106,27 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
     if (_isLoading) {
       return const Center(
           child: CircularProgressIndicator(color: neopopAccent));
+    }
+    if (_loadError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _loadError!,
+              style: body2_text.copyWith(color: groupOnSurfaceMuted),
+            ),
+            const SizedBox(height: groupGapMd),
+            TextButton(
+              onPressed: _fetchTripData,
+              child: Text(
+                AppStrings.actions.tryAgain,
+                style: body2_text.copyWith(color: neopopAccent),
+              ),
+            ),
+          ],
+        ),
+      );
     }
     return CustomScrollView(
       slivers: [
@@ -98,25 +143,22 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                 itemBuilder: (context, index) {
                   final day = _days[index];
                   final isSelected = index == _selectedDay;
-                  final dateFormat = DateFormat('EEE');
+                  final dateFormat = DateFormat(AppDateFormats.weekdayShort);
 
                   return GestureDetector(
                     onTap: () => setState(() => _selectedDay = index),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
-                      margin: const EdgeInsets.only(right: 8),
+                      margin: const EdgeInsets.only(right: groupGapSm),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? neopopAccent
-                            : groupOnSurface.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(16),
+                        color:
+                            isSelected ? neopopAccent : groupSurfaceFillSubtle,
+                        borderRadius: BorderRadius.circular(groupCardRadius),
                         border: Border.all(
-                          color: isSelected
-                              ? neopopAccent
-                              : groupOnSurface.withOpacity(0.1),
+                          color: isSelected ? neopopAccent : groupMutedFillSoft,
                         ),
                       ),
                       child: Column(
@@ -128,7 +170,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                               color: isSelected
                                   ? neopopBackground
                                   : groupOnSurfaceMuted,
-                              fontSize: 11,
+                              fontSize: splitrFontCaptionSm,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -145,7 +187,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                           ),
                           if (day.transactionCount > 0)
                             Container(
-                              margin: const EdgeInsets.only(top: 2),
+                              margin: const EdgeInsets.only(top: groupGap2),
                               width: 5,
                               height: 5,
                               decoration: BoxDecoration(
@@ -173,19 +215,19 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Day ${_days[_selectedDay].dayNumber}',
+                  AppStringFormat.tripDayNumber(_days[_selectedDay].dayNumber),
                   style: sub_headline5_text.copyWith(color: groupOnSurface),
                 ),
                 if (_days[_selectedDay].totalSpent > 0)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: groupCarouselGap, vertical: groupGapXxs),
                     decoration: BoxDecoration(
-                      color: neopopAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
+                      color: neopopAccentFillSoft,
+                      borderRadius: BorderRadius.circular(groupCardRadiusLg),
                     ),
                     child: Text(
-                      '₹${_days[_selectedDay].totalSpent.toStringAsFixed(0)}',
+                      '${_tripSym}${_days[_selectedDay].totalSpent.toStringAsFixed(0)}',
                       style: body2_text.copyWith(
                           color: neopopAccent, fontWeight: FontWeight.w600),
                     ),
@@ -203,9 +245,9 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
               child: Column(
                 children: [
                   Icon(Icons.beach_access_rounded,
-                      color: groupOnSurfaceMuted.withOpacity(0.5), size: 48),
+                      color: groupMutedIconMuted, size: 48),
                   SizedBox(height: height_10),
-                  Text('No expenses on this day',
+                  Text(AppStrings.trips.noExpensesDay,
                       style: body1_text.copyWith(color: groupOnSurfaceMuted)),
                 ],
               ),
@@ -240,7 +282,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
               child: Column(
                 children: [
                   Text(
-                    'Trip complete — share your recap',
+                    AppStrings.trips.tripCompleteShare,
                     style: body2_text.copyWith(color: neopopGrey),
                   ),
                   SizedBox(height: height_10),
@@ -260,16 +302,15 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
   }
 
   Widget _buildTimelineCard(TripExpenseEntry expense, int index) {
-    final timeFormat = DateFormat('h:mm a');
-
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: height_16, vertical: 6),
+      padding:
+          EdgeInsets.symmetric(horizontal: height_16, vertical: groupGapXs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Timeline line + dot
           SizedBox(
-            width: 24,
+            width: groupProgressIndicatorSize,
             child: Column(
               children: [
                 Container(
@@ -280,7 +321,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                     color: neopopAccent,
                     boxShadow: [
                       BoxShadow(
-                        color: neopopAccent.withOpacity(0.4),
+                        color: neopopAccentBorderStrong,
                         blurRadius: 6,
                       ),
                     ],
@@ -289,7 +330,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                 Container(
                   width: 2,
                   height: 60,
-                  color: groupOnSurface.withOpacity(0.1),
+                  color: groupMutedFillSoft,
                 ),
               ],
             ),
@@ -300,13 +341,13 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(groupCardRadius),
                 border: Border.all(
                   color: neopopGrey.withValues(alpha: 0.35),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: groupOnSurface.withValues(alpha: 0.06),
+                    color: groupSurfaceFillFaint,
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -321,8 +362,8 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: neopopAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        color: neopopAccentFillSoft,
+                        borderRadius: BorderRadius.circular(groupRadiusMd),
                       ),
                       child: Icon(
                         _categoryIcon(expense.category),
@@ -346,7 +387,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${expense.paidByName} • ${timeFormat.format(expense.timestamp)}',
+                            '${expense.paidByName} • ${DateFormat(AppDateFormats.time12h).format(expense.timestamp.toLocal())}',
                             style: caption_text.copyWith(
                               color: groupOnSurfaceMuted,
                             ),
@@ -355,9 +396,10 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                       ),
                     ),
                     Text(
-                      '₹${expense.amount.toStringAsFixed(0)}',
+                      '${_tripSym}${expense.amount.toStringAsFixed(0)}',
                       style: body1_text.copyWith(
-                          color: neopopYellow, fontWeight: FontWeight.w700),
+                          color: ThemeAccentColors.amount(context),
+                          fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -373,13 +415,13 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(groupCardRadius),
         border: Border.all(
           color: neopopGrey.withValues(alpha: 0.35),
         ),
         boxShadow: [
           BoxShadow(
-            color: groupOnSurface.withValues(alpha: 0.06),
+            color: groupSurfaceFillFaint,
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -395,24 +437,30 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
                 const Icon(Icons.analytics_rounded,
                     color: neopopAccent, size: 20),
                 SizedBox(width: height_10 / 2),
-                Text('Trip Summary',
+                Text(AppStrings.trips.tripSummary,
                     style: body1_text.copyWith(
                         color: neopopAccent, fontWeight: FontWeight.w600)),
               ],
             ),
             SizedBox(height: height_16),
+            _summaryRow(AppStrings.trips.totalSpent,
+                '${_tripSym}${_summary.totalSpent.toStringAsFixed(0)}'),
+            _summaryRow(AppStrings.trips.perDayAvg,
+                '${_tripSym}${_summary.avgPerDay.toStringAsFixed(0)}'),
             _summaryRow(
-                'Total Spent', '₹${_summary.totalSpent.toStringAsFixed(0)}'),
+                AppStrings.trips.transactions, '${_summary.totalTransactions}'),
+            Divider(color: neopopGreyBorderSoft, height: 24),
+            _summaryRow(AppStrings.trips.mvpLabel, _summary.mvpMemberName,
+                subtitle: AppStringFormat.paidAmount(
+                  _tripSym,
+                  _summary.mvpAmount.toStringAsFixed(0),
+                )),
             _summaryRow(
-                'Per Day (avg)', '₹${_summary.avgPerDay.toStringAsFixed(0)}'),
-            _summaryRow('Transactions', '${_summary.totalTransactions}'),
-            Divider(color: neopopGrey.withOpacity(0.3), height: 24),
-            _summaryRow('🏆 MVP', _summary.mvpMemberName,
-                subtitle: 'Paid ₹${_summary.mvpAmount.toStringAsFixed(0)}'),
-            _summaryRow('💰 Biggest', _summary.biggestExpenseDesc,
+                AppStrings.trips.biggestLabel, _summary.biggestExpenseDesc,
                 subtitle:
-                    '₹${_summary.biggestExpenseAmount.toStringAsFixed(0)}'),
-            _summaryRow('📂 Top Category', _summary.topCategory),
+                    '${_tripSym}${_summary.biggestExpenseAmount.toStringAsFixed(0)}'),
+            _summaryRow(
+                AppStrings.trips.topCategoryLabel, _summary.topCategory),
           ],
         ),
       ),
@@ -421,12 +469,11 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
 
   Widget _summaryRow(String label, String value, {String? subtitle}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: groupGapXxs),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: caption_text.copyWith(color: groupOnSurfaceMuted)),
+          Text(label, style: caption_text.copyWith(color: groupOnSurfaceMuted)),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -436,7 +483,7 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
               if (subtitle != null)
                 Text(subtitle,
                     style: caption_text.copyWith(
-                        color: groupOnSurfaceMuted, fontSize: 10)),
+                        color: groupOnSurfaceMuted, fontSize: splitrFontMicro)),
             ],
           ),
         ],
@@ -446,19 +493,19 @@ class _TripTimelineTabState extends State<TripTimelineTab> {
 
   IconData _categoryIcon(String? category) {
     switch (category?.toLowerCase()) {
-      case 'food':
+      case CategorySlugValues.food:
         return Icons.restaurant_rounded;
-      case 'transport':
-      case 'transportation':
+      case CategorySlugValues.transport:
+      case CategorySlugValues.transportation:
         return Icons.directions_car_rounded;
-      case 'stay':
-      case 'accommodation':
+      case CategorySlugValues.stay:
+      case CategorySlugValues.accommodation:
         return Icons.hotel_rounded;
-      case 'shopping':
+      case CategorySlugValues.shopping:
         return Icons.shopping_bag_rounded;
-      case 'entertainment':
+      case CategorySlugValues.entertainment:
         return Icons.movie_rounded;
-      case 'drinks':
+      case CategorySlugValues.drinks:
         return Icons.local_bar_rounded;
       default:
         return Icons.receipt_long_rounded;

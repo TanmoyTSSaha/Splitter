@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controller/add_transaction_controller.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Controller/add_transaction_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
 import '../../../Model/group_model.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/business_rules.dart';
 
 /// Tab that lets users split an expense by individual items.
 /// Each item has a name, price, and a set of assigned group members.
@@ -37,42 +47,46 @@ class _ByItemTabState extends State<ByItemTab> {
   Widget build(BuildContext context) {
     return Obx(() {
       final remaining = widget.totalAmount - _controller.totalItemPrice.value;
-      final isValid = remaining.abs() < 0.01;
+      final isValid = remaining.abs() < MoneyEpsilon.itemSplitRemaining;
 
       return Column(
         children: [
           // ── Header ──
           Text(
-            "Split by items",
+            SharingMode.byItem.tabTitle,
             style: sub_headline4_text.copyWith(color: groupOnSurface),
           ),
-          SizedBox(height: height_16 / 2),
+          const SizedBox(height: groupGapSm),
           Text(
-            "Add items and assign who shares each",
+            SharingMode.byItem.tabSubtitle,
             style: body1_text.copyWith(color: groupOnSurface),
           ),
-          SizedBox(height: height_16),
+          const SizedBox(height: groupGapMd),
 
           // ── Running total bar ──
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: groupGutter,
+              vertical: groupGap10,
+            ),
             decoration: BoxDecoration(
               color: isValid
-                  ? Colors.green.withOpacity(0.1)
-                  : neopopYellow.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+                  ? AppPalette.shareCardSettledGreenSubtle
+                  : neopopYellowFillSoft,
+              borderRadius: BorderRadius.circular(groupRadiusMd),
               border: Border.all(
                 color: isValid
-                    ? Colors.green.withOpacity(0.3)
-                    : neopopYellow.withOpacity(0.3),
+                    ? AppPalette.shareCardSettledGreenBorder
+                    : neopopYellow.withValues(
+                        alpha: AppDimensions.cardShadowColorOpacity),
               ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Items total",
+                  AppStrings.groups.itemsTotal,
                   style: body2_text.copyWith(
                     color: groupOnSurface,
                     fontWeight: FontWeight.w500,
@@ -81,32 +95,36 @@ class _ByItemTabState extends State<ByItemTab> {
                 Row(
                   children: [
                     Text(
-                      "₹${_controller.totalItemPrice.value.toStringAsFixed(2)}",
+                      "${userCurrencySymbol()}${_controller.totalItemPrice.value.toStringAsFixed(DefaultDecimalPlaces.amount)}",
                       style: sub_headline5_text.copyWith(
-                        color: isValid ? Colors.green : neopopYellow,
+                        color: isValid
+                            ? AppPalette.shareCardSettledGreen
+                            : ThemeAccentColors.oweWarning(context),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
-                      " / ₹${widget.totalAmount.toStringAsFixed(2)}",
+                      " / ${userCurrencySymbol()}${widget.totalAmount.toStringAsFixed(DefaultDecimalPlaces.amount)}",
                       style: body2_text.copyWith(
                         color: groupOnSurfaceMuted,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: groupGapSm),
                     Icon(
                       isValid
                           ? Icons.check_circle_rounded
                           : Icons.info_outline_rounded,
-                      color: isValid ? Colors.green : neopopYellow,
-                      size: 18,
+                      color: isValid
+                          ? AppPalette.shareCardSettledGreen
+                          : ThemeAccentColors.oweWarning(context),
+                      size: groupCarouselIconSm,
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          SizedBox(height: height_16),
+          const SizedBox(height: groupGapMd),
 
           // ── Item list ──
           Expanded(
@@ -128,15 +146,16 @@ class _ByItemTabState extends State<ByItemTab> {
 
   Widget _buildItemCard(int index) {
     final item = _controller.itemSplitDetails[index];
-    final List<String> assignees = List<String>.from(item["assignees"] ?? []);
+    final List<String> assignees =
+        List<String>.from(item[SplitDetailKeys.assignees] ?? []);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: groupCarouselGap),
+      padding: const EdgeInsets.all(groupGap14),
       decoration: BoxDecoration(
-        color: neopopOnPrimary.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: neopopOnPrimary.withOpacity(0.08)),
+        color: shareCardFillWhisper,
+        borderRadius: BorderRadius.circular(groupRadiusLgSm),
+        border: Border.all(color: shareCardFillSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,18 +165,18 @@ class _ByItemTabState extends State<ByItemTab> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: groupGap10, vertical: groupGap3),
                 decoration: BoxDecoration(
-                  color: neopopAccent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(6),
+                  color: neopopAccentFillLight,
+                  borderRadius: BorderRadius.circular(groupRadiusMdSm),
                 ),
                 child: Text(
-                  "Item ${index + 1}",
+                  AppStringFormat.itemLabel(index + 1),
                   style: caption_text.copyWith(
                     color: neopopAccent,
                     fontWeight: FontWeight.w700,
-                    fontSize: 11,
+                    fontSize: splitrFontCaptionSm,
                   ),
                 ),
               ),
@@ -166,13 +185,13 @@ class _ByItemTabState extends State<ByItemTab> {
                   onTap: () => _controller.removeItem(index),
                   child: Icon(
                     Icons.close_rounded,
-                    color: neopopOnPrimary.withOpacity(0.3),
-                    size: 18,
+                    color: shareCardBorderSoft,
+                    size: groupCarouselIconSm,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: groupGapSm),
 
           // Name + Price row
           Row(
@@ -187,28 +206,28 @@ class _ByItemTabState extends State<ByItemTab> {
                       _controller.updateItemName(index, value),
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: "Item name",
+                    hintText: AppStrings.groups.itemNameHint,
                     hintStyle: body1_text.copyWith(
-                      color: neopopOnPrimary.withOpacity(0.25),
+                      color: shareCardBorderSoft,
                     ),
                     filled: true,
-                    fillColor: neopopOnPrimary.withOpacity(0.04),
+                    fillColor: shareCardFillWhisper,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                        horizontal: groupCarouselGap, vertical: groupGap10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(groupRadiusMd),
                       borderSide: BorderSide(
-                        color: neopopOnPrimary.withOpacity(0.1),
+                        color: shareCardFillMedium,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(groupRadiusMd),
                       borderSide: const BorderSide(color: neopopAccent),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: groupGapSm),
 
               // Price
               Expanded(
@@ -217,33 +236,34 @@ class _ByItemTabState extends State<ByItemTab> {
                   controller: _controller.itemPriceControllers[index],
                   keyboardType: TextInputType.number,
                   style: body1_text.copyWith(
-                    color: neopopYellow,
+                    color: ThemeAccentColors.amount(context),
                     fontWeight: FontWeight.w600,
                   ),
                   onChanged: (value) =>
                       _controller.updateItemPrice(index, value),
                   decoration: InputDecoration(
                     isDense: true,
-                    prefixText: "₹ ",
+                    prefixText: currencyPrefixText(),
                     prefixStyle: body1_text.copyWith(
-                      color: neopopYellow.withOpacity(0.6),
+                      color: ThemeAccentColors.amount(context)
+                          .withValues(alpha: 0.6),
                     ),
-                    hintText: "0.00",
+                    hintText: AppAmountHints.decimalWithSymbol,
                     hintStyle: body1_text.copyWith(
-                      color: neopopOnPrimary.withOpacity(0.2),
+                      color: shareCardFillMedium,
                     ),
                     filled: true,
-                    fillColor: neopopOnPrimary.withOpacity(0.04),
+                    fillColor: shareCardFillWhisper,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                        horizontal: groupCarouselGap, vertical: groupGap10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(groupRadiusMd),
                       borderSide: BorderSide(
-                        color: neopopOnPrimary.withOpacity(0.1),
+                        color: shareCardFillMedium,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(groupRadiusMd),
                       borderSide: const BorderSide(color: neopopYellow),
                     ),
                   ),
@@ -251,22 +271,22 @@ class _ByItemTabState extends State<ByItemTab> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: groupGapSm),
 
           // Assignee label
           Text(
-            "Who shares this item?",
+            AppStrings.groups.whoSharesThisItem,
             style: caption_text.copyWith(
-              color: neopopOnPrimary.withOpacity(0.4),
-              fontSize: 11,
+              color: shareCardBorderStrong,
+              fontSize: splitrFontCaptionSm,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: groupGapSm),
 
           // Assignee chips
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: groupGapSm,
+            runSpacing: groupGapSm,
             children: widget.groupMembersWithNameModel.map((member) {
               final isAssigned = assignees.contains(member.userID);
 
@@ -274,19 +294,19 @@ class _ByItemTabState extends State<ByItemTab> {
                 onTap: () =>
                     _controller.toggleItemAssignee(index, member.userID!),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  duration: AppMotion.standard,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGap10, vertical: groupGapXs),
                   decoration: BoxDecoration(
                     color: isAssigned
-                        ? neopopAccent.withOpacity(0.15)
-                        : neopopOnPrimary.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(20),
+                        ? neopopAccentFillMedium
+                        : shareCardFillWhisper,
+                    borderRadius: BorderRadius.circular(groupCardRadiusLg),
                     border: Border.all(
-                      color: isAssigned
-                          ? neopopAccent
-                          : neopopOnPrimary.withOpacity(0.1),
-                      width: isAssigned ? 1.5 : 1,
+                      color: isAssigned ? neopopAccent : shareCardFillMedium,
+                      width: isAssigned
+                          ? groupAccentBorderWidth
+                          : AppDimensions.borderWidthHairline,
                     ),
                   ),
                   child: Row(
@@ -295,26 +315,24 @@ class _ByItemTabState extends State<ByItemTab> {
                       // Avatar
                       UserAvatar(
                         userID: member.userID ?? "",
-                        userName: member.userName ?? "User",
+                        userName: member.userName ?? DisplayFallbacks.user,
                         imageUrl: member.userPic,
-                        radius: 10,
+                        radius: AppDimensions.tripAvatarRadius,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: groupGapXs),
                       Text(
                         member.userName!,
                         style: caption_text.copyWith(
-                          color: isAssigned
-                              ? neopopAccent
-                              : neopopOnPrimary.withOpacity(0.5),
+                          color: isAssigned ? neopopAccent : shareCardIconDim,
                           fontWeight:
                               isAssigned ? FontWeight.w600 : FontWeight.w400,
-                          fontSize: 12,
+                          fontSize: splitrFontCaption,
                         ),
                       ),
                       if (isAssigned) ...[
-                        const SizedBox(width: 4),
+                        const SizedBox(width: groupGapXxs),
                         const Icon(Icons.check_rounded,
-                            size: 12, color: neopopAccent),
+                            size: groupIconSm, color: neopopAccent),
                       ],
                     ],
                   ),
@@ -331,13 +349,13 @@ class _ByItemTabState extends State<ByItemTab> {
     return GestureDetector(
       onTap: () => _controller.addItem(),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 80),
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        margin: const EdgeInsets.only(bottom: groupGap80),
+        padding: const EdgeInsets.symmetric(vertical: groupGap14),
         decoration: BoxDecoration(
-          color: neopopAccent.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
+          color: neopopAccentFillFaint,
+          borderRadius: BorderRadius.circular(groupControlRadius),
           border: Border.all(
-            color: neopopAccent.withOpacity(0.2),
+            color: neopopAccentFillStrong,
             style: BorderStyle.solid,
           ),
         ),
@@ -346,14 +364,14 @@ class _ByItemTabState extends State<ByItemTab> {
           children: [
             Icon(
               Icons.add_rounded,
-              color: neopopAccent.withOpacity(0.7),
-              size: 18,
+              color: neopopAccentIconMedium,
+              size: groupCarouselIconSm,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: groupGapSm),
             Text(
-              "Add another item",
+              AppStrings.groups.addAnotherItem,
               style: body2_text.copyWith(
-                color: neopopAccent.withOpacity(0.8),
+                color: neopopAccentScrim,
                 fontWeight: FontWeight.w600,
               ),
             ),

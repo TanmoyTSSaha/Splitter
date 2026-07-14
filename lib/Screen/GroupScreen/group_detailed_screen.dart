@@ -1,31 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Bindings/app_bindings.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/sync_indicator_widget.dart';
-import 'package:splitter/Controller/group_screen_controller.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Model/trip_model.dart';
-import 'package:splitter/Screen/GroupScreen/add_transaction_screen.dart';
-import 'package:splitter/Screen/GroupScreen/analytics_tab.dart';
-import 'package:splitter/Screen/GroupScreen/members_tab.dart';
-import 'package:splitter/Screen/GroupScreen/settle_up_tab.dart';
-import 'package:splitter/Screen/GroupScreen/transaction_tab.dart';
-import 'package:splitter/Screen/GroupScreen/wishlist_tab.dart';
-import 'package:splitter/Screen/TripScreen/trip_timeline_screen.dart';
+import 'package:splitr/Bindings/app_bindings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/sync_indicator_widget.dart';
+import 'package:splitr/Controller/group_screen_controller.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Model/trip_model.dart';
+import 'package:splitr/Screen/GroupScreen/add_transaction_screen.dart';
+import 'package:splitr/Screen/GroupScreen/analytics_tab.dart';
+import 'package:splitr/Screen/GroupScreen/members_tab.dart';
+import 'package:splitr/Screen/GroupScreen/settle_up_tab.dart';
+import 'package:splitr/Screen/GroupScreen/transaction_tab.dart';
+import 'package:splitr/Screen/GroupScreen/wishlist_tab.dart';
+import 'package:splitr/Screen/TripScreen/trip_timeline_screen.dart';
 
 import 'package:neopop/neopop.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 import '../../Constants/shared.dart';
-import 'package:splitter/Services/export_service.dart';
-import 'package:splitter/Services/invite_link_service.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Widgets/group_reminder_settings_sheet.dart';
-import 'package:splitter/Widgets/premium_gate.dart';
+import 'package:splitr/Services/export_service.dart';
+import 'package:splitr/Services/invite_link_service.dart';
+import 'package:splitr/Repository/group_repository.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Widgets/group_reminder_settings_sheet.dart';
+import 'package:splitr/Widgets/premium_gate.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
 import 'activity_feed_tab.dart';
 import 'add_member_screen.dart';
 import 'manual_settle_up_screen.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class GroupDetailedScreen extends StatefulWidget {
   final GroupModel groupModel;
@@ -69,9 +75,9 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
   void _showGroupActions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: groupSheetTopBorderRadius,
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -80,7 +86,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
             ListTile(
               leading: const Icon(Icons.notifications_active_outlined,
                   color: neopopAccent),
-              title: Text('Reminder settings',
+              title: Text(AppStrings.groups.reminderSettings,
                   style: body1_text.copyWith(color: neopopBackground)),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -96,47 +102,79 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       members: members,
                     );
                   }
-                } catch (e) {
-                  Fluttertoast.showToast(
-                    msg: 'Could not open reminder settings: $e',
-                    backgroundColor: neopopYellow,
-                    textColor: neopopBackground,
+                } catch (e, stack) {
+                  AppErrorReporter.reportActionFailure(
+                    AppStrings.errors.couldNotOpenReminderPrefix,
+                    error: e,
+                    stack: stack,
                   );
                 }
               },
             ),
             ListTile(
-              leading: const Icon(Icons.file_download_outlined,
-                  color: neopopAccent),
-              title: Text('Export transactions',
+              leading:
+                  const Icon(Icons.file_download_outlined, color: neopopAccent),
+              title: Text(AppStrings.groups.exportTransactions,
                   style: body1_text.copyWith(color: neopopBackground)),
-              subtitle: Text('CSV or PDF (Pro)',
+              subtitle: Text(AppStrings.groups.csvOrPdfPro,
                   style: caption_text.copyWith(color: neopopGrey)),
               onTap: () async {
                 Navigator.pop(ctx);
                 final ok = await requirePremium(
-                  featureLabel: 'CSV & PDF Export',
+                  featureLabel: AppStrings.groups.featureCsvPdfExport,
                 );
                 if (!ok || !context.mounted) return;
                 _showExportOptions(context);
               },
             ),
             ListTile(
+              leading: Icon(
+                widget.groupModel.isArchived
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined,
+                color: neopopAccent,
+              ),
+              title: Text(
+                widget.groupModel.isArchived
+                    ? AppStrings.groups.unarchiveGroup
+                    : AppStrings.groups.archiveGroup,
+                style: body1_text.copyWith(color: neopopBackground),
+              ),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final repo = Get.find<GroupRepository>();
+                final archive = !widget.groupModel.isArchived;
+                try {
+                  await repo.setGroupArchived(
+                      widget.groupModel.groupID!, archive);
+                  GroupScreenController.refreshFromAnywhere();
+                  if (context.mounted) Get.back();
+                } catch (e, stack) {
+                  AppErrorReporter.reportActionFailure(
+                    AppStrings.errors.couldNotUpdateGroupPrefix,
+                    error: e,
+                    stack: stack,
+                  );
+                }
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.link_rounded, color: neopopAccent),
-              title: Text('Share group invite link',
+              title: Text(AppStrings.groups.shareInviteLink,
                   style: body1_text.copyWith(color: neopopBackground)),
               onTap: () async {
                 Navigator.pop(ctx);
                 try {
                   await InviteLinkService().createGroupInviteLink(
                     groupId: widget.groupModel.groupID!,
-                    groupName: widget.groupModel.groupName ?? 'Group',
+                    groupName:
+                        widget.groupModel.groupName ?? DisplayFallbacks.group,
                   );
-                } catch (e) {
-                  Fluttertoast.showToast(
-                    msg: 'Could not create invite: $e',
-                    backgroundColor: neopopYellow,
-                    textColor: neopopBackground,
+                } catch (e, stack) {
+                  AppErrorReporter.reportActionFailure(
+                    AppStrings.errors.couldNotCreateInvitePrefix,
+                    error: e,
+                    stack: stack,
                   );
                 }
               },
@@ -150,22 +188,22 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
   void _showExportOptions(BuildContext context) {
     final export = ExportService();
     final groupId = widget.groupModel.groupID!;
-    final groupName = widget.groupModel.groupName ?? 'Group';
+    final groupName = widget.groupModel.groupName ?? DisplayFallbacks.group;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: groupSheetTopBorderRadius,
       ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.table_chart_outlined,
-                  color: neopopAccent),
-              title: Text('Export as CSV',
+              leading:
+                  const Icon(Icons.table_chart_outlined, color: neopopAccent),
+              title: Text(AppStrings.groups.exportCsv,
                   style: body1_text.copyWith(color: neopopBackground)),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -175,19 +213,20 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                     groupName: groupName,
                     userId: widget.userID,
                   );
-                } catch (e) {
-                  Fluttertoast.showToast(
-                    msg: 'Export failed: $e',
-                    backgroundColor: neopopYellow,
-                    textColor: neopopBackground,
+                } catch (e, stack) {
+                  AppErrorReporter.reportActionFailure(
+                    'Group CSV export failed',
+                    error: e,
+                    stack: stack,
+                    context: {'feature': 'export'},
                   );
                 }
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.picture_as_pdf_outlined, color: neopopAccent),
-              title: Text('Export as PDF',
+              leading: const Icon(Icons.picture_as_pdf_outlined,
+                  color: neopopAccent),
+              title: Text(AppStrings.groups.exportPdf,
                   style: body1_text.copyWith(color: neopopBackground)),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -197,11 +236,12 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                     groupName: groupName,
                     userId: widget.userID,
                   );
-                } catch (e) {
-                  Fluttertoast.showToast(
-                    msg: 'Export failed: $e',
-                    backgroundColor: neopopYellow,
-                    textColor: neopopBackground,
+                } catch (e, stack) {
+                  AppErrorReporter.reportActionFailure(
+                    'Group CSV export failed',
+                    error: e,
+                    stack: stack,
+                    context: {'feature': 'export'},
                   );
                 }
               },
@@ -219,26 +259,26 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
     // Define tabs dynamically
     final List<Widget> tabs = [
       if (isTrip)
-        const Tab(
-          text: "Timeline",
+        Tab(
+          text: AppStrings.groups.tabTimeline,
         ),
-      const Tab(
-        text: "Activity",
+      Tab(
+        text: AppStrings.groups.tabActivity,
       ),
-      const Tab(
-        text: "Transactions",
+      Tab(
+        text: AppStrings.trips.transactions,
       ),
-      const Tab(
-        text: "Analytics",
+      Tab(
+        text: AppStrings.groups.tabAnalytics,
       ),
-      const Tab(
-        text: "Settle up",
+      Tab(
+        text: AppStrings.groups.tabSettleUp,
       ),
-      const Tab(
-        text: "Members",
+      Tab(
+        text: AppStrings.groups.tabMembers,
       ),
-      const Tab(
-        text: "Wishlist",
+      Tab(
+        text: AppStrings.groups.tabWishlist,
       ),
     ];
 
@@ -266,11 +306,12 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
       MembersTab(
         userID: widget.userID,
         groupID: widget.groupModel.groupID!,
+        createdBy: widget.groupModel.createdBy,
       ),
       WishlistTab(
         key: _wishlistTabKey,
         groupId: widget.groupModel.groupID!,
-        groupName: widget.groupModel.groupName ?? 'Group',
+        groupName: widget.groupModel.groupName ?? DisplayFallbacks.group,
         userId: widget.userID,
       ),
     ];
@@ -289,24 +330,16 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
     final membersIndex = isTrip ? 5 : 4;
     final wishlistIndex = isTrip ? 6 : 5;
 
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          automaticallyImplyLeading: true,
-          iconTheme: const IconThemeData(color: neopopBackground),
-          primary: true,
-          backgroundColor: Colors.white,
-          scrolledUnderElevation: 0,
-          centerTitle: false,
-          elevation: 0,
-          title: Text(
-            widget.groupModel.groupName ?? 'Group',
-            style: const TextStyle(
-              fontFamily: 'Albra',
-              fontSize: 22,
+    return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: SplitrDetailAppBar(
+          titleWidget: Text(
+            widget.groupModel.groupName ?? DisplayFallbacks.group,
+            style: TextStyle(
+              fontFamily: kFontAlbra,
+              fontSize: splitrFontSubheadLg,
               fontWeight: FontWeight.w700,
-              color: neopopBackground,
+              color: groupOnSurface,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -314,15 +347,15 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
             if (isTrip)
               IconButton(
                 onPressed: () {},
-                icon: const Icon(Icons.share_rounded, color: neopopBackground),
+                icon: const Icon(Icons.share_rounded, color: groupOnSurface),
               ),
             IconButton(
               onPressed: _groupScreenController.triggerRefresh,
-              icon: const Icon(Icons.replay_rounded, color: neopopBackground),
+              icon: const Icon(Icons.replay_rounded, color: groupOnSurface),
             ),
             IconButton(
               onPressed: () => _showGroupActions(context),
-              icon: const Icon(Icons.settings_outlined, color: neopopBackground),
+              icon: const Icon(Icons.settings_outlined, color: groupOnSurface),
             ),
             const SizedBox(width: groupGapSm),
           ],
@@ -345,13 +378,14 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       Row(
                         children: [
                           Container(
-                            width: 56,
-                            height: 56,
+                            width: groupCtaHeight,
+                            height: groupCtaHeight,
                             decoration: BoxDecoration(
-                              color: neopopSecondaryGrey.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(14),
+                              color: groupMutedFillFaint,
+                              borderRadius:
+                                  BorderRadius.circular(groupRadiusLgSm),
                               border: Border.all(
-                                color: neopopGrey.withValues(alpha: 0.35),
+                                color: groupMutedBorderStrong,
                               ),
                             ),
                             alignment: Alignment.center,
@@ -359,7 +393,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                               getInitials(widget.groupModel.groupName!),
                               style: headline2_text.copyWith(
                                 color: neopopBackground,
-                                fontFamily: 'Albra',
+                                fontFamily: kFontAlbra,
                               ),
                             ),
                           ),
@@ -369,7 +403,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                               widget.groupModel.groupName!,
                               style: headline2_text.copyWith(
                                 color: neopopBackground,
-                                fontFamily: 'Albra',
+                                fontFamily: kFontAlbra,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -379,20 +413,21 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       const SizedBox(height: groupGapMd),
                       Container(
                         decoration: BoxDecoration(
-                          color: neopopSecondaryGrey.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(32),
+                          color: groupMutedFillFaint,
+                          borderRadius: BorderRadius.circular(groupPillRadius),
                         ),
                         child: TabBar(
                           tabAlignment: TabAlignment.start,
-                          dividerColor: Colors.transparent,
-                          indicatorColor: Colors.transparent,
+                          dividerColor: groupTransparent,
+                          indicatorColor: groupTransparent,
                           indicatorSize: TabBarIndicatorSize.tab,
                           indicator: BoxDecoration(
                             color: neopopBackground,
-                            borderRadius: BorderRadius.circular(32),
+                            borderRadius:
+                                BorderRadius.circular(groupPillRadius),
                           ),
-                          labelColor: Colors.white,
-                          unselectedLabelColor: neopopGrey,
+                          labelColor: groupChipSelectedFg,
+                          unselectedLabelColor: groupOnSurfaceMuted,
                           labelStyle:
                               body2_text.copyWith(fontWeight: FontWeight.bold),
                           onTap: _groupScreenController.updateTabIndex,
@@ -422,12 +457,12 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
             if (!showFab) return const SizedBox.shrink();
 
             final label = idx == transactionIndex
-                ? 'Add Transaction'
+                ? AppStrings.groups.addTransaction
                 : idx == settleUpIndex
-                    ? 'Settle Up'
+                    ? AppStrings.settle.title
                     : idx == membersIndex
-                        ? 'Add Member'
-                        : 'Add Wishlist';
+                        ? AppStrings.groups.addMember
+                        : AppStrings.groups.addWishlist;
 
             return NeoPopButton(
               color: neopopAccent,
@@ -443,25 +478,33 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                       () => AddTransactionScreen(
                         userID: widget.userID,
                         groupDetails: <String, dynamic>{
-                          'group_id': widget.groupModel.groupID,
-                          'group_name': widget.groupModel.groupName,
+                          UnifiedTxnKeys.groupId: widget.groupModel.groupID,
+                          SupabaseColumns.groupName:
+                              widget.groupModel.groupName,
                         },
                         groupMembersDetails: value,
                       ),
                     );
                     _groupScreenController.triggerRefresh();
-                  } catch (e) {
-                    Fluttertoast.showToast(
-                      msg: 'Something went wrong! \n$e',
-                      textColor: neopopBackground,
-                      backgroundColor: neopopYellow,
+                  } catch (e, stack) {
+                    AppErrorReporter.reportActionFailure(
+                      'Open add transaction failed',
+                      error: e,
+                      stack: stack,
                     );
                   }
                 } else if (idx == settleUpIndex) {
-                  Get.to(() => ManualSettleUpScreen(
-                        groupID: widget.groupModel.groupID!,
-                        currentUserID: widget.userID,
-                      ));
+                  final settled = await Get.to<bool>(
+                    () => ManualSettleUpScreen(
+                      groupID: widget.groupModel.groupID!,
+                      currentUserID: widget.userID,
+                      groupName: widget.groupModel.groupName ??
+                          DisplayFallbacks.group,
+                    ),
+                  );
+                  if (settled == true) {
+                    _groupScreenController.triggerRefresh();
+                  }
                 } else if (idx == membersIndex) {
                   final result = await Get.to(
                     () => AddMemberScreen(
@@ -487,7 +530,7 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
                           ? Icons.person_add_rounded
                           : Icons.add_rounded,
                       color: neopopBackground,
-                      size: 20,
+                      size: AppDimensions.groupIconMd,
                     ),
                     const SizedBox(width: groupGapSm),
                     Text(
@@ -504,7 +547,6 @@ class _GroupDetailedScreenState extends State<GroupDetailedScreen> {
           }),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      ),
     );
   }
 }

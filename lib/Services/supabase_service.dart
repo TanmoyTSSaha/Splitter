@@ -1,17 +1,22 @@
-import 'package:splitter/Model/friend_model.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Model/personal_transaction_model.dart';
-import 'package:splitter/Model/product_category_model.dart';
-import 'package:splitter/Model/user_details_model.dart';
-import 'package:splitter/Services/SupabaseServices/auth_service.dart';
-import 'package:splitter/Services/SupabaseServices/friend_service.dart';
-import 'package:splitter/Services/SupabaseServices/group_service.dart';
-import 'package:splitter/Services/SupabaseServices/transaction_service.dart';
-import 'package:splitter/Services/SupabaseServices/user_service.dart';
-import 'package:splitter/Services/SupabaseServices/goal_service.dart';
-import 'package:splitter/Model/financial_goal_model.dart';
-import 'package:splitter/Model/loan_model.dart';
-import 'package:splitter/Services/SupabaseServices/loan_service.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'dart:io';
+
+import 'package:splitr/Model/friend_model.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Model/personal_transaction_model.dart';
+import 'package:splitr/Model/product_category_model.dart';
+import 'package:splitr/Model/user_details_model.dart';
+import 'package:splitr/Model/master_upi_bank_model.dart';
+import 'package:splitr/Model/user_upi_account_model.dart';
+import 'package:splitr/Services/SupabaseServices/auth_service.dart';
+import 'package:splitr/Services/SupabaseServices/friend_service.dart';
+import 'package:splitr/Services/SupabaseServices/group_service.dart';
+import 'package:splitr/Services/SupabaseServices/transaction_service.dart';
+import 'package:splitr/Services/SupabaseServices/user_service.dart';
+import 'package:splitr/Services/SupabaseServices/goal_service.dart';
+import 'package:splitr/Model/financial_goal_model.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Services/SupabaseServices/loan_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Facade for Authentication Service
@@ -57,6 +62,10 @@ class SupabaseAuth {
     return _authService.googleSignIn();
   }
 
+  Future<bool> resetPassword({required String email}) {
+    return _authService.resetPassword(email: email);
+  }
+
   bool supabaseRetrieveSession() {
     return _authService.supabaseRetrieveSession();
   }
@@ -95,15 +104,77 @@ class SupabaseDatabase {
 
   Future<void> updateUserProfile({
     required String userID,
+    required String userName,
     required String firstName,
     required String lastName,
     required String phone,
   }) {
     return _userService.updateUserProfile(
       userID: userID,
+      userName: userName,
       firstName: firstName,
       lastName: lastName,
       phone: phone,
+    );
+  }
+
+  Future<String> uploadProfilePhoto({
+    required String userID,
+    required File imageFile,
+  }) {
+    return _userService.uploadProfilePhoto(
+      userID: userID,
+      imageFile: imageFile,
+    );
+  }
+
+  Future<List<UserUpiAccount>> listUpiAccounts(String userId) {
+    return _userService.listUpiAccounts(userId);
+  }
+
+  Future<List<UserUpiAccount>> listUpiAccountsForUsers(
+    List<String> userIds,
+  ) {
+    return _userService.listUpiAccountsForUsers(userIds);
+  }
+
+  Future<List<MasterUpiBank>> listMasterUpiBanks() {
+    return _userService.listMasterUpiBanks();
+  }
+
+  Future<UserUpiAccount> upsertUpiAccount({
+    required String userId,
+    required String vpa,
+    required String bankAlias,
+    String? existingId,
+    bool? isPrimary,
+  }) {
+    return _userService.upsertUpiAccount(
+      userId: userId,
+      vpa: vpa,
+      bankAlias: bankAlias,
+      existingId: existingId,
+      isPrimary: isPrimary,
+    );
+  }
+
+  Future<void> deleteUpiAccount({
+    required String userId,
+    required String accountId,
+  }) {
+    return _userService.deleteUpiAccount(
+      userId: userId,
+      accountId: accountId,
+    );
+  }
+
+  Future<void> setPrimaryUpiAccount({
+    required String userId,
+    required String accountId,
+  }) {
+    return _userService.setPrimaryUpiAccount(
+      userId: userId,
+      accountId: accountId,
     );
   }
 
@@ -197,6 +268,7 @@ class SupabaseDatabase {
     required String currency,
     String? note,
     String sharingType = 'evenly',
+    DateTime? transactionDate,
   }) {
     return _groupService.addGroupExpense(
       groupID: groupID,
@@ -208,6 +280,7 @@ class SupabaseDatabase {
       currency: currency,
       note: note,
       sharingType: sharingType,
+      transactionDate: transactionDate,
     );
   }
 
@@ -221,7 +294,7 @@ class SupabaseDatabase {
     return _friendService.getFriends(userID: userID);
   }
 
-  Future<void> sendFriendRequest({
+  Future<bool> sendFriendRequest({
     required String fromUserID,
     required String toUserID,
   }) {
@@ -314,29 +387,36 @@ class SupabaseDatabase {
   Future<List<Map<String, dynamic>>> getUnifiedTransactions({
     required String userID,
     int? limit = 10,
-    String selectedCurrency = 'INR',
+    String selectedCurrency = CurrencyDefaults.code,
+    DateTime? since,
+    DateTime? until,
   }) {
     return _transactionService.getUnifiedTransactions(
       userID: userID,
       limit: limit,
       selectedCurrency: selectedCurrency,
+      since: since,
+      until: until,
     );
   }
 
   Future<Map<String, double>> getMonthlySpendAnalytics(
-      {required String userID, String selectedCurrency = 'INR'}) {
+      {required String userID,
+      String selectedCurrency = CurrencyDefaults.code}) {
     return _transactionService.getMonthlySpendAnalytics(
         userID: userID, selectedCurrency: selectedCurrency);
   }
 
   Future<double> getMonthlyCashFlow(
-      {required String userID, String selectedCurrency = 'INR'}) {
+      {required String userID,
+      String selectedCurrency = CurrencyDefaults.code}) {
     return _transactionService.getMonthlyCashFlow(
         userID: userID, selectedCurrency: selectedCurrency);
   }
 
   Future<List<Map<String, dynamic>>> getMonthlyPulseData(
-      {required String userID, String selectedCurrency = 'INR'}) {
+      {required String userID,
+      String selectedCurrency = CurrencyDefaults.code}) {
     return _transactionService.getMonthlyPulseData(
         userID: userID, selectedCurrency: selectedCurrency);
   }
@@ -415,7 +495,7 @@ class SupabaseDatabase {
 
   final LoanService _loanService = LoanService();
 
-  Future<void> createLoan(LoanModel loan) {
+  Future<LoanModel> createLoan(LoanModel loan) {
     return _loanService.createLoan(loan);
   }
 

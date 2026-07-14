@@ -1,6 +1,6 @@
 {
-  "project": "SplitO",
-  "package": "splitter",
+  "project": "Splitr",
+  "package": "splitr",
   "savedAt": "2026-07-01",
   "purpose": "Persistent project context with Context7 library IDs for documentation lookups",
   "context7": {

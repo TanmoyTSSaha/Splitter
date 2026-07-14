@@ -1,7 +1,19 @@
+import 'dart:convert';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Services/local/database.dart';
-import 'package:splitter/Services/sync_service.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Model/product_category_model.dart';
+import 'package:splitr/Services/local/database.dart';
+import 'package:splitr/Services/sync_service.dart';
+import 'package:splitr/Services/SupabaseServices/group_service.dart';
+import 'package:splitr/Services/SupabaseServices/transaction_service.dart';
+import 'package:splitr/Utils/group_balance_mutator.dart';
+import 'package:splitr/Utils/group_expense_builder.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Repository layer for transactions — reads from local DB, writes to local + sync queue.
@@ -9,6 +21,8 @@ class TransactionRepository {
   final AppDatabase _db;
   final SyncService _syncService;
   final SupabaseClient _supabase = Supabase.instance.client;
+  final GroupService _groupService = GroupService();
+  final TransactionService _transactionService = TransactionService();
 
   TransactionRepository(this._db, this._syncService);
 
@@ -27,53 +41,59 @@ class TransactionRepository {
 
     final results = await Future.wait([
       _supabase
-          .from('master_product_category')
-          .select('category, category_logo')
-          .inFilter('category', categories.toList()),
+          .from(SupabaseTables.masterProductCategory)
+          .select(
+              '${SupabaseColumns.category}, ${SupabaseColumns.categoryLogo}')
+          .inFilter(SupabaseColumns.category, categories.toList()),
       _supabase
-          .from('users')
-          .select('user_id, firstname, lastname')
-          .inFilter('user_id', userIds.toList()),
+          .from(SupabaseTables.users)
+          .select(
+              '${SupabaseColumns.userId}, ${SupabaseColumns.firstname}, ${SupabaseColumns.lastname}')
+          .inFilter(SupabaseColumns.userId, userIds.toList()),
     ]);
 
     final categoryLogoMap = <String, String>{};
     for (final row in results[0] as List<dynamic>) {
-      categoryLogoMap[row['category'] as String] =
-          row['category_logo'] as String;
+      categoryLogoMap[row[SupabaseColumns.category] as String] =
+          row[SupabaseColumns.categoryLogo] as String;
     }
 
     final userNameMap = <String, String>{};
     for (final row in results[1] as List<dynamic>) {
-      final first = row['firstname'] ?? '';
-      final last = row['lastname'] ?? '';
-      userNameMap[row['user_id'] as String] = '$first $last'.trim();
+      final first = row[SupabaseColumns.firstname] ?? StringDefaults.empty;
+      final last = row[SupabaseColumns.lastname] ?? StringDefaults.empty;
+      userNameMap[row[SupabaseColumns.userId] as String] =
+          DisplayFormatters.joinFirstLast(first, last);
     }
 
     return localRows.map((row) {
-      final paidByName = userNameMap[row.paidBy] ?? 'Unknown';
-      final sharedWithName = userNameMap[row.sharedWith] ?? 'Unknown';
-      final categoryLogo = categoryLogoMap[row.category ?? ''] ?? '';
+      final paidByName = userNameMap[row.paidBy] ?? DisplayFallbacks.unknown;
+      final sharedWithName =
+          userNameMap[row.sharedWith] ?? DisplayFallbacks.unknown;
+      final categoryLogo =
+          categoryLogoMap[row.category ?? StringDefaults.empty] ??
+              StringDefaults.empty;
 
       return GroupTransactionModel.fromJSON(
         {
-          'transaction_id': row.transactionId,
-          'transaction_group_id': row.transactionGroupId,
-          'group_id': row.groupId,
-          'paid_by': row.paidBy,
-          'shared_with': row.sharedWith,
-          'total_transaction_amount': row.totalTransactionAmount,
-          'shared_transaction_amount': row.sharedTransactionAmount,
-          'shared_percentage': row.sharedPercentage,
-          'self_share_amount': row.selfShareAmount,
-          'self_share_percentage': row.selfSharePercentage,
-          'sharing_type': row.sharingType,
-          'category': row.category,
-          'description': row.description,
-          'transaction_photo': row.transactionPhoto,
-          'transaction_note': row.transactionNote,
-          'is_settled_up': row.isSettledUp,
-          'transaction_date': row.transactionDate?.toIso8601String() ??
-              DateTime.now().toIso8601String(),
+          SupabaseColumns.transactionId: row.transactionId,
+          SupabaseColumns.transactionGroupId: row.transactionGroupId,
+          SupabaseColumns.groupId: row.groupId,
+          SupabaseColumns.paidBy: row.paidBy,
+          SupabaseColumns.sharedWith: row.sharedWith,
+          SupabaseColumns.totalTransactionAmount: row.totalTransactionAmount,
+          SupabaseColumns.sharedTransactionAmount: row.sharedTransactionAmount,
+          SupabaseColumns.sharedPercentage: row.sharedPercentage,
+          SupabaseColumns.selfShareAmount: row.selfShareAmount,
+          SupabaseColumns.selfSharePercentage: row.selfSharePercentage,
+          SupabaseColumns.sharingType: row.sharingType,
+          SupabaseColumns.category: row.category,
+          SupabaseColumns.description: row.description,
+          SupabaseColumns.transactionPhoto: row.transactionPhoto,
+          SupabaseColumns.transactionNote: row.transactionNote,
+          SupabaseColumns.isSettledUp: row.isSettledUp,
+          SupabaseColumns.transactionDate: row.transactionDate ??
+              TransactionDateFormatter.nowForTransaction(),
         },
         paidByName,
         sharedWithName,
@@ -94,38 +114,44 @@ class TransactionRepository {
   Future<void> refreshFromServer(String groupId) async {
     try {
       final rows = await _supabase
-          .from('group_transaction')
+          .from(SupabaseTables.groupTransaction)
           .select()
-          .eq('group_id', groupId);
+          .eq(SupabaseColumns.groupId, groupId);
 
       for (final row in rows) {
         await _db
             .into(_db.localGroupTransactions)
             .insertOnConflictUpdate(LocalGroupTransactionsCompanion(
-              transactionId: Value(row['transaction_id'] as String),
-              transactionGroupId: Value(row['transaction_group_id'] as String),
-              groupId: Value(row['group_id'] as String),
-              paidBy: Value(row['paid_by'] as String),
-              sharedWith: Value(row['shared_with'] as String),
-              totalTransactionAmount: Value(
-                  double.parse(row['total_transaction_amount'].toString())),
-              sharedTransactionAmount: Value(
-                  double.parse(row['shared_transaction_amount'].toString())),
-              sharedPercentage:
-                  Value(double.parse(row['shared_percentage'].toString())),
-              selfShareAmount:
-                  Value(double.parse(row['self_share_amount'].toString())),
-              selfSharePercentage:
-                  Value(double.parse(row['self_share_percentage'].toString())),
-              sharingType: Value(row['sharing_type'] as String? ?? 'evenly'),
-              category: Value(row['category'] as String?),
-              description: Value(row['description'] as String?),
-              transactionPhoto: Value(row['transaction_photo'] as String?),
-              transactionNote: Value(row['transaction_note'] as String?),
-              isSettledUp: Value(row['is_settled_up'] as bool? ?? false),
-              transactionDate: Value(
-                  DateTime.tryParse(row['transaction_date']?.toString() ?? '')),
-              syncStatus: const Value('synced'),
+              transactionId:
+                  Value(row[SupabaseColumns.transactionId] as String),
+              transactionGroupId:
+                  Value(row[SupabaseColumns.transactionGroupId] as String),
+              groupId: Value(row[SupabaseColumns.groupId] as String),
+              paidBy: Value(row[SupabaseColumns.paidBy] as String),
+              sharedWith: Value(row[SupabaseColumns.sharedWith] as String),
+              totalTransactionAmount: Value(double.parse(
+                  row[SupabaseColumns.totalTransactionAmount].toString())),
+              sharedTransactionAmount: Value(double.parse(
+                  row[SupabaseColumns.sharedTransactionAmount].toString())),
+              sharedPercentage: Value(double.parse(
+                  row[SupabaseColumns.sharedPercentage].toString())),
+              selfShareAmount: Value(double.parse(
+                  row[SupabaseColumns.selfShareAmount].toString())),
+              selfSharePercentage: Value(double.parse(
+                  row[SupabaseColumns.selfSharePercentage].toString())),
+              sharingType: Value(row[SupabaseColumns.sharingType] as String? ??
+                  SharingTypeValues.evenly),
+              category: Value(row[SupabaseColumns.category] as String?),
+              description: Value(row[SupabaseColumns.description] as String?),
+              transactionPhoto:
+                  Value(row[SupabaseColumns.transactionPhoto] as String?),
+              transactionNote:
+                  Value(row[SupabaseColumns.transactionNote] as String?),
+              isSettledUp:
+                  Value(row[SupabaseColumns.isSettledUp] as bool? ?? false),
+              transactionDate: Value(TransactionDateFormatter.parseStorage(
+                  row[SupabaseColumns.transactionDate])),
+              syncStatus: const Value(SyncStatusValues.synced),
             ));
       }
     } catch (e) {
@@ -152,7 +178,7 @@ class TransactionRepository {
     String? transactionNote,
     DateTime? transactionDate,
   }) async {
-    final now = transactionDate ?? DateTime.now();
+    final now = transactionDate ?? TransactionDateFormatter.nowForTransaction();
 
     // Save locally
     await _db
@@ -175,32 +201,280 @@ class TransactionRepository {
           transactionNote: Value(transactionNote),
           isSettledUp: const Value(false),
           transactionDate: Value(now),
-          syncStatus: const Value('pending'),
+          syncStatus: const Value(SyncStatusValues.pending),
         ));
 
     // Enqueue for sync
     await _syncService.enqueue(
-      tableName: 'group_transaction',
-      operation: 'INSERT',
+      tableName: SupabaseTables.groupTransaction,
+      operation: SyncOperations.insert,
       recordId: transactionId,
       payload: {
-        'transaction_id': transactionId,
-        'transaction_group_id': transactionGroupId,
-        'group_id': groupId,
-        'paid_by': paidBy,
-        'shared_with': sharedWith,
-        'total_transaction_amount': totalTransactionAmount,
-        'shared_transaction_amount': sharedTransactionAmount,
-        'shared_percentage': sharedPercentage,
-        'self_share_amount': selfShareAmount,
-        'self_share_percentage': selfSharePercentage,
-        'sharing_type': sharingType,
-        'category': category,
-        'description': description,
-        'transaction_photo': transactionPhoto,
-        'transaction_note': transactionNote,
-        'transaction_date': now.toIso8601String(),
+        SupabaseColumns.transactionId: transactionId,
+        SupabaseColumns.transactionGroupId: transactionGroupId,
+        SupabaseColumns.groupId: groupId,
+        SupabaseColumns.paidBy: paidBy,
+        SupabaseColumns.sharedWith: sharedWith,
+        SupabaseColumns.totalTransactionAmount: totalTransactionAmount,
+        SupabaseColumns.sharedTransactionAmount: sharedTransactionAmount,
+        SupabaseColumns.sharedPercentage: sharedPercentage,
+        SupabaseColumns.selfShareAmount: selfShareAmount,
+        SupabaseColumns.selfSharePercentage: selfSharePercentage,
+        SupabaseColumns.sharingType: sharingType,
+        SupabaseColumns.category: category,
+        SupabaseColumns.description: description,
+        SupabaseColumns.transactionPhoto: transactionPhoto,
+        SupabaseColumns.transactionNote: transactionNote,
+        SupabaseColumns.transactionDate:
+            TransactionDateFormatter.toStorageIso(now),
       },
     );
   }
+
+  /// Create a split expense on the server and refresh the local group cache.
+  Future<void> addGroupExpense({
+    required String groupID,
+    required String paidByUserID,
+    required double totalAmount,
+    required String description,
+    required String category,
+    required Map<String, double> splits,
+    required String currency,
+    String? note,
+    String sharingType = SharingTypeValues.evenly,
+    DateTime? transactionDate,
+  }) async {
+    final txDate =
+        transactionDate ?? TransactionDateFormatter.nowForTransaction();
+    if (await _hasConnectivity()) {
+      try {
+        await _groupService.addGroupExpense(
+          groupID: groupID,
+          paidByUserID: paidByUserID,
+          totalAmount: totalAmount,
+          description: description,
+          category: category,
+          splits: splits,
+          currency: currency,
+          note: note,
+          sharingType: sharingType,
+          transactionDate: txDate,
+        );
+        await refreshFromServer(groupID);
+        return;
+      } catch (_) {
+        // Queue locally when the network call fails.
+      }
+    }
+
+    await _queueGroupExpense(
+      groupID: groupID,
+      paidByUserID: paidByUserID,
+      totalAmount: totalAmount,
+      description: description,
+      category: category,
+      splits: splits,
+      currency: currency,
+      note: note,
+      sharingType: sharingType,
+      transactionDate: txDate,
+    );
+  }
+
+  /// Record a settlement locally and enqueue sync when offline or on failure.
+  Future<void> recordSettlement({
+    required String groupID,
+    required String fromUserID,
+    required String toUserID,
+    required double amount,
+    required String currency,
+    double exchangeRateToInr = CurrencyDefaults.exchangeRateToInr,
+    DateTime? transactionDate,
+  }) async {
+    final txDate =
+        transactionDate ?? TransactionDateFormatter.nowForTransaction();
+    if (await _hasConnectivity()) {
+      var serverRecorded = false;
+      try {
+        await _groupService.recordSettlement(
+          groupID: groupID,
+          fromUserID: fromUserID,
+          toUserID: toUserID,
+          amount: amount,
+          currency: currency,
+          transactionDate: txDate,
+        );
+        serverRecorded = true;
+        try {
+          await refreshFromServer(groupID);
+        } catch (_) {
+          // Settlement already persisted; local cache refresh is best-effort.
+        }
+        return;
+      } catch (_) {
+        if (serverRecorded) return;
+        // Queue locally when the network call fails.
+      }
+    }
+
+    final row = GroupExpenseBuilder.buildSettlementRow(
+      groupId: groupID,
+      fromUserId: fromUserID,
+      toUserId: toUserID,
+      amount: amount,
+      currency: currency,
+      exchangeRateToInr: exchangeRateToInr,
+      transactionDate: txDate,
+    );
+
+    await addTransaction(
+      transactionId: row.transactionId,
+      transactionGroupId: row.transactionGroupId,
+      groupId: row.groupId,
+      paidBy: row.paidBy,
+      sharedWith: row.sharedWith,
+      totalTransactionAmount: row.totalTransactionAmount,
+      sharedTransactionAmount: row.sharedTransactionAmount,
+      sharedPercentage: row.sharedPercentage,
+      selfShareAmount: row.selfShareAmount,
+      selfSharePercentage: row.selfSharePercentage,
+      sharingType: row.sharingType,
+      category: row.category,
+      description: row.description,
+      transactionDate: row.transactionDate,
+    );
+
+    final balances = await _readLocalBalances(groupID);
+    final updated = applySettlement(
+      balances: balances,
+      fromUserId: fromUserID,
+      toUserId: toUserID,
+      amount: amount,
+    );
+    await _enqueueGroupBalanceUpdate(groupID, updated);
+  }
+
+  Future<bool> _hasConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
+  }
+
+  Future<List<Map<String, dynamic>>> _readLocalBalances(String groupId) async {
+    final local = await _db.getGroupById(groupId);
+    if (local == null || local.groupBalance.isEmpty) return [];
+    final decoded = jsonDecode(local.groupBalance);
+    if (decoded is! List) return [];
+    return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> _queueGroupExpense({
+    required String groupID,
+    required String paidByUserID,
+    required double totalAmount,
+    required String description,
+    required String category,
+    required Map<String, double> splits,
+    required String currency,
+    String? note,
+    String sharingType = SharingTypeValues.evenly,
+    DateTime? transactionDate,
+  }) async {
+    final rows = GroupExpenseBuilder.buildExpenseRows(
+      groupId: groupID,
+      paidByUserId: paidByUserID,
+      totalAmount: totalAmount,
+      description: description,
+      category: category,
+      splits: splits,
+      currency: currency,
+      note: note,
+      sharingType: sharingType,
+      transactionDate: transactionDate,
+    );
+
+    for (final row in rows) {
+      await addTransaction(
+        transactionId: row.transactionId,
+        transactionGroupId: row.transactionGroupId,
+        groupId: row.groupId,
+        paidBy: row.paidBy,
+        sharedWith: row.sharedWith,
+        totalTransactionAmount: row.totalTransactionAmount,
+        sharedTransactionAmount: row.sharedTransactionAmount,
+        sharedPercentage: row.sharedPercentage,
+        selfShareAmount: row.selfShareAmount,
+        selfSharePercentage: row.selfSharePercentage,
+        sharingType: row.sharingType,
+        category: row.category,
+        description: row.description,
+        transactionNote: row.transactionNote,
+        transactionDate: row.transactionDate,
+      );
+    }
+
+    final balances = await _readLocalBalances(groupID);
+    final updated = applySplitDebts(
+      balances: balances,
+      payerId: paidByUserID,
+      splits: splits,
+    );
+    await _enqueueGroupBalanceUpdate(groupID, updated);
+  }
+
+  Future<void> _enqueueGroupBalanceUpdate(
+    String groupId,
+    List<Map<String, dynamic>> balances,
+  ) async {
+    final existing = await _db.getGroupById(groupId);
+    await _db.upsertGroup(LocalGroupsCompanion(
+      groupId: Value(groupId),
+      groupName: Value(existing?.groupName ?? DisplayFallbacks.group),
+      groupBalance: Value(jsonEncode(balances)),
+      createdBy: Value(existing?.createdBy),
+      createdAt: Value(existing?.createdAt),
+      updatedOn: Value(DateTime.now()),
+      syncStatus: const Value(SyncStatusValues.pending),
+    ));
+
+    await _syncService.enqueue(
+      tableName: SupabaseTables.groups,
+      operation: SyncOperations.update,
+      recordId: groupId,
+      payload: {
+        SupabaseColumns.groupId: groupId,
+        SupabaseColumns.groupBalance: balances,
+        SupabaseColumns.updatedOn: DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  /// Delete a transaction group on the server and refresh local cache.
+  Future<void> deleteGroupTransaction({
+    required String transactionGroupID,
+    required String groupID,
+  }) async {
+    await _transactionService.deleteGroupTransaction(
+      transactionGroupID: transactionGroupID,
+    );
+    await (_db.delete(_db.localGroupTransactions)
+          ..where((t) => t.transactionGroupId.equals(transactionGroupID)))
+        .go();
+    await refreshFromServer(groupID);
+  }
+
+  Future<List<CategoryOnlyModel>> getProductCategories(String? groupId) =>
+      _transactionService.getProductCategories(groupID: groupId);
+
+  Future<void> addCustomCategory({
+    required String groupId,
+    required String categoryName,
+    required String iconSvgContent,
+    required String userId,
+  }) =>
+      _transactionService.addCustomCategory(
+        groupID: groupId,
+        categoryName: categoryName,
+        iconSvgContent: iconSvgContent,
+        userID: userId,
+      );
 }

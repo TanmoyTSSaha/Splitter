@@ -1,4 +1,7 @@
-import 'package:splitter/Model/product_category_model.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/product_category_model.dart';
 
 class PersonalTransactionModel {
   String? transactionID;
@@ -20,35 +23,39 @@ class PersonalTransactionModel {
     this.currency,
     this.paymentMethod,
     this.transactionDate,
-    double exchangeRateToInr = 1.0,
+    double exchangeRateToInr = CurrencyDefaults.exchangeRateToInr,
   }) : exchangeRateToInr = exchangeRateToInr;
 
   PersonalTransactionModel.fromJSON(Map<String, dynamic> json) {
-    transactionID = json["transaction_id"];
-    userID = json["user_id"];
-    amount = double.tryParse(json["amount"]?.toString() ?? "0") ?? 0.0;
-    category = json["category"];
-    transactionDescription = json["transaction_description"];
-    currency = json["currency"];
-    paymentMethod = json["payment_method"];
-    transactionDate = json["transaction_date"] != null
-        ? DateTime.tryParse(json["transaction_date"])?.toLocal()
+    transactionID = (json[SupabaseColumns.transactionId] ??
+        json[SupabaseColumns.id]) as String?;
+    userID = json[SupabaseColumns.userId];
+    amount = double.tryParse(
+            json[SupabaseColumns.amount]?.toString() ?? AppAmountHints.zero) ??
+        0.0;
+    category = json[SupabaseColumns.category];
+    transactionDescription = json[SupabaseColumns.transactionDescription];
+    currency = json[SupabaseColumns.currency];
+    paymentMethod = json[SupabaseColumns.paymentMethod];
+    transactionDate = json[SupabaseColumns.transactionDate] != null
+        ? DateTime.tryParse(json[SupabaseColumns.transactionDate])?.toLocal()
         : null;
-    exchangeRateToInr =
-        double.tryParse(json["exchange_rate_to_inr"]?.toString() ?? "1.0") ??
-            1.0;
+    exchangeRateToInr = double.tryParse(
+            json[SupabaseColumns.exchangeRateToInr]?.toString() ??
+                CurrencyDefaults.exchangeRateToInrString) ??
+        CurrencyDefaults.exchangeRateToInr;
   }
 
   Map<String, dynamic> toJSON() {
     final Map<String, dynamic> data = <String, dynamic>{};
 
-    data["user_id"] = this.userID;
-    data["amount"] = this.amount;
-    data["category"] = this.category;
-    data["transaction_description"] = this.transactionDescription;
-    data["currency"] = this.currency;
-    data["payment_method"] = this.paymentMethod;
-    data["exchange_rate_to_inr"] = this.exchangeRateToInr;
+    data[SupabaseColumns.userId] = userID;
+    data[SupabaseColumns.amount] = amount;
+    data[SupabaseColumns.category] = category;
+    data[SupabaseColumns.transactionDescription] = transactionDescription;
+    data[SupabaseColumns.currency] = currency;
+    data[SupabaseColumns.paymentMethod] = paymentMethod;
+    data[SupabaseColumns.exchangeRateToInr] = exchangeRateToInr;
 
     return data;
   }
@@ -76,7 +83,7 @@ class PersonalTransactionWithProductCategoryModel {
     this.paymentMethod,
     this.transactionDate,
     this.masterCategoryModel,
-    double exchangeRateToInr = 1.0,
+    double exchangeRateToInr = CurrencyDefaults.exchangeRateToInr,
   }) : exchangeRateToInr = exchangeRateToInr;
 
   PersonalTransactionWithProductCategoryModel.fromModel(
@@ -96,31 +103,34 @@ class PersonalTransactionWithProductCategoryModel {
 
   PersonalTransactionWithProductCategoryModel.fromJSON(
       Map<String, dynamic> json) {
-    transactionID = json["transaction_id"];
-    userID = json["user_id"];
-    amount = double.tryParse(json["amount"]?.toString() ?? "0") ?? 0.0;
-    category = json["category"];
-    transactionDescription = json["transaction_description"];
-    currency = json["currency"];
-    paymentMethod = json["payment_method"];
-    transactionDate = json["transaction_date"] != null
-        ? DateTime.tryParse(json["transaction_date"])?.toLocal()
+    transactionID = (json[SupabaseColumns.transactionId] ??
+        json[SupabaseColumns.id]) as String?;
+    userID = json[SupabaseColumns.userId];
+    amount = double.tryParse(
+            json[SupabaseColumns.amount]?.toString() ?? AppAmountHints.zero) ??
+        0.0;
+    category = json[SupabaseColumns.category];
+    transactionDescription = json[SupabaseColumns.transactionDescription];
+    currency = json[SupabaseColumns.currency];
+    paymentMethod = json[SupabaseColumns.paymentMethod];
+    transactionDate = json[SupabaseColumns.transactionDate] != null
+        ? DateTime.tryParse(json[SupabaseColumns.transactionDate])?.toLocal()
         : null;
-    masterCategoryModel = json["master_category"];
+    masterCategoryModel = json[SupabaseColumns.masterCategory];
   }
 
   Map<String, dynamic> toJSON() {
     final Map<String, dynamic> data = <String, dynamic>{};
 
-    data["transaction_id"] = transactionID;
-    data["user_id"] = userID;
-    data["amount"] = amount;
-    data["category"] = category;
-    data["transaction_description"] = transactionDescription;
-    data["currency"] = currency;
-    data["payment_method"] = paymentMethod;
-    data["transaction_date"] = transactionDate;
-    data["master_product_category"] = masterCategoryModel;
+    data[SupabaseColumns.transactionId] = transactionID;
+    data[SupabaseColumns.userId] = userID;
+    data[SupabaseColumns.amount] = amount;
+    data[SupabaseColumns.category] = category;
+    data[SupabaseColumns.transactionDescription] = transactionDescription;
+    data[SupabaseColumns.currency] = currency;
+    data[SupabaseColumns.paymentMethod] = paymentMethod;
+    data[SupabaseColumns.transactionDate] = transactionDate;
+    data[SupabaseColumns.masterProductCategory] = masterCategoryModel;
 
     return data;
   }

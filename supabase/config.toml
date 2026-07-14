@@ -1,0 +1,17 @@
+# Splitr Supabase — Edge Functions for Razorpay Pro subscriptions.
+project_id = "jgecopqgsvlglifyxofg"
+
+[api]
+enabled = true
+
+[functions.create-subscription]
+verify_jwt = true
+
+[functions.verify-subscription-auth]
+verify_jwt = true
+
+[functions.cancel-subscription]
+verify_jwt = true
+
+[functions.razorpay-webhook]
+verify_jwt = false

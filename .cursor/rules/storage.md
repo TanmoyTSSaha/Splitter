@@ -1,4 +1,4 @@
-# Storage Rules — SplitO (Splitter)
+# Storage Rules — Splitr
 
 ## Purpose
 
@@ -36,7 +36,7 @@ dart run build_runner build --delete-conflicting-outputs
 
 ### Database file on device
 
-`splito_local.db` in application documents directory (`_openConnection()` in `database.dart`).
+`splitr_local.db` in application documents directory (`_openConnection()` in `database.dart`).
 
 ### Schema version
 

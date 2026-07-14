@@ -1,0 +1,59 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  build-apk:
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --obfuscate \
+            --split-debug-info=build/debug-info \
+            --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }} \
+            --dart-define=SENTRY_ENVIRONMENT=ci
+
+      - name: Upload debug symbols to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: split0
+          SENTRY_PROJECT: splitr
+        run: dart run sentry_dart_plugin

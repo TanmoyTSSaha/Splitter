@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
 
 import '../../../Constants/constants.dart';
 import '../../../Constants/shared.dart';
 import '../../../Controller/add_transaction_controller.dart';
 import '../../../Model/group_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/business_rules.dart';
 
 class PercentageShareTab extends StatelessWidget {
   final List<GroupMembersWithNameModel> groupMembersWithNameModel;
@@ -27,52 +33,68 @@ class PercentageShareTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(
       () {
-        double remaining =
-            100.0 - _addTransactionScreenController.totalPercentage.value;
+        final totalPercentage =
+            _addTransactionScreenController.totalPercentage.value;
+        final remaining = GroupBusinessRules.percentageTotal - totalPercentage;
+        final allocatedAmount =
+            (totalAmount * totalPercentage / GroupBusinessRules.percentageTotal)
+                .toStringAsFixed(DefaultDecimalPlaces.amount);
+        final totalAmountText =
+            totalAmount.toStringAsFixed(DefaultDecimalPlaces.amount);
+
         return Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              "Split by Percentage",
+              SharingMode.byPercentage.tabTitle,
               style: sub_headline4_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16 / 2),
+            const SizedBox(height: groupGapSm),
             Text(
-              "Specify the percentage each person owes",
+              SharingMode.byPercentage.tabSubtitle,
               style: body1_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16 * 2),
-            Container(
-              width: devSysWidth - (height_16 * 2),
+            const SizedBox(height: groupGapXl),
+            SizedBox(
+              width: devSysWidth - (groupGutter * 2),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    "${_addTransactionScreenController.totalPercentage.value.toStringAsFixed(1)}% of 100%",
+                    AppStringFormat.percentageOfTotal(
+                      totalPercentage
+                          .toStringAsFixed(DefaultDecimalPlaces.percentage),
+                      GroupBusinessRules.percentageTotal.toInt(),
+                    ),
                     style: sub_headline5_text.copyWith(
-                        color: _addTransactionScreenController
-                                    .totalPercentage.value ==
-                                100.0
+                        color: totalPercentage ==
+                                GroupBusinessRules.percentageTotal
                             ? neopopAccent
                             : groupOnSurface),
                   ),
                   Text(
-                    "${remaining.toStringAsFixed(1)}% left",
+                    AppStringFormat.percentageLeft(
+                      remaining
+                          .toStringAsFixed(DefaultDecimalPlaces.percentage),
+                    ),
                     style: body1_text.copyWith(
-                        color:
-                            remaining < 0 ? neopopError : groupOnSurface),
+                        color: remaining < 0 ? neopopError : groupOnSurface),
                   ),
-                  SizedBox(height: height_16 / 2),
+                  const SizedBox(height: groupGapSm),
                   Text(
-                    "₹${(totalAmount * _addTransactionScreenController.totalPercentage.value / 100).toStringAsFixed(2)} of ₹${totalAmount.toStringAsFixed(2)}",
+                    AppStringFormat.amountOfTotal(
+                      userCurrencySymbol(),
+                      allocatedAmount,
+                      totalAmountText,
+                    ),
                     style: body2_text.copyWith(color: neopopGrey),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: height_16 * 2),
+            const SizedBox(height: groupGapXl),
             Expanded(
               child: ListView.separated(
                 physics: const BouncingScrollPhysics(),
@@ -83,9 +105,12 @@ class PercentageShareTab extends StatelessWidget {
                       .percentageTextControllers[index];
                   double memberPercentage = double.tryParse(
                           _addTransactionScreenController
-                              .percentageSplitDetails[index]["percentage"]) ??
+                                  .percentageSplitDetails[index]
+                              [SharingTypeValues.percentage]) ??
                       0.0;
-                  double memberAmount = totalAmount * memberPercentage / 100;
+                  double memberAmount = totalAmount *
+                      memberPercentage /
+                      GroupBusinessRules.percentageTotal;
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -100,12 +125,12 @@ class PercentageShareTab extends StatelessWidget {
                                   groupMembersWithNameModel[index].userID ?? "",
                               userName:
                                   groupMembersWithNameModel[index].userName ??
-                                      "User",
+                                      DisplayFallbacks.user,
                               imageUrl:
                                   groupMembersWithNameModel[index].userPic,
-                              radius: height_16 * 1.25,
+                              radius: AppDimensions.groupIconMd,
                             ),
-                            SizedBox(width: width_10),
+                            const SizedBox(width: groupGap10),
                             Flexible(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +142,7 @@ class PercentageShareTab extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    "₹${memberAmount.toStringAsFixed(2)}",
+                                    "${userCurrencySymbol()}${memberAmount.toStringAsFixed(DefaultDecimalPlaces.amount)}",
                                     style: caption_text.copyWith(
                                         color: neopopGrey,
                                         fontStyle: FontStyle.normal),
@@ -129,7 +154,7 @@ class PercentageShareTab extends StatelessWidget {
                         ),
                       ),
                       SizedBox(
-                        width: width_10 * 8,
+                        width: groupShareInputWidth,
                         child: ExtraSmallTextFormField(
                           extraSmallTextFieldTextEditingController:
                               percentageController,
@@ -137,19 +162,11 @@ class PercentageShareTab extends StatelessWidget {
                             if (value != null && value.isNumericOnly) {
                               return null;
                             } else if (value == null) {
-                              Fluttertoast.showToast(
-                                msg: "Need percentage here!",
-                                textColor: neopopBackground,
-                                backgroundColor: neopopYellow,
-                              );
-                              return "Need percentage here!";
+                              SplitrToast.show(AppStrings.validation.needPercentage);
+                              return AppStrings.validation.needPercentage;
                             } else if (!value.isNumericOnly) {
-                              Fluttertoast.showToast(
-                                msg: "Only numbers are allowed here!",
-                                textColor: neopopBackground,
-                                backgroundColor: neopopYellow,
-                              );
-                              return "Only numbers are allowed here!";
+                              SplitrToast.show(AppStrings.validation.numbersOnly);
+                              return AppStrings.validation.numbersOnly;
                             }
                             return null;
                           },
@@ -162,9 +179,9 @@ class PercentageShareTab extends StatelessWidget {
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.only(left: width_10 / 2),
+                        padding: const EdgeInsets.only(left: groupGap5),
                         child: Text(
-                          "%",
+                          AppDisplaySymbols.percent,
                           style: body1_text.copyWith(color: groupOnSurface),
                         ),
                       ),
@@ -172,7 +189,7 @@ class PercentageShareTab extends StatelessWidget {
                   );
                 },
                 separatorBuilder: (context, index) {
-                  return SizedBox(height: height_10);
+                  return const SizedBox(height: groupGap10);
                 },
               ),
             ),

@@ -1,4 +1,8 @@
 /// Data models for Shared Wishlists / Planned Expenses.
+library;
+
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
 
 class WishlistItem {
   final String id;
@@ -32,27 +36,28 @@ class WishlistItem {
     String? addedByName,
   }) {
     return WishlistItem(
-      id: json['id'] as String,
-      groupId: json['group_id'] as String,
-      title: json['title'] as String,
-      estimatedAmount: json['estimated_amount'] != null
-          ? (json['estimated_amount'] as num).toDouble()
+      id: json[SupabaseColumns.id] as String,
+      groupId: json[SupabaseColumns.groupId] as String,
+      title: json[SupabaseColumns.title] as String,
+      estimatedAmount: json[SupabaseColumns.estimatedAmount] != null
+          ? (json[SupabaseColumns.estimatedAmount] as num).toDouble()
           : null,
-      addedByUserId: json['added_by'] as String,
-      addedByName: addedByName ?? 'Unknown',
-      createdAt: DateTime.parse(json['created_at'] as String),
+      addedByUserId: json[SupabaseColumns.addedBy] as String,
+      addedByName: addedByName ?? DisplayFallbacks.unknown,
+      createdAt: DateTime.parse(json[SupabaseColumns.createdAt] as String),
       upvoteCount: upvotes,
-      isAddedToExpenses: json['is_added_to_expenses'] as bool? ?? false,
+      isAddedToExpenses:
+          json[SupabaseColumns.isAddedToExpenses] as bool? ?? false,
       currentUserUpvoted: currentUserUpvoted,
     );
   }
 
   Map<String, dynamic> toJSON() => {
-        'group_id': groupId,
-        'title': title,
-        'estimated_amount': estimatedAmount,
-        'added_by': addedByUserId,
-        'is_added_to_expenses': isAddedToExpenses,
+        SupabaseColumns.groupId: groupId,
+        SupabaseColumns.title: title,
+        SupabaseColumns.estimatedAmount: estimatedAmount,
+        SupabaseColumns.addedBy: addedByUserId,
+        SupabaseColumns.isAddedToExpenses: isAddedToExpenses,
       };
 
   /// Returns a copy with updated fields.

@@ -1,37 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Model/user_details_model.dart';
-import 'package:splitter/Services/SupabaseServices/notification_service.dart';
-import 'package:splitter/Services/reminder_settings_service.dart';
-
-// ─── Palette ──────────────────────────────────────────────────────────────────
-const Color _bg = Color(0xFFF0F0F5);
-const Color _cardBg = Colors.white;
-const Color _sectionLabel = Color(0xFF9E9E9E);
-const Color _titleColor = Color(0xFF1A1A1A);
-const Color _borderColor = Color(0xFFEEEEEE);
-const Color _accentGreen = Color(0xFFB5F542);
-const Color _red = Color(0xFFE53935);
+import 'package:intl/intl.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controller/group_screen_controller.dart';
+import 'package:splitr/Controller/lending_refresh_controller.dart';
+import 'package:splitr/Controller/notification_badge_controller.dart';
+import 'package:splitr/Model/group_invite_model.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Repository/loan_repository.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/LendingScreen/loan_detail_screen.dart';
+import 'package:splitr/Services/SupabaseServices/group_service.dart';
+import 'package:splitr/Services/SupabaseServices/notification_service.dart';
+import 'package:splitr/Services/reminder_settings_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Widgets/notification_action_cards.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
 
 // Notification type → icon + color
 const Map<String, IconData> _typeIcons = {
-  'group_invite': Icons.group_add_outlined,
-  'expense_added': Icons.receipt_long_outlined,
-  'settlement_request': Icons.currency_rupee_rounded,
-  'friend_request': Icons.person_add_outlined,
-  'general': Icons.notifications_outlined,
+  NotificationTypes.groupInvite: Icons.group_add_outlined,
+  NotificationTypes.expenseAdded: Icons.receipt_long_outlined,
+  NotificationTypes.settlementRequest: Icons.currency_rupee_rounded,
+  NotificationTypes.settlement: Icons.payments_outlined,
+  NotificationTypes.friendRequest: Icons.person_add_outlined,
+  NotificationTypes.general: Icons.notifications_outlined,
 };
 const Map<String, Color> _typeColors = {
-  'group_invite': Color(0xFF8B5CF6),
-  'expense_added': Color(0xFF0EA5E9),
-  'settlement_request': Color(0xFFB5F542),
-  'friend_request': Color(0xFFF59E0B),
-  'general': Color(0xFF9E9E9E),
+  NotificationTypes.groupInvite: NotificationTypeColors.groupInvite,
+  NotificationTypes.expenseAdded: NotificationTypeColors.expenseAdded,
+  NotificationTypes.settlementRequest: NotificationTypeColors.settlementRequest,
+  NotificationTypes.settlement: NotificationTypeColors.settlement,
+  NotificationTypes.friendRequest: NotificationTypeColors.friendRequest,
+  NotificationTypes.general: neopopDisabledFg,
 };
 
 class NotificationsScreen extends StatefulWidget {
-  final UserDetails user;
-  const NotificationsScreen({super.key, required this.user});
+  const NotificationsScreen({super.key});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -39,14 +51,29 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final _service = NotificationService();
+  final _groupService = GroupService();
   final _reminderSettings = Get.find<ReminderSettingsService>();
+  final String _userId = SupabaseAuth().supabaseGetUserID();
+
   List<NotificationModel> _notifications = [];
+  List<GroupInviteModel> _pendingInvites = [];
+  List<LoanModel> _pendingLoans = [];
   bool _loading = true;
   bool _silentReminders = false;
+
+  bool get _hasPendingActions =>
+      _pendingInvites.isNotEmpty || _pendingLoans.isNotEmpty;
+
+  bool get _isEmpty => !_hasPendingActions && _notifications.isEmpty;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (Get.isRegistered<NotificationBadgeController>()) {
+        await Get.find<NotificationBadgeController>().markViewed();
+      }
+    });
     _load();
     _loadSilentMode();
   }
@@ -58,18 +85,98 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final data = await _service.getNotifications(
-      userID: widget.user.userID ?? '',
-    );
-    if (mounted)
+    final results = await Future.wait([
+      _service.getNotifications(userID: _userId),
+      _groupService.getPendingInvites(userID: _userId),
+      Get.find<LoanRepository>().getPendingLoansAwaitingAction(_userId),
+    ]);
+    if (mounted) {
       setState(() {
-        _notifications = data;
+        _notifications = results[0] as List<NotificationModel>;
+        _pendingInvites = results[1] as List<GroupInviteModel>;
+        _pendingLoans = results[2] as List<LoanModel>;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _refreshBadge() async {
+    if (Get.isRegistered<NotificationBadgeController>()) {
+      await Get.find<NotificationBadgeController>().updateBadge();
+    }
+  }
+
+  Future<void> _handleInvite(String inviteID, bool accept) async {
+    try {
+      Get.dialog(
+        const Center(child: CircularProgressIndicator(color: neopopAccent)),
+        barrierDismissible: false,
+      );
+
+      await _groupService.respondToInvite(inviteID: inviteID, accept: accept);
+      Get.back();
+
+      if (accept) {
+        GroupScreenController.refreshFromAnywhere();
+      }
+
+      SplitrToast.show(SplitrToast.join(
+        accept
+            ? AppStrings.notifications.inviteSuccess
+            : AppStrings.notifications.inviteDeclined,
+        accept
+            ? AppStrings.notifications.inviteAccepted
+            : AppStrings.notifications.inviteRejected,
+      ));
+
+      await _load();
+      await _refreshBadge();
+    } catch (e, stack) {
+      Get.back();
+      AppErrorReporter.reportActionFailure(
+        AppStrings.notifications.processInviteError,
+        error: e,
+        stack: stack,
+      );
+    }
+  }
+
+  Future<void> _handleLoanAction(String loanID, bool accept) async {
+    try {
+      Get.dialog(
+        const Center(child: CircularProgressIndicator(color: neopopAccent)),
+        barrierDismissible: false,
+      );
+
+      await Get.find<LoanRepository>().updateLoanStatus(
+        loanId: loanID,
+        status: accept ? LoanStatusValues.active : LoanStatusValues.rejected,
+      );
+
+      Get.back();
+      SplitrToast.show(SplitrToast.join(
+        accept
+            ? AppStrings.notifications.loanAcceptedTitle
+            : AppStrings.notifications.loanRejectedTitle,
+        accept
+            ? AppStrings.notifications.loanNowActive
+            : AppStrings.notifications.loanOfferRejected,
+      ));
+      LendingRefreshController.refreshFromAnywhere();
+      await _load();
+      await _refreshBadge();
+    } catch (e, stack) {
+      Get.back();
+      AppErrorReporter.reportActionFailure(
+        AppStrings.notifications.actionFailed,
+        error: e,
+        stack: stack,
+      );
+    }
   }
 
   Future<void> _markAllRead() async {
-    await _service.markAllRead(userID: widget.user.userID ?? '');
+    await _service.markAllRead(userID: _userId);
     setState(() {
       _notifications = _notifications
           .map((n) => NotificationModel(
@@ -83,25 +190,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ))
           .toList();
     });
+    await _refreshBadge();
   }
 
   Future<void> _delete(NotificationModel n) async {
     await _service.deleteNotification(notificationID: n.id);
     if (mounted) setState(() => _notifications.remove(n));
+    await _refreshBadge();
   }
 
-  // Group notifications into Today / Earlier
   Map<String, List<NotificationModel>> _grouped() {
     final today = DateTime.now();
     final result = <String, List<NotificationModel>>{
-      'Today': [],
-      'Earlier': [],
+      AppStrings.profile.today: [],
+      AppStrings.profile.earlier: [],
     };
     for (final n in _notifications) {
       final isSameDay = n.createdAt.year == today.year &&
           n.createdAt.month == today.month &&
           n.createdAt.day == today.day;
-      (isSameDay ? result['Today']! : result['Earlier']!).add(n);
+      (isSameDay
+              ? result[AppStrings.profile.today]!
+              : result[AppStrings.profile.earlier]!)
+          .add(n);
     }
     result.removeWhere((_, v) => v.isEmpty);
     return result;
@@ -111,39 +222,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final groups = _grouped();
     final hasUnread = _notifications.any((n) => !n.isRead);
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
 
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: _titleColor),
-          onPressed: () => Get.back(),
-        ),
-        title: const Text(
-          'Notifications',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: _titleColor,
-          ),
-        ),
-        centerTitle: false,
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.notifications.title,
         actions: [
           if (hasUnread)
             TextButton(
               onPressed: _markAllRead,
-              child: const Text(
-                'Mark all read',
+              child: Text(
+                AppStrings.notifications.markAllRead,
                 style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 12,
+                  fontFamily: kFontPoppins,
+                  fontSize: splitrFontCaption,
                   fontWeight: FontWeight.w600,
-                  color: _sectionLabel,
+                  color: groupOnSurfaceMuted,
                 ),
               ),
             ),
@@ -152,83 +248,139 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(
-                  color: _accentGreen, strokeWidth: 2))
-          : _notifications.isEmpty
-              ? _buildEmpty()
+                color: neopopAccent,
+                strokeWidth: groupProgressStrokeWidth,
+              ),
+            )
+          : _isEmpty
+              ? _buildEmpty(context)
               : RefreshIndicator(
                   onRefresh: _load,
-                  color: _accentGreen,
+                  color: neopopAccent,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                    padding: const EdgeInsets.fromLTRB(
+                      groupGap20,
+                      groupGapSm,
+                      groupGap20,
+                      groupGapXl,
+                    ),
                     children: [
-                      _buildSilentModeCard(),
+                      _buildSilentModeCard(context),
                       const SizedBox(height: 16),
-                      ...groups.entries.expand((group) {
-                      return [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            group.key.toUpperCase(),
-                            style: const TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.6,
-                              color: _sectionLabel,
+                      if (_hasPendingActions) ...[
+                        _buildSectionHeader(
+                          AppStrings.notifications.needsYourAction,
+                        ),
+                        const SizedBox(height: groupGapSm),
+                        ..._pendingInvites.map(
+                          (invite) => Padding(
+                            padding: const EdgeInsets.only(bottom: groupGap10),
+                            child: GroupInviteActionCard(
+                              invite: invite,
+                              onDecline: () => _handleInvite(invite.id, false),
+                              onAccept: () => _handleInvite(invite.id, true),
                             ),
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: _cardBg,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _borderColor),
-                          ),
-                          child: Column(
-                            children: group.value.asMap().entries.map((e) {
-                              final isLast = e.key == group.value.length - 1;
-                              return _buildNotifTile(e.value, isLast: isLast);
-                            }).toList(),
+                        ..._pendingLoans.map(
+                          (loan) => Padding(
+                            padding: const EdgeInsets.only(bottom: groupGap10),
+                            child: LoanRequestActionCard(
+                              loan: loan,
+                              onReject: () =>
+                                  _handleLoanAction(loan.id!, false),
+                              onView: () async {
+                                final result = await Get.to<bool>(
+                                  () => LoanDetailScreen(loan: loan),
+                                );
+                                if (result == true) {
+                                  await _load();
+                                  await _refreshBadge();
+                                }
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
-                      ];
-                    }).toList(),
+                      ],
+                      ...groups.entries.expand((group) {
+                        return [
+                          _buildSectionHeader(group.key.toUpperCase()),
+                          const SizedBox(height: groupGapSm),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: surface,
+                              borderRadius:
+                                  BorderRadius.circular(groupCardRadius),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Column(
+                              children: group.value.asMap().entries.map((e) {
+                                final isLast = e.key == group.value.length - 1;
+                                return _buildNotifTile(
+                                  context,
+                                  e.value,
+                                  isLast: isLast,
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ];
+                      }),
                     ],
                   ),
                 ),
     );
   }
 
-  Widget _buildSilentModeCard() {
+  Widget _buildSectionHeader(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontFamily: kFontPoppins,
+        fontSize: splitrFontCaptionSm,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.6,
+        color: groupOnSurfaceMuted,
+      ),
+    );
+  }
+
+  Widget _buildSilentModeCard(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: groupGutter,
+        vertical: groupGapSm,
+      ),
       decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupCardRadius),
+        border: Border.all(color: borderColor),
       ),
       child: SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text(
-          'Silent settlement reminders',
+        title: Text(
+          AppStrings.notifications.silentRemindersTitle,
           style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 14,
+            fontFamily: kFontPoppins,
+            fontSize: splitrFontBody,
             fontWeight: FontWeight.w600,
-            color: _titleColor,
+            color: groupOnSurface,
           ),
         ),
-        subtitle: const Text(
-          'Pause friendly local nudges about open balances',
+        subtitle: Text(
+          AppStrings.notifications.silentRemindersSubtitle,
           style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 12,
-            color: _sectionLabel,
+            fontFamily: kFontPoppins,
+            fontSize: splitrFontCaption,
+            color: groupOnSurfaceMuted,
           ),
         ),
         value: _silentReminders,
-        activeThumbColor: _accentGreen,
+        activeThumbColor: neopopAccent,
         onChanged: (v) async {
           setState(() => _silentReminders = v);
           await _reminderSettings.setSilentMode(v);
@@ -237,23 +389,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotifTile(NotificationModel n, {bool isLast = false}) {
+  Widget _buildNotifTile(
+    BuildContext context,
+    NotificationModel n, {
+    bool isLast = false,
+  }) {
+    final borderColor = groupMutedBorderHairline;
     final icon = _typeIcons[n.type] ?? Icons.notifications_outlined;
-    final color = _typeColors[n.type] ?? _sectionLabel;
+    final color = _typeColors[n.type] ?? groupOnSurfaceMuted;
 
     return Dismissible(
       key: Key(n.id),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
+        padding: const EdgeInsets.only(right: groupGapLg),
         decoration: BoxDecoration(
-          color: _red.withOpacity(0.1),
-          borderRadius: isLast
-              ? const BorderRadius.vertical(bottom: Radius.circular(16))
-              : BorderRadius.zero,
+          color: neopopErrorFillSoft,
+          borderRadius:
+              isLast ? groupSheetBottomBorderRadius : BorderRadius.zero,
         ),
-        child: const Icon(Icons.delete_outline_rounded, color: _red, size: 22),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: neopopError,
+          size: 22,
+        ),
       ),
       onDismissed: (_) => _delete(n),
       child: Column(
@@ -277,21 +437,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       );
                     }
                   });
+                  await _refreshBadge();
                 }
               }
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                horizontal: groupGutter,
+                vertical: groupGap14,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon circle
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: AppDimensions.notificationIconBox,
+                    height: AppDimensions.notificationIconBox,
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(groupControlRadius),
                     ),
                     child: Icon(icon, size: 20, color: color),
                   ),
@@ -306,19 +469,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               child: Text(
                                 n.title,
                                 style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
+                                  fontFamily: kFontPoppins,
+                                  fontSize: splitrFontBodySm,
                                   fontWeight: n.isRead
                                       ? FontWeight.w500
                                       : FontWeight.w700,
-                                  color: _titleColor,
+                                  color: groupOnSurface,
                                 ),
                               ),
                             ),
                             if (!n.isRead)
                               Container(
-                                width: 8,
-                                height: 8,
+                                width: AppDimensions.notificationDotSize,
+                                height: AppDimensions.notificationDotSize,
                                 decoration: BoxDecoration(
                                   color: color,
                                   shape: BoxShape.circle,
@@ -330,10 +493,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           const SizedBox(height: 2),
                           Text(
                             n.body!,
-                            style: const TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 12,
-                              color: _sectionLabel,
+                            style: TextStyle(
+                              fontFamily: kFontPoppins,
+                              fontSize: splitrFontCaption,
+                              color: groupOnSurfaceMuted,
                             ),
                           ),
                         ],
@@ -341,9 +504,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Text(
                           _timeAgo(n.createdAt),
                           style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 10,
-                            color: _sectionLabel.withOpacity(0.7),
+                            fontFamily: kFontPoppins,
+                            fontSize: splitrFontMicro,
+                            color: groupMutedTextSecondary,
                           ),
                         ),
                       ],
@@ -354,14 +517,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           ),
           if (!isLast)
-            const Divider(
-                height: 1, color: _borderColor, indent: 68, endIndent: 16),
+            Divider(height: 1, color: borderColor, indent: 68, endIndent: 16),
         ],
       ),
     );
   }
 
-  Widget _buildEmpty() {
+  Widget _buildEmpty(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -370,33 +534,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: _cardBg,
+              color: surface,
               shape: BoxShape.circle,
-              border: Border.all(color: _borderColor),
+              border: Border.all(color: borderColor),
             ),
             child: const Icon(
               Icons.notifications_none_rounded,
               size: 32,
-              color: _sectionLabel,
+              color: groupOnSurfaceMuted,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            "You're all caught up ✓",
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 16,
+          Text(
+            AppStrings.notifications.caughtUp,
+            style: const TextStyle(
+              fontFamily: kFontPoppins,
+              fontSize: splitrFontBodyLg,
               fontWeight: FontWeight.w600,
-              color: _titleColor,
+              color: groupOnSurface,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'No new notifications right now.',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 13,
-              color: _sectionLabel,
+          Text(
+            AppStrings.notifications.noNewSubtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: kFontPoppins,
+              fontSize: splitrFontBodySm,
+              color: groupOnSurfaceMuted,
             ),
           ),
         ],
@@ -406,10 +571,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${dt.day}/${dt.month}/${dt.year}';
+    if (diff.inMinutes < 1) return AppStrings.dates.justNow;
+    if (diff.inMinutes < 60) {
+      return AppStringFormat.timeAgoMinutes(diff.inMinutes);
+    }
+    if (diff.inHours < 24) {
+      return AppStringFormat.timeAgoHours(diff.inHours);
+    }
+    if (diff.inDays < 7) {
+      return AppStringFormat.timeAgoDays(diff.inDays);
+    }
+    return DateFormat(AppDateFormats.slashDayMonthYear).format(dt);
   }
 }

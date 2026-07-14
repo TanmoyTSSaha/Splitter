@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "splitter" "\0"
+            VALUE "FileDescription", "Splitr" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "splitter" "\0"
+            VALUE "InternalName", "splitr" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "splitter.exe" "\0"
-            VALUE "ProductName", "splitter" "\0"
+            VALUE "OriginalFilename", "splitr.exe" "\0"
+            VALUE "ProductName", "Splitr" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

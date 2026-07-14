@@ -1,25 +1,30 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:splitr/Services/currency_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Controllers/premium_subscription_controller.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Screen/Insights/widgets/insights_action_card.dart';
-import 'package:splitter/Screen/Insights/widgets/insights_coach_card.dart';
-import 'package:splitter/Screen/Insights/widgets/insights_score_ring.dart';
-import 'package:splitter/Screen/Insights/widgets/insights_social_trust_section.dart';
-import 'package:splitter/Services/ai_service.dart';
-import 'package:splitter/Services/insights_briefing_cache.dart';
-import 'package:splitter/Services/spending_intelligence_service.dart';
-import 'package:splitter/Widgets/insights_pro_gate.dart';
-
-const Color _lightBg = Color(0xFFFAFAFA);
-const Color _positiveChange = Color(0xFF2E7D32);
-const Color _negativeChange = Color(0xFFC62828);
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Controllers/premium_subscription_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/Insights/widgets/insights_action_card.dart';
+import 'package:splitr/Screen/Insights/widgets/insights_coach_card.dart';
+import 'package:splitr/Screen/Insights/widgets/insights_score_ring.dart';
+import 'package:splitr/Screen/Insights/widgets/insights_social_trust_section.dart';
+import 'package:splitr/Services/ai_service.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Services/insights_briefing_cache.dart';
+import 'package:splitr/Services/spending_intelligence_service.dart';
+import 'package:splitr/Widgets/insights_pro_gate.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
 
 class ExpenseInsightsScreen extends StatefulWidget {
   const ExpenseInsightsScreen({super.key});
@@ -41,10 +46,9 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
 
   String get _sym => Get.isRegistered<CurrencyController>()
       ? Get.find<CurrencyController>().symbol
-      : '₹';
+      : CurrencyService.symbolFor(CurrencyDefaults.code);
 
-  bool get _isPro =>
-      Get.find<PremiumSubscriptionController>().isPremium.value;
+  bool get _isPro => Get.find<PremiumSubscriptionController>().isPremium.value;
 
   @override
   void initState() {
@@ -62,33 +66,29 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
     });
   }
 
-  Future<Map<String, dynamic>> _loadBriefing({bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> _loadBriefing(
+      {bool forceRefresh = false}) async {
     final full = await _service.getInsights();
     final context = await _service.buildAIBriefingContext();
     return _aiService.generateInsightsBriefing(
       context: context,
-      fallbackDigest: full['monthlyDigest'] as String,
+      fallbackDigest: full[InsightsPayloadKeys.monthlyDigest] as String,
       forceRefresh: forceRefresh,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: _lightBg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: groupOnSurface),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(
+        title: AppStrings.insights.screenTitle,
+        centerTitle: true,
+        leading: SplitrDetailAppBar.iosBackLeading(
+          context,
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Insights',
-          style: sub_headline5_text.copyWith(color: groupOnSurface),
-        ),
-        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: groupOnSurface),
@@ -117,6 +117,9 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
               FutureBuilder<Map<String, dynamic>>(
                 future: _liteFuture,
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _insightsLoadError();
+                  }
                   if (!snapshot.hasData) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: groupGapXl),
@@ -127,16 +130,19 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                 },
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('AI Weekly Briefing'),
+              _sectionTitle(AppStrings.insights.aiWeeklyBriefing),
               const SizedBox(height: groupGapSm),
               InsightsProGate(
-                featureLabel: 'AI Briefing',
+                featureLabel: AppStrings.insights.aiBriefingFeature,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _briefingFuture,
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return _insightsLoadError(padding: 48);
+                    }
                     if (!snapshot.hasData) {
                       return const SizedBox(
-                        height: 120,
+                        height: groupEmojiPickerHeight,
                         child: Center(child: LoadingWidget()),
                       );
                     }
@@ -145,89 +151,95 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                 ),
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('Action Queue'),
+              _sectionTitle(AppStrings.insights.actionQueue),
               const SizedBox(height: groupGapSm),
               InsightsProGate(
-                featureLabel: 'Smart Actions',
+                featureLabel: AppStrings.insights.smartActions,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _fullFuture,
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     return _buildActionQueue(
-                      snapshot.data!['actionQueue'] as List<dynamic>,
+                      snapshot.data![InsightsPayloadKeys.actionQueue]
+                          as List<dynamic>,
                     );
                   },
                 ),
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('Health Scores'),
+              _sectionTitle(AppStrings.insights.healthScores),
               const SizedBox(height: groupGapSm),
               InsightsProGate(
-                featureLabel: 'Health Scores',
+                featureLabel: AppStrings.insights.healthScores,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _fullFuture,
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     return _buildHealthScores(
-                      snapshot.data!['scoreBreakdown'] as Map<String, dynamic>,
+                      snapshot.data![InsightsPayloadKeys.scoreBreakdown]
+                          as Map<String, dynamic>,
                     );
                   },
                 ),
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('Spending Coach'),
+              _sectionTitle(AppStrings.insights.spendingCoach),
               const SizedBox(height: groupGapSm),
               InsightsProGate(
-                featureLabel: 'Spending Coach',
+                featureLabel: AppStrings.insights.spendingCoach,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _fullFuture,
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     return _buildSpendingCoach(
-                      snapshot.data!['spendingCoach'] as Map<String, dynamic>,
+                      snapshot.data![InsightsPayloadKeys.spendingCoach]
+                          as Map<String, dynamic>,
                     );
                   },
                 ),
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('Social Trust'),
+              _sectionTitle(AppStrings.insights.socialTrust),
               const SizedBox(height: groupGapSm),
               InsightsProGate(
-                featureLabel: 'Social Trust',
+                featureLabel: AppStrings.insights.socialTrust,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _fullFuture,
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     return InsightsSocialTrustSection(
-                      social: Map<String, dynamic>.from(
-                          snapshot.data!['socialTrust'] as Map),
+                      social: Map<String, dynamic>.from(snapshot
+                          .data![InsightsPayloadKeys.socialTrust] as Map),
                       currencySymbol: _sym,
                     );
                   },
                 ),
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('Spending Trend'),
+              _sectionTitle(AppStrings.insights.spendingTrend),
               const SizedBox(height: groupGapMd),
               InsightsProGate(
-                featureLabel: 'Spending Trends',
+                featureLabel: AppStrings.insights.spendingTrends,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _fullFuture,
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     final trend =
-                        snapshot.data!['spendingTrend'] as List<dynamic>;
+                        snapshot.data![InsightsPayloadKeys.spendingTrend]
+                            as List<dynamic>;
                     final monthsWithData =
-                        snapshot.data!['monthsWithData'] as int? ?? 0;
+                        snapshot.data![InsightsPayloadKeys.monthsWithData]
+                                as int? ??
+                            0;
                     return _buildTrendChart(trend, monthsWithData);
                   },
                 ),
               ),
               const SizedBox(height: groupGapXl),
-              _sectionTitle('Categories'),
+              _sectionTitle(AppStrings.insights.categories),
               const SizedBox(height: groupGapMd),
               InsightsProGate(
-                featureLabel: 'Category Breakdown',
+                featureLabel: AppStrings.insights.categoryBreakdown,
                 child: FutureBuilder<Map<String, double>>(
                   future: _categoriesFuture,
                   builder: (context, snapshot) {
@@ -238,13 +250,28 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
               ),
               const SizedBox(height: groupGapXl),
               InsightsProGate(
-                featureLabel: 'Unusual Expenses',
+                featureLabel: AppStrings.insights.unusualExpenses,
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _fullFuture,
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     return _buildUnusualExpenses(
-                      snapshot.data!['unusualExpenses'] as List<dynamic>,
+                      snapshot.data![InsightsPayloadKeys.unusualExpenses]
+                          as List<dynamic>,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: groupGapXl),
+              InsightsProGate(
+                featureLabel: AppStrings.insights.recurringBills,
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: _fullFuture,
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox();
+                    return _buildRecurringSubscriptions(
+                      snapshot.data![InsightsPayloadKeys.recurringSubscriptions]
+                          as List<dynamic>,
                     );
                   },
                 ),
@@ -265,8 +292,8 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
   }
 
   Widget _buildFreeZone(Map<String, dynamic> lite) {
-    final percentChange = lite['percentChange'] as double;
-    final miniTrend = lite['miniTrend'] as List<dynamic>;
+    final percentChange = lite[InsightsLiteKeys.percentChange] as double;
+    final miniTrend = lite[InsightsLiteKeys.miniTrend] as List<dynamic>;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,19 +306,21 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Total Spent This Month',
+                AppStrings.insights.totalSpentThisMonth,
                 style: caption_text.copyWith(color: groupOnSurfaceMuted),
               ),
               const SizedBox(height: 8),
               Text(
-                '$_sym${(lite['thisMonthTotal'] as num).toStringAsFixed(0)}',
+                '$_sym${(lite[InsightsLiteKeys.thisMonthTotal] as num).toStringAsFixed(0)}',
                 style: headline2_text.copyWith(color: neopopAccent),
               ),
               const SizedBox(height: 4),
               Text(
-                '${percentChange.toStringAsFixed(1)}% vs last month',
+                AppStringFormat.insightsPercentVsLastMonth(
+                  percentChange.toStringAsFixed(1),
+                ),
                 style: caption_text.copyWith(
-                  color: percentChange > 0 ? _negativeChange : _positiveChange,
+                  color: percentChange > 0 ? neopopError : neopopSuccess,
                 ),
               ),
             ],
@@ -299,7 +328,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
         ),
         const SizedBox(height: groupGapMd),
         Text(
-          'Recent trend',
+          AppStrings.insights.recentTrend,
           style: caption_text.copyWith(color: groupOnSurfaceMuted),
         ),
         const SizedBox(height: groupGapSm),
@@ -307,7 +336,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
         if (!_isPro) ...[
           const SizedBox(height: groupGapMd),
           Text(
-            lite['monthlyDigest'] as String? ?? '',
+            lite[InsightsLiteKeys.monthlyDigest] as String? ?? '',
             style: body2_text.copyWith(
               color: groupOnSurfaceMuted,
               height: 1.4,
@@ -322,11 +351,11 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
     if (trend.isEmpty) return const SizedBox();
 
     final maxY = trend
-        .map((e) => (e['total'] as num).toDouble())
+        .map((e) => (e[UnifiedTxnKeys.total] as num).toDouble())
         .fold<double>(0, (a, b) => a > b ? a : b);
 
     return SizedBox(
-      height: 72,
+      height: AppDimensions.insightsMiniTrendHeight,
       child: BarChart(
         BarChartData(
           maxY: maxY > 0 ? maxY * 1.2 : 100,
@@ -346,10 +375,10 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                   final i = value.toInt();
                   if (i < 0 || i >= trend.length) return const SizedBox();
                   return Text(
-                    trend[i]['label'] as String,
+                    trend[i][RecurringMerchantKeys.label] as String,
                     style: caption_text.copyWith(
                       color: groupOnSurfaceMuted,
-                      fontSize: 10,
+                      fontSize: splitrFontMicro,
                     ),
                   );
                 },
@@ -357,7 +386,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
             ),
           ),
           barGroups: List.generate(trend.length, (i) {
-            final total = (trend[i]['total'] as num).toDouble();
+            final total = (trend[i][UnifiedTxnKeys.total] as num).toDouble();
             return BarChartGroupData(
               x: i,
               barRods: [
@@ -378,8 +407,8 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
   }
 
   Widget _buildAIBriefing(Map<String, dynamic> briefing) {
-    final actions = briefing['actions'] as List<dynamic>? ?? [];
-    final isAi = briefing['is_ai'] == true;
+    final actions = briefing[AiResponseKeys.actions] as List<dynamic>? ?? [];
+    final isAi = briefing[AiResponseKeys.isAi] == true;
 
     return GlassCard(
       margin: EdgeInsets.zero,
@@ -390,11 +419,13 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: neopopYellow, size: 22),
+              Icon(Icons.auto_awesome,
+                  color: ThemeAccentColors.highlight(context), size: 22),
               const SizedBox(width: groupGapSm),
               Expanded(
                 child: Text(
-                  briefing['headline'] as String? ?? 'Weekly briefing',
+                  briefing[AiResponseKeys.headline] as String? ??
+                      AppStrings.insights.weeklyBriefing,
                   style: body1_text.copyWith(
                     color: groupOnSurface,
                     fontWeight: FontWeight.w600,
@@ -403,20 +434,20 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
               ),
               if (isAi)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGapSm, vertical: groupGap2),
                   decoration: BoxDecoration(
                     color: neopopYellow.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(groupControlRadiusSm),
                   ),
-                  child: Text('AI',
+                  child: Text(AppStrings.insights.aiBadge,
                       style: caption_text.copyWith(color: groupOnSurface)),
                 ),
             ],
           ),
           const SizedBox(height: groupGapSm),
           Text(
-            briefing['narrative'] as String? ?? '',
+            briefing[AiResponseKeys.narrative] as String? ?? '',
             style: body2_text.copyWith(
               color: groupOnSurface,
               height: 1.45,
@@ -437,7 +468,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
   Widget _buildActionQueue(List<dynamic> actions) {
     if (actions.isEmpty) {
       return Text(
-        'No actions needed — you\'re in good shape.',
+        AppStrings.insights.noActionsNeeded,
         style: body2_text.copyWith(color: groupOnSurfaceMuted),
       );
     }
@@ -453,44 +484,49 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
         if (actions.length > 3 && !_showAllActions)
           TextButton(
             onPressed: () => setState(() => _showAllActions = true),
-            child: Text('See all ${actions.length} actions',
-                style: body2_text.copyWith(color: neopopAccent)),
+            child: Text(
+              AppStringFormat.insightsSeeAllActions(actions.length),
+              style: body2_text.copyWith(color: neopopAccent),
+            ),
           ),
       ],
     );
   }
 
   Widget _buildHealthScores(Map<String, dynamic> breakdown) {
-    final overall = breakdown['overall'] as Map<String, dynamic>;
-    final spending = breakdown['spending'] as Map<String, dynamic>;
-    final settleUp = breakdown['settleUp'] as Map<String, dynamic>;
+    final overall =
+        breakdown[ScoreBreakdownKeys.overall] as Map<String, dynamic>;
+    final spending =
+        breakdown[ScoreBreakdownKeys.spending] as Map<String, dynamic>;
+    final settleUp =
+        breakdown[ScoreBreakdownKeys.settleUp] as Map<String, dynamic>;
 
     return Row(
       children: [
         Expanded(
           child: InsightsScoreRing(
-            label: 'Overall',
-            score: overall['score'] as int,
+            label: AppStrings.insights.overall,
+            score: overall[ScoreBreakdownKeys.score] as int,
             accent: neopopAccent,
-            explanation: overall['explanation'] as String,
+            explanation: overall[ScoreBreakdownKeys.explanation] as String,
           ),
         ),
         const SizedBox(width: groupGapSm),
         Expanded(
           child: InsightsScoreRing(
-            label: 'Spending',
-            score: spending['score'] as int,
-            accent: neopopYellow,
-            explanation: spending['explanation'] as String,
+            label: AppStrings.insights.spending,
+            score: spending[ScoreBreakdownKeys.score] as int,
+            accent: ThemeAccentColors.highlight(context),
+            explanation: spending[ScoreBreakdownKeys.explanation] as String,
           ),
         ),
         const SizedBox(width: groupGapSm),
         Expanded(
           child: InsightsScoreRing(
-            label: 'Settle-up',
-            score: settleUp['score'] as int,
-            accent: _positiveChange,
-            explanation: settleUp['explanation'] as String,
+            label: AppStrings.insights.settleUp,
+            score: settleUp[ScoreBreakdownKeys.score] as int,
+            accent: neopopSuccess,
+            explanation: settleUp[ScoreBreakdownKeys.explanation] as String,
           ),
         ),
       ],
@@ -498,51 +534,71 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
   }
 
   Widget _buildSpendingCoach(Map<String, dynamic> coach) {
-    final projection = (coach['projection'] as num?)?.toDouble() ?? 0;
-    final dailyBurn = (coach['dailyBurn'] as num?)?.toDouble() ?? 0;
-    final topLeak = coach['topLeak'] as Map<String, dynamic>?;
-    final biggest = coach['biggestExpense'] as Map<String, dynamic>?;
+    final projection =
+        (coach[SpendingCoachKeys.projection] as num?)?.toDouble() ?? 0;
+    final dailyBurn =
+        (coach[SpendingCoachKeys.dailyBurn] as num?)?.toDouble() ?? 0;
+    final topLeak = coach[SpendingCoachKeys.topLeak] as Map<String, dynamic>?;
+    final biggest =
+        coach[SpendingCoachKeys.biggestExpense] as Map<String, dynamic>?;
 
     return Column(
       children: [
         InsightsCoachCard(
-          title: 'Month-end projection',
+          title: AppStrings.insights.monthEndProjection,
           value: '$_sym${projection.toStringAsFixed(0)}',
-          subtitle: 'At current daily burn of $_sym${dailyBurn.toStringAsFixed(0)}/day',
+          subtitle: AppStringFormat.insightsDailyBurnSubtitle(
+            _sym,
+            dailyBurn.toStringAsFixed(0),
+          ),
           icon: Icons.trending_up_rounded,
           accent: neopopAccent,
         ),
         if (topLeak != null)
           InsightsCoachCard(
-            title: 'Category watch',
-            value: '${topLeak['category']}',
-            subtitle:
-                '${(topLeak['percentChange'] as num).toStringAsFixed(0)}% vs last month · $_sym${(topLeak['current'] as num).toStringAsFixed(0)}',
+            title: AppStrings.insights.categoryWatch,
+            value: '${topLeak[UnifiedTxnKeys.category]}',
+            subtitle: AppStringFormat.insightsCategoryWatchSubtitle(
+              (topLeak[UnifiedTxnResponseKeys.percentChange] as num)
+                  .toStringAsFixed(0),
+              _sym,
+              (topLeak[UnifiedTxnResponseKeys.current] as num)
+                  .toStringAsFixed(0),
+            ),
             icon: Icons.category_outlined,
-            accent: neopopYellow,
+            accent: ThemeAccentColors.highlight(context),
           ),
         if (biggest != null)
           InsightsCoachCard(
-            title: 'Biggest expense',
-            value: biggest['title'] as String? ?? 'Expense',
-            subtitle:
-                '$_sym${(biggest['amount'] as num).toStringAsFixed(0)} · ${biggest['category']}',
+            title: AppStrings.insights.biggestExpense,
+            value: biggest[UnifiedTxnKeys.title] as String? ??
+                AppStrings.home.personalExpense,
+            subtitle: AppStringFormat.insightsBiggestExpenseSubtitle(
+              _sym,
+              (biggest[UnifiedTxnKeys.amount] as num).toStringAsFixed(0),
+              biggest[UnifiedTxnKeys.category] as String,
+            ),
             icon: Icons.receipt_long_outlined,
-            accent: Colors.purpleAccent,
+            accent: InsightsChartPalette.purple,
           ),
       ],
     );
   }
 
   Widget _buildTrendChart(List<dynamic> trend, int monthsWithData) {
-    if (trend.isEmpty) return _buildBarChartPlaceholder('No trend data yet');
+    if (trend.isEmpty) {
+      return _buildBarChartPlaceholder(AppStrings.insights.noTrendData);
+    }
 
     final maxY = trend
-        .map((e) => (e['total'] as num).toDouble())
+        .map((e) => (e[UnifiedTxnKeys.total] as num).toDouble())
         .fold<double>(0, (a, b) => a > b ? a : b);
 
     final historyNote = monthsWithData < trend.length
-        ? 'Building history — $monthsWithData of ${trend.length} months tracked'
+        ? AppStringFormat.insightsBuildingHistory(
+            monthsWithData,
+            trend.length,
+          )
         : null;
 
     return Column(
@@ -558,7 +614,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
           opacity: 0.06,
           padding: const EdgeInsets.all(groupGapMd),
           child: SizedBox(
-            height: 200,
+            height: AppDimensions.insightsChartHeight,
             child: BarChart(
               BarChartData(
                 maxY: maxY > 0 ? maxY * 1.2 : 100,
@@ -567,7 +623,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                   drawVerticalLine: false,
                   horizontalInterval: maxY > 0 ? maxY / 3 : 33,
                   getDrawingHorizontalLine: (_) => FlLine(
-                    color: groupOnSurface.withValues(alpha: 0.08),
+                    color: groupSurfaceFillSoft,
                     strokeWidth: 1,
                   ),
                 ),
@@ -584,7 +640,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                             '$_sym${value.toStringAsFixed(0)}',
                             style: caption_text.copyWith(
                               color: groupOnSurfaceMuted,
-                              fontSize: 9,
+                              fontSize: splitrFontNanoSm,
                             ),
                           );
                         }
@@ -592,10 +648,10 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                       },
                     ),
                   ),
-                  rightTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -605,12 +661,12 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                           return const SizedBox();
                         }
                         return Padding(
-                          padding: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.only(top: groupGapSm),
                           child: Text(
-                            trend[i]['label'] as String,
+                            trend[i][RecurringMerchantKeys.label] as String,
                             style: caption_text.copyWith(
                               color: groupOnSurfaceMuted,
-                              fontSize: 10,
+                              fontSize: splitrFontMicro,
                             ),
                           ),
                         );
@@ -619,15 +675,15 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
                   ),
                 ),
                 barGroups: List.generate(trend.length, (i) {
-                  final total = (trend[i]['total'] as num).toDouble();
+                  final total =
+                      (trend[i][UnifiedTxnKeys.total] as num).toDouble();
                   return BarChartGroupData(
                     x: i,
                     barRods: [
                       BarChartRodData(
                         toY: total,
-                        color: total > 0
-                            ? neopopAccent
-                            : groupOnSurface.withValues(alpha: 0.15),
+                        color:
+                            total > 0 ? neopopAccent : groupSurfaceFillMedium,
                         width: 16,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(6),
@@ -646,10 +702,10 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
 
   Widget _buildBarChartPlaceholder(String message) {
     return Container(
-      height: 200,
+      height: AppDimensions.insightsChartHeight,
       decoration: BoxDecoration(
-        color: groupOnSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
+        color: groupSurfaceFillFaint,
+        borderRadius: BorderRadius.circular(groupCardRadius),
       ),
       child: Center(
         child: Text(message,
@@ -661,18 +717,20 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
   Widget _buildCategoryChart(Map<String, double> categories) {
     if (categories.isEmpty) {
       return Center(
-        child: Text('No data',
-            style: body2_text.copyWith(color: groupOnSurfaceMuted)),
+        child: Text(
+          AppStrings.insights.noData,
+          style: body2_text.copyWith(color: groupOnSurfaceMuted),
+        ),
       );
     }
 
     final colors = [
       neopopAccent,
       neopopYellow,
-      Colors.purpleAccent,
-      Colors.blueAccent,
-      Colors.redAccent,
-      Colors.tealAccent,
+      InsightsChartPalette.purple,
+      InsightsChartPalette.blue,
+      neopopError,
+      InsightsChartPalette.teal,
     ];
 
     final sorted = categories.entries.toList()
@@ -687,7 +745,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
         color: color,
         value: entry.value,
         title: '',
-        radius: 50,
+        radius: AppDimensions.chartPieRadiusSm,
       );
     }).toList();
 
@@ -699,7 +757,7 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 160,
+          height: AppDimensions.insightsPieChartHeight,
           child: PieChart(
             PieChartData(
               sections: sections,
@@ -713,12 +771,12 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
           final entry = e.value;
           final pct = total > 0 ? (entry.value / total * 100) : 0;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(bottom: groupGapXs),
             child: Row(
               children: [
                 Container(
                   width: 10,
-                  height: 10,
+                  height: AppDimensions.insightsLegendBarHeight,
                   decoration: BoxDecoration(
                     color: legendColors[e.key],
                     shape: BoxShape.circle,
@@ -747,12 +805,14 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Unusual This Month',
-            style: sub_headline4_text.copyWith(color: groupOnSurface)),
+        Text(
+          AppStrings.insights.unusualThisMonth,
+          style: sub_headline4_text.copyWith(color: groupOnSurface),
+        ),
         const SizedBox(height: groupGapSm),
         ...unusual.map((u) {
           final map = u as Map<String, dynamic>;
-          final date = map['date'] as DateTime?;
+          final date = map[UnifiedTxnKeys.date] as DateTime?;
           return Padding(
             padding: const EdgeInsets.only(bottom: groupGapSm),
             child: GlassCard(
@@ -762,22 +822,23 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
               child: ListTile(
                 leading: const Icon(
                   Icons.warning_amber_rounded,
-                  color: Colors.orangeAccent,
+                  color: InsightsChartPalette.orange,
                 ),
                 title: Text(
-                  map['title'] as String? ?? 'Expense',
+                  map[UnifiedTxnKeys.title] as String? ??
+                      AppStrings.home.personalExpense,
                   style: body2_text.copyWith(color: groupOnSurface),
                 ),
                 subtitle: Text(
                   date != null
-                      ? DateFormat('MMM d').format(date)
-                      : map['category'] as String? ?? '',
+                      ? DateFormat(AppDateFormats.shortDay).format(date)
+                      : map[UnifiedTxnKeys.category] as String? ?? '',
                   style: caption_text.copyWith(color: groupOnSurfaceMuted),
                 ),
                 trailing: Text(
-                  '$_sym${(map['amount'] as double).toStringAsFixed(0)}',
+                  '$_sym${(map[UnifiedTxnKeys.amount] as double).toStringAsFixed(0)}',
                   style: body1_text.copyWith(
-                    color: neopopYellow,
+                    color: ThemeAccentColors.oweWarning(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -786,6 +847,87 @@ class _ExpenseInsightsScreenState extends State<ExpenseInsightsScreen> {
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildRecurringSubscriptions(List<dynamic> recurring) {
+    if (recurring.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppStrings.insights.likelySubscriptions,
+          style: sub_headline4_text.copyWith(color: groupOnSurface),
+        ),
+        const SizedBox(height: groupGapSm),
+        ...recurring.map((item) {
+          final map = item as Map<String, dynamic>;
+          final nextRaw = map[RecurringMerchantKeys.nextExpected] as String?;
+          final next = nextRaw != null ? DateTime.tryParse(nextRaw) : null;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: groupGapSm),
+            child: GlassCard(
+              margin: EdgeInsets.zero,
+              opacity: 0.06,
+              padding: EdgeInsets.zero,
+              child: ListTile(
+                leading: const Icon(
+                  Icons.autorenew_rounded,
+                  color: neopopAccent,
+                ),
+                title: Text(
+                  map[RecurringMerchantKeys.label] as String? ??
+                      AppStrings.insights.merchant,
+                  style: body2_text.copyWith(color: groupOnSurface),
+                ),
+                subtitle: Text(
+                  AppStringFormat.insightsMonthlyCharges(
+                        (map[RecurringMerchantKeys.occurrenceCount] as num?)
+                                ?.toInt() ??
+                            0,
+                      ) +
+                      (next != null
+                          ? '${AppStrings.insights.nextApproxPrefix}${DateFormat(AppDateFormats.shortDay).format(next)}'
+                          : ''),
+                  style: caption_text.copyWith(color: groupOnSurfaceMuted),
+                ),
+                trailing: Text(
+                  '$_sym${(map[RecurringMerchantKeys.typicalAmount] as num).toStringAsFixed(0)}',
+                  style: body1_text.copyWith(
+                    color: groupOnSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _insightsLoadError({double padding = groupGapXl}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: padding),
+      child: Center(
+        child: Column(
+          children: [
+            Text(
+              AppStrings.insights.loadError,
+              style: body2_text.copyWith(color: groupOnSurfaceMuted),
+            ),
+            const SizedBox(height: groupGapSm),
+            TextButton(
+              onPressed: () => _refresh(forceBriefing: true),
+              child: Text(
+                AppStrings.actions.tryAgain,
+                style: body2_text.copyWith(color: neopopAccent),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

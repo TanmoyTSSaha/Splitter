@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:splitr/Constants/app_keys.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:splitter/Model/financial_goal_model.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Model/financial_goal_model.dart';
 
 class GoalService {
   final supabase = Supabase.instance.client;
@@ -8,7 +9,7 @@ class GoalService {
   Future<List<FinancialGoalModel>> getGoals({required String userID}) async {
     try {
       final data = await supabase
-          .from("financial_goals")
+          .from(SupabaseTables.financialGoals)
           .select()
           .eq("user_id", userID)
           .order("deadline", ascending: true);
@@ -18,15 +19,20 @@ class GoalService {
         goals.add(FinancialGoalModel.fromJSON(element));
       }
       return goals;
-    } catch (e) {
-      debugPrint("GET GOALS EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalService.getGoals failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'getGoals'},
+      );
       return [];
     }
   }
 
   Future<void> addGoal(FinancialGoalModel goal) async {
     try {
-      await supabase.from("financial_goals").insert({
+      await supabase.from(SupabaseTables.financialGoals).insert({
         "user_id": goal.userId,
         "title": goal.title,
         "target_amount": goal.targetAmount,
@@ -42,8 +48,13 @@ class GoalService {
         "description": goal.description,
         "goal_type": goal.goalType,
       });
-    } catch (e) {
-      debugPrint("ADD GOAL EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalService.addGoal failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'addGoal'},
+      );
       rethrow;
     }
   }
@@ -51,34 +62,52 @@ class GoalService {
   Future<void> updateGoalAmount(String goalId, double newAmount) async {
     try {
       await supabase
-          .from("financial_goals")
+          .from(SupabaseTables.financialGoals)
           .update({"current_amount": newAmount}).eq("id", goalId);
-    } catch (e) {
-      debugPrint("UPDATE GOAL AMOUNT EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalService.updateGoalAmount failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'updateGoalAmount'},
+      );
       rethrow;
     }
   }
 
   Future<void> updateGoalDetails(FinancialGoalModel goal) async {
     try {
-      await supabase.from("financial_goals").update({
+      await supabase.from(SupabaseTables.financialGoals).update({
         "title": goal.title,
         "target_amount": goal.targetAmount,
         "deadline": goal.deadline?.toIso8601String(),
         "color_hex": goal.colorHex,
         "icon_key": goal.iconKey,
       }).eq("id", goal.id as Object);
-    } catch (e) {
-      debugPrint("UPDATE GOAL DETAILS EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalService.updateGoalDetails failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'updateGoalDetails'},
+      );
       rethrow;
     }
   }
 
   Future<void> deleteGoal(String goalId) async {
     try {
-      await supabase.from("financial_goals").delete().eq("id", goalId);
-    } catch (e) {
-      debugPrint("DELETE GOAL EXCEPTION: $e");
+      await supabase
+          .from(SupabaseTables.financialGoals)
+          .delete()
+          .eq("id", goalId);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GoalService.deleteGoal failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'goals', 'operation': 'deleteGoal'},
+      );
       rethrow;
     }
   }

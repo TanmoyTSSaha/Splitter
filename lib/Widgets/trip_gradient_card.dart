@@ -1,10 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Model/trip_model.dart';
+
+import 'package:splitr/Constants/app_dimensions.dart';
+
+import 'package:splitr/Constants/app_formats.dart';
+
+import 'package:splitr/Constants/app_motion.dart';
+
+import 'package:splitr/Constants/app_palette.dart';
+
+import 'package:splitr/Constants/constants.dart';
+
+import 'package:splitr/Constants/domain_values.dart';
+
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+
+import 'package:splitr/Model/trip_model.dart';
+
 import 'package:intl/intl.dart';
 
 class TripGradientCard extends StatelessWidget {
   final TripModel trip;
+
   final VoidCallback onTap;
 
   const TripGradientCard({
@@ -20,16 +36,18 @@ class TripGradientCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(16),
+        width: groupCarouselCardWidth,
+        padding: const EdgeInsets.all(groupGutter),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(groupCardRadius),
           boxShadow: [
             BoxShadow(
-              color: gradient.colors.last.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: gradient.colors.last.withValues(
+                alpha: AppDimensions.cardShadowColorOpacity,
+              ),
+              blurRadius: AppDimensions.groupCardShadowBlur,
+              offset: AppAnimationOffsets.cardShadow,
             ),
           ],
         ),
@@ -48,22 +66,27 @@ class TripGradientCard extends StatelessWidget {
                       Align(
                         widthFactor: 0.6,
                         child: CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Colors.white24,
-                          child:
-                              Icon(Icons.person, size: 14, color: Colors.white),
+                          radius: AppDimensions.tripMemberAvatarRadius,
+                          backgroundColor: shareCardFillSoft,
+                          child: Icon(
+                            Icons.person,
+                            size: AppDimensions.tripMemberIconSize,
+                            color: shareCardOnSurface,
+                          ),
                         ),
                       ),
                     if (trip.memberIds.length > 2)
                       Align(
                         widthFactor: 0.6,
                         child: CircleAvatar(
-                          radius: 12,
-                          backgroundColor: neopopBackground.withOpacity(0.5),
+                          radius: AppDimensions.tripMemberAvatarRadius,
+                          backgroundColor: neopopBackgroundFillMedium,
                           child: Text(
                             "+${trip.memberIds.length - 2}",
                             style: const TextStyle(
-                                fontSize: 8, color: Colors.white),
+                              fontSize: splitrFontNano,
+                              color: shareCardOnSurface,
+                            ),
                           ),
                         ),
                       ),
@@ -71,34 +94,39 @@ class TripGradientCard extends StatelessWidget {
                 ),
                 Icon(
                   _getTripIcon(trip.tripName),
-                  color: Colors.white.withOpacity(0.5),
-                  size: 24,
+                  color: shareCardTextMuted,
+                  size: groupCarouselIconLg,
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: groupGap20),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: groupGapXs,
+                    vertical: groupGap2,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
+                    color: neopopBackgroundFillSoft,
+                    borderRadius: BorderRadius.circular(groupRadiusSm),
                   ),
                   child: Text(
-                    "${DateFormat('d MMM').format(trip.startDate)} - ${DateFormat('d MMM').format(trip.endDate)}",
-                    style: const TextStyle(fontSize: 8, color: Colors.white),
+                    "${DateFormat(AppDateFormats.tripRange).format(trip.startDate)} - ${DateFormat(AppDateFormats.tripRange).format(trip.endDate)}",
+                    style: const TextStyle(
+                      fontSize: splitrFontNano,
+                      color: shareCardOnSurface,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: groupGapSm),
                 Text(
                   trip.tripName,
                   style: sub_headline5_text.copyWith(
-                    color: Colors.white,
+                    color: shareCardOnSurface,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -113,22 +141,25 @@ class TripGradientCard extends StatelessWidget {
 
   LinearGradient _getTripGradient(String name) {
     final lowerName = name.toLowerCase();
-    if (lowerName.contains("goa")) {
+
+    if (lowerName.contains(TripNameKeywords.goa)) {
       return const LinearGradient(
-        colors: [Color(0xFF5C54DB), Color(0xFF4A40BF)],
+        colors: [AppPalette.tripPurpleStart, AppPalette.tripPurpleEnd],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
     }
-    if (lowerName.contains("bali")) {
+
+    if (lowerName.contains(TripNameKeywords.bali)) {
       return const LinearGradient(
-        colors: [Color(0xFFF25C30), Color(0xFFD94A1E)],
+        colors: [AppPalette.tripOrangeStart, AppPalette.tripOrangeEnd],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
     }
+
     return const LinearGradient(
-      colors: [Color(0xFF6C63FF), Color(0xFF483D8B)],
+      colors: [AppPalette.tripIndigoStart, AppPalette.tripIndigoEnd],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -136,10 +167,17 @@ class TripGradientCard extends StatelessWidget {
 
   IconData _getTripIcon(String name) {
     final lowerName = name.toLowerCase();
-    if (lowerName.contains("goa") || lowerName.contains("flight"))
+
+    if (lowerName.contains(TripNameKeywords.goa) ||
+        lowerName.contains(TripNameKeywords.flight)) {
       return Icons.flight_takeoff_rounded;
-    if (lowerName.contains("beach") || lowerName.contains("bali"))
+    }
+
+    if (lowerName.contains(TripNameKeywords.beach) ||
+        lowerName.contains(TripNameKeywords.bali)) {
       return Icons.beach_access_rounded;
+    }
+
     return Icons.explore_rounded;
   }
 }

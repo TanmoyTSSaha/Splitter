@@ -1,4 +1,8 @@
-import 'package:splitter/Model/loan_interest.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Model/loan_interest.dart';
+import 'package:splitr/Model/repayment_schedule.dart';
 
 class LoanModel {
   final String? id;
@@ -7,20 +11,19 @@ class LoanModel {
   final String? createdBy;
   final double principalAmount;
   final double interestRate;
-  final String interestType; // 'simple', 'compound', 'flat'
-  final String interestPeriod; // 'monthly', 'yearly', 'one_time'
+  final String interestType;
+  final String interestPeriod;
   final DateTime startDate;
   final DateTime? dueDate;
-  final String
-      status; // 'pending', 'active', 'completed', 'defaulted', 'rejected'
+  final String status;
   final double repaymentAmount;
 
   final int? duration;
-  final String? durationUnit; // 'months', 'days', 'years'
+  final String? durationUnit;
   final DateTime? repaymentStartDate;
   final DateTime? repaymentEndDate;
-  final int? repaymentStartDay; // 1-31
-  final int? repaymentEndDay; // 1-31
+  final int? repaymentStartDay;
+  final int? repaymentEndDay;
 
   final String? lenderName;
   final String? borrowerName;
@@ -37,11 +40,11 @@ class LoanModel {
     this.createdBy,
     required this.principalAmount,
     this.interestRate = 0.0,
-    this.interestType = 'simple',
-    this.interestPeriod = 'monthly',
+    this.interestType = LoanInterestTypes.simple,
+    this.interestPeriod = LoanFrequencyValues.monthly,
     required this.startDate,
     this.dueDate,
-    this.status = 'pending',
+    this.status = LoanStatusValues.pending,
     this.repaymentAmount = 0.0,
     this.duration,
     this.durationUnit,
@@ -53,118 +56,126 @@ class LoanModel {
     this.borrowerName,
     this.lenderAvatar,
     this.borrowerAvatar,
-    this.currency = 'INR',
-    this.exchangeRateToInr = 1.0,
+    this.currency = CurrencyDefaults.code,
+    this.exchangeRateToInr = CurrencyDefaults.exchangeRateToInr,
     this.createdAt,
   });
 
   static String? _profileName(Map<String, dynamic>? profile) {
     if (profile == null) return null;
-    final first = (profile['firstname'] as String?)?.trim() ?? '';
-    final last = (profile['lastname'] as String?)?.trim() ?? '';
-    final full = '$first $last'.trim();
-    return full.isEmpty ? null : full;
+    final first = (profile[SupabaseColumns.firstname] as String?)?.trim() ??
+        StringDefaults.empty;
+    final last = (profile[SupabaseColumns.lastname] as String?)?.trim() ??
+        StringDefaults.empty;
+    return DisplayFormatters.joinFirstLastOrNull(first, last);
   }
 
   factory LoanModel.fromJson(Map<String, dynamic> json) {
     return LoanModel(
-      id: json['id'],
-      lenderID: json['lender_id'],
-      borrowerID: json['borrower_id'],
-      createdBy: json['created_by'],
-      principalAmount: (json['principal_amount'] as num).toDouble(),
-      interestRate: (json['interest_rate'] as num).toDouble(),
-      interestType: json['interest_type'],
-      interestPeriod: json['interest_period'],
-      startDate: DateTime.parse(json['start_date']),
-      dueDate:
-          json['due_date'] != null ? DateTime.parse(json['due_date']) : null,
-      status: json['status'],
-      repaymentAmount: (json['repayment_amount'] as num).toDouble(),
-      duration: json['duration'],
-      durationUnit: json['duration_unit'],
-      repaymentStartDate: json['repayment_start_date'] != null
-          ? DateTime.tryParse(json['repayment_start_date'])
+      id: json[SupabaseColumns.id],
+      lenderID: json[SupabaseColumns.lenderId],
+      borrowerID: json[SupabaseColumns.borrowerId],
+      createdBy: json[SupabaseColumns.createdBy],
+      principalAmount:
+          (json[SupabaseColumns.principalAmount] as num).toDouble(),
+      interestRate: (json[SupabaseColumns.interestRate] as num).toDouble(),
+      interestType: json[SupabaseColumns.interestType],
+      interestPeriod: json[SupabaseColumns.interestPeriod],
+      startDate: DateTime.parse(json[SupabaseColumns.startDate]),
+      dueDate: json[SupabaseColumns.dueDate] != null
+          ? DateTime.parse(json[SupabaseColumns.dueDate])
           : null,
-      repaymentEndDate: json['repayment_end_date'] != null
-          ? DateTime.tryParse(json['repayment_end_date'])
+      status: json[SupabaseColumns.status],
+      repaymentAmount:
+          (json[SupabaseColumns.repaymentAmount] as num).toDouble(),
+      duration: json[SupabaseColumns.duration],
+      durationUnit: json[SupabaseColumns.durationUnit],
+      repaymentStartDate: json[SupabaseColumns.repaymentStartDate] != null
+          ? DateTime.tryParse(json[SupabaseColumns.repaymentStartDate])
           : null,
-      repaymentStartDay: json['repayment_start_day'],
-      repaymentEndDay: json['repayment_end_day'],
-      lenderName: _profileName(json['lender'] as Map<String, dynamic>?),
-      borrowerName: _profileName(json['borrower'] as Map<String, dynamic>?),
-      lenderAvatar: json['lender'] != null
-          ? json['lender']['profile_picture_url']
+      repaymentEndDate: json[SupabaseColumns.repaymentEndDate] != null
+          ? DateTime.tryParse(json[SupabaseColumns.repaymentEndDate])
           : null,
-      borrowerAvatar: json['borrower'] != null
-          ? json['borrower']['profile_picture_url']
+      repaymentStartDay: json[SupabaseColumns.repaymentStartDay],
+      repaymentEndDay: json[SupabaseColumns.repaymentEndDay],
+      lenderName: _profileName(
+          json[SupabaseRelationKeys.lender] as Map<String, dynamic>?),
+      borrowerName: _profileName(
+          json[SupabaseRelationKeys.borrower] as Map<String, dynamic>?),
+      lenderAvatar: json[SupabaseRelationKeys.lender] != null
+          ? json[SupabaseRelationKeys.lender][SupabaseColumns.profilePictureUrl]
           : null,
-      currency: json['currency'] ?? 'INR',
-      exchangeRateToInr:
-          double.tryParse(json['exchange_rate_to_inr']?.toString() ?? '1.0') ??
-              1.0,
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString())
+      borrowerAvatar: json[SupabaseRelationKeys.borrower] != null
+          ? json[SupabaseRelationKeys.borrower]
+              [SupabaseColumns.profilePictureUrl]
+          : null,
+      currency: json[SupabaseColumns.currency] ?? CurrencyDefaults.code,
+      exchangeRateToInr: double.tryParse(
+              json[SupabaseColumns.exchangeRateToInr]?.toString() ??
+                  CurrencyDefaults.exchangeRateToInrString) ??
+          CurrencyDefaults.exchangeRateToInr,
+      createdAt: json[SupabaseColumns.createdAt] != null
+          ? DateTime.tryParse(json[SupabaseColumns.createdAt].toString())
           : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'lender_id': lenderID,
-      'borrower_id': borrowerID,
-      'created_by': createdBy,
-      'principal_amount': principalAmount,
-      'interest_rate': interestRate,
-      'interest_type': interestType,
-      'interest_period': interestPeriod,
-      'start_date': startDate.toIso8601String(),
-      'due_date': dueDate?.toIso8601String(),
-      'status': status,
-      'repayment_amount': repaymentAmount,
-      'duration': duration,
-      'duration_unit': durationUnit,
-      'repayment_start_date': repaymentStartDate?.toIso8601String(),
-      'repayment_end_date': repaymentEndDate?.toIso8601String(),
-      'repayment_start_day': repaymentStartDay,
-      'repayment_end_day': repaymentEndDay,
-      'currency': currency,
-      'exchange_rate_to_inr': exchangeRateToInr,
+      SupabaseColumns.lenderId: lenderID,
+      SupabaseColumns.borrowerId: borrowerID,
+      SupabaseColumns.createdBy: createdBy,
+      SupabaseColumns.principalAmount: principalAmount,
+      SupabaseColumns.interestRate: interestRate,
+      SupabaseColumns.interestType: interestType,
+      SupabaseColumns.interestPeriod: interestPeriod,
+      SupabaseColumns.startDate: startDate.toIso8601String(),
+      SupabaseColumns.dueDate: dueDate?.toIso8601String(),
+      SupabaseColumns.status: status,
+      SupabaseColumns.repaymentAmount: repaymentAmount,
+      SupabaseColumns.duration: duration,
+      SupabaseColumns.durationUnit: durationUnit,
+      SupabaseColumns.repaymentStartDate: repaymentStartDate?.toIso8601String(),
+      SupabaseColumns.repaymentEndDate: repaymentEndDate?.toIso8601String(),
+      SupabaseColumns.repaymentStartDay: repaymentStartDay,
+      SupabaseColumns.repaymentEndDay: repaymentEndDay,
+      SupabaseColumns.currency: currency,
+      SupabaseColumns.exchangeRateToInr: exchangeRateToInr,
     };
   }
 
-  bool get isAwaitingAcceptance => status == 'pending';
+  bool get isAwaitingAcceptance => status == LoanStatusValues.pending;
 
-  bool isBorrowRequest() =>
-      createdBy != null && createdBy == borrowerID;
+  bool isBorrowRequest() => createdBy != null && createdBy == borrowerID;
 
-  bool isLendOffer() =>
-      createdBy == null || createdBy == lenderID;
+  bool isLendOffer() => createdBy == null || createdBy == lenderID;
 
   double get totalDue {
-    if (status == 'pending' ||
-        status == 'rejected' ||
-        status == 'completed') {
+    if (status == LoanStatusValues.pending ||
+        status == LoanStatusValues.rejected ||
+        status == LoanStatusValues.completed) {
       return principalAmount;
     }
-    return principalAmount + calculateInterest();
+    return repaymentAllocation.totalPayable;
   }
 
+  LoanRepaymentAllocation get repaymentAllocation =>
+      LoanScheduleCalculator.allocation(this);
+
+  /// Principal + full-term interest for the contract.
+  double get totalContractPayable => repaymentAllocation.totalPayable;
+
   double get currentAmountOwed {
-    if (status == 'completed' ||
-        status == 'rejected' ||
-        status == 'pending') {
+    if (status == LoanStatusValues.completed ||
+        status == LoanStatusValues.rejected ||
+        status == LoanStatusValues.pending) {
       return 0;
     }
 
-    return (totalDue - repaymentAmount).clamp(0, double.infinity);
+    return repaymentAllocation.totalRemaining;
   }
 
-  double get repaymentProgress {
-    final due = totalDue;
-    if (due <= 0) return 0;
-    return (repaymentAmount / due).clamp(0.0, 1.0);
-  }
+  double get repaymentProgress => repaymentAllocation.repaymentProgress;
 
   double calculateInterest() => LoanInterest.accruedInterest(this);
 }

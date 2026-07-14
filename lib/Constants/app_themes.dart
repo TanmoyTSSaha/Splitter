@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/system_ui.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 /// Centralized app themes for light (default) and dark-surface screens.
 abstract final class AppThemes {
@@ -24,24 +26,31 @@ abstract final class AppThemes {
     highlightColor: neopopAccent,
     splashColor: neopopAccent,
     useMaterial3: true,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: kSplitrSystemUiOverlay,
+    ),
     textTheme: splitter_custom_text_theme,
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: body2_text.copyWith(color: neopopGrey),
       labelStyle: body2_text.copyWith(color: neopopGrey),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         borderSide: BorderSide(color: neopopGrey.withValues(alpha: 0.3)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         borderSide: const BorderSide(color: neopopAccent, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         borderSide: const BorderSide(color: neopopError),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         borderSide: const BorderSide(color: neopopError, width: 2),
       ),
     ),
@@ -52,6 +61,13 @@ abstract final class AppThemes {
     highlightColor: neopopAccent,
     splashColor: neopopAccent,
     useMaterial3: true,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: kSplitrSystemUiOverlay,
+    ),
     textTheme: splitter_custom_text_theme,
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: body2_text.copyWith(color: neopopGrey),
@@ -59,20 +75,20 @@ abstract final class AppThemes {
       filled: true,
       fillColor: neopopSecondaryGrey,
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
         borderSide: BorderSide(color: neopopOnPrimary.withValues(alpha: 0.2)),
       ),
-      focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-        borderSide: BorderSide(color: neopopAccent, width: 2),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
+        borderSide: const BorderSide(color: neopopAccent, width: 2),
       ),
-      errorBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-        borderSide: BorderSide(color: neopopError),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
+        borderSide: const BorderSide(color: neopopError),
       ),
-      focusedErrorBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-        borderSide: BorderSide(color: neopopError, width: 2),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(groupControlRadiusSm),
+        borderSide: const BorderSide(color: neopopError, width: 2),
       ),
     ),
   );

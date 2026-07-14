@@ -1,8 +1,14 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
 
 /// Horizontal bar chart showing each member's actual contribution (paid)
 /// vs their fair share.
@@ -17,17 +23,17 @@ class ContributionAnalysisChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (memberContributions.isEmpty) {
-      return const TabEmptyState(
+      return TabEmptyState(
         variant: TabEmptyVariant.analytics,
-        title: 'No transaction data yet',
+        title: AppStrings.analytics.noTransactionData,
         compact: true,
       );
     }
 
     final entries = memberContributions.entries.toList();
     final maxVal = entries.fold<double>(0.0, (prev, e) {
-      final paid = e.value['paid'] ?? 0.0;
-      final share = e.value['share'] ?? 0.0;
+      final paid = e.value[AnalyticsKeys.paid] ?? 0.0;
+      final share = e.value[AnalyticsKeys.share] ?? 0.0;
       return [prev, paid, share].reduce((a, b) => a > b ? a : b);
     });
 
@@ -36,29 +42,35 @@ class ContributionAnalysisChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Legend
           Row(
             children: [
-              _legendDot(neopopAccent, 'Paid'),
-              SizedBox(width: width_16),
-              _legendDot(neopopAccent.withOpacity(0.35), 'Your share'),
+              _legendDot(neopopAccent, AppStrings.groups.paid),
+              const SizedBox(width: groupGapMd),
+              _legendDot(neopopAccentBorder, AppStrings.analytics.yourShare),
             ],
           ),
-          SizedBox(height: height_16),
+          const SizedBox(height: groupGapMd),
           SizedBox(
-            height: entries.length * 80.0 + 40,
+            height: entries.length * AppDimensions.chartContributionRowHeight +
+                AppDimensions.chartContributionPadding,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: maxVal * 1.15,
+                maxY: maxVal * ChartScaleFactors.maxY115,
                 barTouchData: BarTouchData(
                   enabled: true,
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (_) => neopopOnPrimary,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      String label = rodIndex == 0 ? 'Paid' : 'Your share';
+                      final label = rodIndex == 0
+                          ? AppStrings.groups.paid
+                          : AppStrings.analytics.yourShare;
                       return BarTooltipItem(
-                        "$label: ₹${rod.toY.toStringAsFixed(0)}",
+                        AppStringFormat.chartTooltip(
+                          label,
+                          userCurrencySymbol(),
+                          rod.toY.toStringAsFixed(0),
+                        ),
                         body2_text.copyWith(color: neopopBackground),
                       );
                     },
@@ -72,21 +84,20 @@ class ContributionAnalysisChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 40,
+                      reservedSize: AppDimensions.chartAxisReservedSizeBottom,
                       getTitlesWidget: (value, meta) {
-                        int idx = value.toInt();
+                        final idx = value.toInt();
                         if (idx >= 0 && idx < entries.length) {
-                          String name = entries[idx].key;
-                          // Truncate long names
-                          if (name.length > 10) {
-                            name = "${name.substring(0, 9)}…";
-                          }
+                          final name = AppStringFormat.truncateChartLabel(
+                            entries[idx].key,
+                            ChartTruncateLengths.name10,
+                          );
                           return SideTitleWidget(
                             axisSide: meta.axisSide,
                             child: Text(
                               name,
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: groupFontMicro,
                                 color: groupOnSurface,
                               ),
                             ),
@@ -100,27 +111,35 @@ class ContributionAnalysisChart extends StatelessWidget {
                 borderData: FlBorderData(show: false),
                 gridData: const FlGridData(show: false),
                 barGroups: entries.asMap().entries.map((entry) {
-                  int i = entry.key;
-                  var data = entry.value.value;
+                  final i = entry.key;
+                  final data = entry.value.value;
                   return BarChartGroupData(
                     x: i,
                     barRods: [
                       BarChartRodData(
-                        toY: data['paid'] ?? 0.0,
+                        toY: data[AnalyticsKeys.paid] ?? 0.0,
                         color: neopopAccent,
-                        width: 12,
+                        width: AppDimensions.chartBarWidthMd,
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          topRight: Radius.circular(4),
+                          topLeft: Radius.circular(
+                            AppDimensions.chartBarRadiusMd,
+                          ),
+                          topRight: Radius.circular(
+                            AppDimensions.chartBarRadiusMd,
+                          ),
                         ),
                       ),
                       BarChartRodData(
-                        toY: data['share'] ?? 0.0,
-                        color: neopopAccent.withOpacity(0.35),
-                        width: 12,
+                        toY: data[AnalyticsKeys.share] ?? 0.0,
+                        color: neopopAccentBorder,
+                        width: AppDimensions.chartBarWidthMd,
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          topRight: Radius.circular(4),
+                          topLeft: Radius.circular(
+                            AppDimensions.chartBarRadiusMd,
+                          ),
+                          topRight: Radius.circular(
+                            AppDimensions.chartBarRadiusMd,
+                          ),
                         ),
                       ),
                     ],
@@ -129,10 +148,9 @@ class ContributionAnalysisChart extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: height_16),
-          // Summary cards
+          const SizedBox(height: groupGapMd),
           ...entries.map((e) => Padding(
-                padding: EdgeInsets.only(bottom: height_10),
+                padding: const EdgeInsets.only(bottom: groupGapSm),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -145,18 +163,25 @@ class ContributionAnalysisChart extends StatelessWidget {
                         style: caption_text,
                         children: [
                           TextSpan(
-                            text:
-                                "Paid ₹${(e.value['paid'] ?? 0).toStringAsFixed(0)}",
+                            text: AppStringFormat.paidAmount(
+                              userCurrencySymbol(),
+                              (e.value[AnalyticsKeys.paid] ?? 0)
+                                  .toStringAsFixed(0),
+                            ),
                             style: caption_text.copyWith(
                               color: neopopAccent,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const TextSpan(text: "  •  "),
+                          const TextSpan(text: AppSeparators.bullet),
                           TextSpan(
-                            text:
-                                'Share ₹${(e.value['share'] ?? 0).toStringAsFixed(0)}',
-                            style: caption_text.copyWith(color: neopopGrey),
+                            text: AppStringFormat.shareAmount(
+                              userCurrencySymbol(),
+                              (e.value[AnalyticsKeys.share] ?? 0)
+                                  .toStringAsFixed(0),
+                            ),
+                            style: caption_text.copyWith(
+                                color: groupOnSurfaceMuted),
                           ),
                         ],
                       ),
@@ -174,14 +199,14 @@ class ContributionAnalysisChart extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: AppDimensions.chartLegendDot,
+          height: AppDimensions.chartLegendDot,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(groupRadiusXs),
           ),
         ),
-        SizedBox(width: width_10 / 2),
+        const SizedBox(width: groupGapSm),
         Text(label, style: caption_text.copyWith(color: groupOnSurface)),
       ],
     );

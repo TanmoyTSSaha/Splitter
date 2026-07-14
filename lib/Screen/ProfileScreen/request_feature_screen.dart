@@ -1,18 +1,18 @@
+import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Model/user_details_model.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Model/user_details_model.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
+import 'package:splitr/Widgets/bordered_input_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// ─── Palette ──────────────────────────────────────────────────────────────────
-const Color _bg = Color(0xFFF0F0F5);
-const Color _cardBg = Colors.white;
-const Color _sectionLabel = Color(0xFF9E9E9E);
-const Color _titleColor = Color(0xFF1A1A1A);
-const Color _borderColor = Color(0xFFEEEEEE);
-const Color _neopopYellow = Color(0xFFEAFF41);
-const Color _premiumDark = Color(0xFF0F0F0F);
-const Color _accentGreen = Color(0xFFB5F542);
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 // ─── Feature Request Model ─────────────────────────────────────────────────────
 class FeatureRequestModel {
@@ -22,8 +22,7 @@ class FeatureRequestModel {
   final String? description;
   final String category;
   final String priority;
-  final int votes;
-  final String status;
+  final int voteCount;
   final DateTime createdAt;
   bool hasVoted; // client-side tracking
 
@@ -34,48 +33,53 @@ class FeatureRequestModel {
     this.description,
     required this.category,
     required this.priority,
-    required this.votes,
-    required this.status,
+    required this.voteCount,
     required this.createdAt,
     this.hasVoted = false,
   });
 
   factory FeatureRequestModel.fromMap(Map<String, dynamic> m) {
     return FeatureRequestModel(
-      id: m['id'] as String,
-      userId: m['user_id'] as String,
-      title: m['title'] as String,
-      description: m['description'] as String?,
-      category: m['category'] as String,
-      priority: m['priority'] as String,
-      votes: m['votes'] as int? ?? 1,
-      status: m['status'] as String? ?? 'open',
-      createdAt: DateTime.parse(m['created_at'] as String),
+      id: m[SupabaseColumns.id] as String,
+      userId: m[UserSearchResultKeys.userId] as String,
+      title: m[UnifiedTxnKeys.title] as String,
+      description: m[SupabaseColumns.description] as String?,
+      category: m[UnifiedTxnKeys.category] as String? ??
+          FeatureRequestCategories.other,
+      priority: m[SupabaseColumns.priority] as String? ??
+          FeatureRequestPriorities.niceToHave,
+      voteCount: m[FeatureRequestKeys.voteCount] as int? ?? 0,
+      createdAt: DateTime.parse(m[SupabaseColumns.createdAt] as String),
     );
   }
 }
 
 // ─── Category meta ────────────────────────────────────────────────────────────
 const Map<String, String> _categoryEmoji = {
-  'splitting': '💸',
-  'analytics': '📊',
-  'payments': '⚡',
-  'groups': '👥',
-  'design': '🎨',
-  'other': '🔧',
+  FeatureRequestCategories.splitting: '💸',
+  FeatureRequestCategories.analytics: '📊',
+  FeatureRequestCategories.payments: '⚡',
+  SupabaseTables.groups: '👥',
+  FeatureRequestCategories.design: '🎨',
+  FeatureRequestCategories.other: '🔧',
 };
-const Map<String, String> _categoryLabel = {
-  'splitting': 'Splitting',
-  'analytics': 'Analytics',
-  'payments': 'Payments',
-  'groups': 'Groups',
-  'design': 'Design',
-  'other': 'Other',
+final Map<String, String> _categoryLabel = {
+  FeatureRequestCategories.splitting:
+      AppStrings.featureRequest.categorySplitting,
+  FeatureRequestCategories.analytics:
+      AppStrings.featureRequest.categoryAnalytics,
+  FeatureRequestCategories.payments: AppStrings.featureRequest.categoryPayments,
+  SupabaseTables.groups: AppStrings.bottomNav.groups,
+  FeatureRequestCategories.design: AppStrings.featureRequest.categoryDesign,
+  FeatureRequestCategories.other: CategoryDefaults.other,
 };
-const Map<String, String> _priorityLabel = {
-  'nice_to_have': '🙂 Nice to have',
-  'really_need': '😮 I really need this',
-  'deal_breaker': '🔥 Deal-breaker',
+final Map<String, String> _priorityLabel = {
+  FeatureRequestPriorities.niceToHave:
+      AppStrings.featureRequest.priorityNiceToHave,
+  FeatureRequestPriorities.reallyNeed:
+      AppStrings.featureRequest.priorityReallyNeed,
+  FeatureRequestPriorities.dealBreaker:
+      AppStrings.featureRequest.priorityDealBreaker,
 };
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -91,7 +95,9 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
   final _supabase = Supabase.instance.client;
   List<FeatureRequestModel> _requests = [];
   bool _loading = true;
-  String _sort = 'votes'; // 'votes' | 'newest'
+  String? _loadError;
+  String _sort = FeatureRequestKeys
+      .voteCount; // FeatureRequestKeys.voteCount | FeatureRequestKeys.newest
 
   @override
   void initState() {
@@ -100,14 +106,18 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
       final uid = widget.user.userID ?? '';
-      final order = _sort == 'votes' ? 'votes' : 'created_at';
+      final order = _sort == FeatureRequestKeys.voteCount
+          ? FeatureRequestKeys.voteCount
+          : SupabaseColumns.createdAt;
       final data = await _supabase
-          .from('feature_requests')
+          .from(SupabaseTables.featureRequests)
           .select()
-          .eq('status', 'open')
           .order(order, ascending: false);
       final list = (data as List)
           .map((m) => FeatureRequestModel.fromMap(m as Map<String, dynamic>))
@@ -115,11 +125,12 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
 
       // Fetch my votes
       final votes = await _supabase
-          .from('feature_request_votes')
-          .select('request_id')
-          .eq('user_id', uid);
-      final myIds =
-          (votes as List).map((v) => v['request_id'] as String).toSet();
+          .from(SupabaseTables.featureRequestVotes)
+          .select(SupabaseColumns.requestId)
+          .eq(UserSearchResultKeys.userId, uid);
+      final myIds = (votes as List)
+          .map((v) => v[SupabaseColumns.requestId] as String)
+          .toSet();
 
       for (final r in list) {
         r.hasVoted = myIds.contains(r.id);
@@ -129,28 +140,33 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
         setState(() {
           _requests = list;
           _loading = false;
+          _loadError = null;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        AppStrings.featureRequest.loadError,
+        error: e,
+        stack: stack,
+      );
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadError = AppStrings.featureRequest.loadError;
+        });
+      }
     }
   }
 
   Future<void> _vote(FeatureRequestModel req) async {
     final uid = widget.user.userID ?? '';
     if (req.hasVoted) {
-      // Remove vote
       await _supabase
-          .from('feature_request_votes')
+          .from(SupabaseTables.featureRequestVotes)
           .delete()
-          .eq('request_id', req.id)
-          .eq('user_id', uid);
-      await _supabase
-          .from('feature_requests')
-          .update({'votes': req.votes - 1}).eq('id', req.id);
+          .eq(SupabaseColumns.requestId, req.id)
+          .eq(UserSearchResultKeys.userId, uid);
       setState(() {
-        req.hasVoted = false;
-        req.votes > 0 ? req : null; // trigger rebuild via votes-- below
         final idx = _requests.indexOf(req);
         if (idx != -1) {
           _requests[idx] = FeatureRequestModel(
@@ -160,22 +176,17 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
             description: req.description,
             category: req.category,
             priority: req.priority,
-            votes: req.votes - 1,
-            status: req.status,
+            voteCount: req.voteCount > 0 ? req.voteCount - 1 : 0,
             createdAt: req.createdAt,
             hasVoted: false,
           );
         }
       });
     } else {
-      // Add vote
-      await _supabase.from('feature_request_votes').insert({
-        'request_id': req.id,
-        'user_id': uid,
+      await _supabase.from(SupabaseTables.featureRequestVotes).insert({
+        SupabaseColumns.requestId: req.id,
+        UserSearchResultKeys.userId: uid,
       });
-      await _supabase
-          .from('feature_requests')
-          .update({'votes': req.votes + 1}).eq('id', req.id);
       setState(() {
         final idx = _requests.indexOf(req);
         if (idx != -1) {
@@ -186,8 +197,7 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
             description: req.description,
             category: req.category,
             priority: req.priority,
-            votes: req.votes + 1,
-            status: req.status,
+            voteCount: req.voteCount + 1,
             createdAt: req.createdAt,
             hasVoted: true,
           );
@@ -200,7 +210,7 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: groupTransparent,
       builder: (_) => _SubmitSheet(
         user: widget.user,
         onSubmitted: _load,
@@ -210,38 +220,22 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
+    final mutedFill = groupMutedFillFaint;
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: _titleColor),
-          onPressed: () => Get.back(),
-        ),
-        title: const Text(
-          'Request a Feature',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: _titleColor,
-          ),
-        ),
-        centerTitle: false,
-      ),
+      backgroundColor: surface,
+      appBar: SplitrDetailAppBar(title: AppStrings.featureRequest.title),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openSubmitSheet,
-        backgroundColor: _neopopYellow,
-        foregroundColor: Colors.black,
+        backgroundColor: neopopYellow,
+        foregroundColor: groupOnSurface,
         icon: const Icon(Icons.add_rounded, size: 20),
-        label: const Text(
-          'Submit Idea',
+        label: Text(
+          AppStrings.featureRequest.submitIdea,
           style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
+            fontFamily: kFontPoppins,
+            fontSize: splitrFontBodySm,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -249,54 +243,64 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(
-                  color: _accentGreen, strokeWidth: 2))
-          : Column(
-              children: [
-                // ── Header + sort toggle ──────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Community Wishlist',
-                          style: TextStyle(
-                            fontFamily: 'Albra',
-                            fontSize: 22,
-                            color: _titleColor,
+                  color: neopopAccent, strokeWidth: groupProgressStrokeWidth))
+          : _loadError != null
+              ? _buildError()
+              : Column(
+                  children: [
+                    // ── Header + sort toggle ──────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              AppStrings.featureRequest.communityWishlist,
+                              style: TextStyle(
+                                fontFamily: kFontAlbra,
+                                fontSize: splitrFontSubheadLg,
+                                color: groupOnSurface,
+                              ),
+                            ),
                           ),
-                        ),
+                          _sortToggle(
+                              context,
+                              AppStrings.featureRequest.mostVoted,
+                              FeatureRequestKeys.voteCount),
+                          const SizedBox(width: 8),
+                          _sortToggle(context, AppStrings.featureRequest.newest,
+                              FeatureRequestKeys.newest),
+                        ],
                       ),
-                      _sortToggle('Most voted', 'votes'),
-                      const SizedBox(width: 8),
-                      _sortToggle('Newest', 'newest'),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // ── Requests list ────────────────────────────────────────────
-                Expanded(
-                  child: _requests.isEmpty
-                      ? _buildEmpty()
-                      : RefreshIndicator(
-                          onRefresh: _load,
-                          color: _accentGreen,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                            itemCount: _requests.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (_, i) =>
-                                _buildRequestCard(_requests[i]),
-                          ),
-                        ),
+                    // ── Requests list ────────────────────────────────────────────
+                    Expanded(
+                      child: _requests.isEmpty
+                          ? _buildEmpty()
+                          : RefreshIndicator(
+                              onRefresh: _load,
+                              color: neopopAccent,
+                              child: ListView.separated(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                                itemCount: _requests.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (_, i) => _buildRequestCard(
+                                  context,
+                                  _requests[i],
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 
-  Widget _sortToggle(String label, String value) {
+  Widget _sortToggle(BuildContext context, String label, String value) {
+    final borderColor = groupMutedBorderHairline;
     final isActive = _sort == value;
     return GestureDetector(
       onTap: () {
@@ -305,36 +309,41 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+            horizontal: groupCarouselGap, vertical: groupGapXs),
         decoration: BoxDecoration(
-          color: isActive ? _titleColor : _cardBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isActive ? _titleColor : _borderColor),
+          color:
+              isActive ? groupOnSurface : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(groupCardRadiusLg),
+          border: Border.all(color: isActive ? groupOnSurface : borderColor),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 11,
+            fontFamily: kFontPoppins,
+            fontSize: splitrFontCaptionSm,
             fontWeight: FontWeight.w600,
-            color: isActive ? Colors.white : _sectionLabel,
+            color: isActive ? Colors.white : groupOnSurfaceMuted,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRequestCard(FeatureRequestModel r) {
+  Widget _buildRequestCard(BuildContext context, FeatureRequestModel r) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
+    final mutedFill = groupMutedFillFaint;
     final emoji = _categoryEmoji[r.category] ?? '🔧';
     final catLabel = _categoryLabel[r.category] ?? r.category;
 
     return Container(
       decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupCardRadius),
+        border: Border.all(color: borderColor),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(groupGutter),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -342,14 +351,14 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
           GestureDetector(
             onTap: () => _vote(r),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: AppMotion.standard,
               width: 48,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: groupGapSm),
               decoration: BoxDecoration(
-                color: r.hasVoted ? _neopopYellow : _bg,
-                borderRadius: BorderRadius.circular(12),
+                color: r.hasVoted ? neopopYellow : mutedFill,
+                borderRadius: BorderRadius.circular(groupControlRadius),
                 border: Border.all(
-                  color: r.hasVoted ? _neopopYellow : _borderColor,
+                  color: r.hasVoted ? neopopYellow : borderColor,
                 ),
               ),
               child: Column(
@@ -357,15 +366,15 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
                   Icon(
                     Icons.keyboard_arrow_up_rounded,
                     size: 20,
-                    color: r.hasVoted ? Colors.black : _sectionLabel,
+                    color: r.hasVoted ? groupOnSurface : groupOnSurfaceMuted,
                   ),
                   Text(
-                    '${r.votes}',
+                    '${r.voteCount}',
                     style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
+                      fontFamily: kFontPoppins,
+                      fontSize: splitrFontBodySm,
                       fontWeight: FontWeight.w700,
-                      color: r.hasVoted ? Colors.black : _titleColor,
+                      color: r.hasVoted ? groupOnSurface : groupOnSurface,
                     ),
                   ),
                 ],
@@ -383,50 +392,30 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: _bg,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _borderColor),
+                        color: mutedFill,
+                        borderRadius: BorderRadius.circular(groupCardRadiusLg),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Text(
                         '$emoji $catLabel',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 10,
+                        style: TextStyle(
+                          fontFamily: kFontPoppins,
+                          fontSize: splitrFontMicro,
                           fontWeight: FontWeight.w600,
-                          color: _sectionLabel,
+                          color: groupOnSurfaceMuted,
                         ),
                       ),
                     ),
-                    if (r.status == 'in_progress') ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB5F542).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          '🚧 In Progress',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF4CAF50),
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
                   r.title,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontFamily: kFontPoppins,
+                    fontSize: splitrFontBody,
                     fontWeight: FontWeight.w600,
-                    color: _titleColor,
+                    color: groupOnSurface,
                   ),
                 ),
                 if (r.description != null) ...[
@@ -435,10 +424,10 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
                     r.description!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 12,
-                      color: _sectionLabel,
+                    style: TextStyle(
+                      fontFamily: kFontPoppins,
+                      fontSize: splitrFontCaption,
+                      color: groupOnSurfaceMuted,
                     ),
                   ),
                 ],
@@ -450,29 +439,73 @@ class _RequestFeatureScreenState extends State<RequestFeatureScreen> {
     );
   }
 
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off_rounded,
+                size: 48, color: groupOnSurfaceMuted),
+            const SizedBox(height: groupGapMd),
+            Text(
+              _loadError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: kFontPoppins,
+                fontSize: splitrFontBodyMd,
+                fontWeight: FontWeight.w600,
+                color: groupOnSurface,
+              ),
+            ),
+            const SizedBox(height: groupGapLg),
+            ElevatedButton(
+              onPressed: _load,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: neopopAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(groupControlRadius),
+                ),
+              ),
+              child: Text(
+                AppStrings.groups.retry,
+                style: TextStyle(
+                  fontFamily: kFontPoppins,
+                  fontWeight: FontWeight.w700,
+                  color: groupOnSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmpty() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('💡', style: TextStyle(fontSize: 48)),
-          const SizedBox(height: 16),
-          const Text(
-            'No feature requests yet.',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 16,
+          const Text('💡', style: TextStyle(fontSize: splitrFontRecapXl)),
+          const SizedBox(height: groupGapMd),
+          Text(
+            AppStrings.featureRequest.emptyTitle,
+            style: const TextStyle(
+              fontFamily: kFontPoppins,
+              fontSize: splitrFontBodyLg,
               fontWeight: FontWeight.w600,
-              color: _titleColor,
+              color: groupOnSurface,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Be the first to submit an idea!',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 13,
-              color: _sectionLabel,
+          Text(
+            AppStrings.featureRequest.emptySubtitle,
+            style: const TextStyle(
+              fontFamily: kFontPoppins,
+              fontSize: splitrFontBodySm,
+              color: groupOnSurfaceMuted,
             ),
           ),
         ],
@@ -495,8 +528,8 @@ class _SubmitSheetState extends State<_SubmitSheet> {
   final _supabase = Supabase.instance.client;
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  String _category = 'splitting';
-  String _priority = 'nice_to_have';
+  String _category = FeatureRequestCategories.splitting;
+  String _priority = FeatureRequestPriorities.niceToHave;
   bool _submitting = false;
 
   @override
@@ -511,60 +544,53 @@ class _SubmitSheetState extends State<_SubmitSheet> {
     if (title.isEmpty) return;
     setState(() => _submitting = true);
     try {
-      await _supabase.from('feature_requests').insert({
-        'user_id': widget.user.userID,
-        'title': title,
-        'description':
+      await _supabase.from(SupabaseTables.featureRequests).insert({
+        UserSearchResultKeys.userId: widget.user.userID,
+        UnifiedTxnKeys.title: title,
+        SupabaseColumns.description:
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-        'category': _category,
-        'priority': _priority,
+        UnifiedTxnKeys.category: _category,
+        SupabaseColumns.priority: _priority,
       });
       // Also add the creator's vote to the junction table
       final row = await _supabase
-          .from('feature_requests')
-          .select('id')
-          .eq('user_id', widget.user.userID!)
-          .order('created_at', ascending: false)
+          .from(SupabaseTables.featureRequests)
+          .select(SupabaseColumns.id)
+          .eq(UserSearchResultKeys.userId, widget.user.userID!)
+          .order(SupabaseColumns.createdAt, ascending: false)
           .limit(1)
           .single();
-      await _supabase.from('feature_request_votes').insert({
-        'request_id': row['id'],
-        'user_id': widget.user.userID,
+      await _supabase.from(SupabaseTables.featureRequestVotes).insert({
+        SupabaseColumns.requestId: row[SupabaseColumns.id],
+        UserSearchResultKeys.userId: widget.user.userID,
       });
 
       if (mounted) {
         Navigator.of(context).pop();
         widget.onSubmitted();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Idea submitted! Thanks 🙌',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-            backgroundColor: _neopopYellow,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
+        SplitrToast.showFromContext(
+            context, AppStrings.featureRequest.ideaSubmitted);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        'Feature request submission failed',
+        error: e,
+        stack: stack,
+      );
       if (mounted) setState(() => _submitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final borderColor = groupMutedBorderHairline;
+    final mutedFill = groupMutedFillFaint;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Container(
-      decoration: const BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: groupSheetTopBorderRadiusXl,
       ),
       padding: EdgeInsets.fromLTRB(24, 20, 24, 24 + bottom),
       child: SingleChildScrollView(
@@ -578,36 +604,37 @@ class _SubmitSheetState extends State<_SubmitSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: _borderColor,
-                  borderRadius: BorderRadius.circular(2),
+                  color: borderColor,
+                  borderRadius: BorderRadius.circular(groupRadiusHairline),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Submit a new idea',
+            const SizedBox(height: groupGapLg),
+            Text(
+              AppStrings.featureRequest.submitNewIdea,
               style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 18,
+                fontFamily: kFontPoppins,
+                fontSize: splitrFontSubhead,
                 fontWeight: FontWeight.w700,
-                color: _titleColor,
+                color: groupOnSurface,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: groupGapLg),
 
             // Title
-            _label('TITLE'),
+            _label(AppStrings.featureRequest.titleLabel),
             const SizedBox(height: 6),
             _buildTextBox(
+              context,
               controller: _titleCtrl,
-              hint: 'e.g. Add UPI QR code to settle',
+              hint: AppStrings.featureRequest.titleHint,
               maxLength: 80,
               maxLines: 1,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: groupGapMd),
 
             // Category
-            _label('CATEGORY'),
+            _label(AppStrings.featureRequest.categoryLabel),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -618,43 +645,44 @@ class _SubmitSheetState extends State<_SubmitSheet> {
                   onTap: () => setState(() => _category = e.key),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: groupCarouselGap, vertical: groupGapSm),
                     decoration: BoxDecoration(
-                      color: isActive ? _premiumDark : _bg,
-                      borderRadius: BorderRadius.circular(20),
+                      color: isActive ? neopopBackground : mutedFill,
+                      borderRadius: BorderRadius.circular(groupCardRadiusLg),
                       border: Border.all(
-                        color: isActive ? _premiumDark : _borderColor,
+                        color: isActive ? neopopBackground : borderColor,
                       ),
                     ),
                     child: Text(
                       '${e.value} ${_categoryLabel[e.key]}',
                       style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 12,
+                        fontFamily: kFontPoppins,
+                        fontSize: splitrFontCaption,
                         fontWeight: FontWeight.w600,
-                        color: isActive ? Colors.white : _sectionLabel,
+                        color: isActive ? Colors.white : groupOnSurfaceMuted,
                       ),
                     ),
                   ),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: groupGapMd),
 
             // Description
-            _label('DESCRIPTION (OPTIONAL)'),
+            _label(AppStrings.featureRequest.descriptionLabel),
             const SizedBox(height: 6),
             _buildTextBox(
+              context,
               controller: _descCtrl,
-              hint: 'Describe the feature in a bit more detail...',
+              hint: AppStrings.featureRequest.descriptionHint,
               maxLength: 300,
               maxLines: 3,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: groupGapMd),
 
             // Priority
-            _label('HOW IMPORTANT IS THIS?'),
+            _label(AppStrings.featureRequest.priorityLabel),
             const SizedBox(height: 8),
             ..._priorityLabel.entries.map((e) {
               final isActive = _priority == e.key;
@@ -662,14 +690,14 @@ class _SubmitSheetState extends State<_SubmitSheet> {
                 onTap: () => setState(() => _priority = e.key),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  margin: const EdgeInsets.only(bottom: groupGapSm),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGutter, vertical: groupCarouselGap),
                   decoration: BoxDecoration(
-                    color: isActive ? _premiumDark : _bg,
-                    borderRadius: BorderRadius.circular(12),
+                    color: isActive ? neopopBackground : mutedFill,
+                    borderRadius: BorderRadius.circular(groupControlRadius),
                     border: Border.all(
-                      color: isActive ? _premiumDark : _borderColor,
+                      color: isActive ? neopopBackground : borderColor,
                     ),
                   ),
                   child: Row(
@@ -678,22 +706,22 @@ class _SubmitSheetState extends State<_SubmitSheet> {
                         child: Text(
                           e.value,
                           style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 13,
+                            fontFamily: kFontPoppins,
+                            fontSize: splitrFontBodySm,
                             fontWeight: FontWeight.w600,
-                            color: isActive ? Colors.white : _titleColor,
+                            color: isActive ? Colors.white : groupOnSurface,
                           ),
                         ),
                       ),
                       if (isActive)
                         const Icon(Icons.check_circle_rounded,
-                            size: 18, color: _accentGreen),
+                            size: 18, color: neopopAccent),
                     ],
                   ),
                 ),
               );
             }),
-            const SizedBox(height: 24),
+            const SizedBox(height: groupGapLg),
 
             // Submit
             GestureDetector(
@@ -703,9 +731,9 @@ class _SubmitSheetState extends State<_SubmitSheet> {
                 height: 52,
                 decoration: BoxDecoration(
                   color: _titleCtrl.text.trim().isEmpty
-                      ? const Color(0xFFDDDDDD)
-                      : _neopopYellow,
-                  borderRadius: BorderRadius.circular(14),
+                      ? groupMutedBorderHairline
+                      : neopopYellow,
+                  borderRadius: BorderRadius.circular(groupRadiusLgSm),
                 ),
                 alignment: Alignment.center,
                 child: _submitting
@@ -713,18 +741,18 @@ class _SubmitSheetState extends State<_SubmitSheet> {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.black,
+                          strokeWidth: groupProgressStrokeWidthMedium,
+                          color: groupOnSurface,
                         ),
                       )
-                    : const Text(
-                        'SUBMIT IDEA',
+                    : Text(
+                        AppStrings.featureRequest.submitIdeaButton,
                         style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 13,
+                          fontFamily: kFontPoppins,
+                          fontSize: splitrFontBodySm,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: Colors.black,
+                          color: groupOnSurface,
                         ),
                       ),
               ),
@@ -738,52 +766,33 @@ class _SubmitSheetState extends State<_SubmitSheet> {
   Widget _label(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        fontFamily: 'Poppins',
-        fontSize: 11,
+      style: TextStyle(
+        fontFamily: kFontPoppins,
+        fontSize: splitrFontCaptionSm,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.4,
-        color: _sectionLabel,
+        color: groupOnSurfaceMuted,
       ),
     );
   }
 
-  Widget _buildTextBox({
+  Widget _buildTextBox(
+    BuildContext context, {
     required TextEditingController controller,
     required String hint,
     required int maxLength,
     required int maxLines,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _borderColor),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        maxLength: maxLength,
-        inputFormatters: [LengthLimitingTextInputFormatter(maxLength)],
-        onChanged: (_) => setState(() {}),
-        style: const TextStyle(
-          fontFamily: 'Poppins',
-          fontSize: 13,
-          color: _titleColor,
-        ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            color: _sectionLabel.withOpacity(0.6),
-          ),
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-          counterText: '',
-        ),
+    return BorderedInputField(
+      controller: controller,
+      hintText: hint,
+      maxLines: maxLines,
+      inputFormatters: [LengthLimitingTextInputFormatter(maxLength)],
+      onChanged: (_) => setState(() {}),
+      style: TextStyle(
+        fontFamily: kFontPoppins,
+        fontSize: splitrFontBodySm,
+        color: groupOnSurface,
       ),
     );
   }

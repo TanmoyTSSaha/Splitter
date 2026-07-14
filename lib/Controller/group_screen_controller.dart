@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Repository/group_repository.dart';
-import 'package:splitter/Services/realtime_service.dart';
-import 'package:splitter/Services/sync_service.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Repository/group_repository.dart';
+import 'package:splitr/Services/realtime_service.dart';
+import 'package:splitr/Services/sync_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class GroupScreenController extends GetxController {
   final GroupRepository _repository = Get.find();
@@ -21,8 +23,11 @@ class GroupScreenController extends GetxController {
   var refreshTrigger = 0.obs;
   var wishlistHasItems = false.obs;
 
+  var showArchived = false.obs;
+
   String? _userId;
   Set<String> _tripGroupIds = {};
+  Set<String> _archivedGroupIds = {};
   StreamSubscription? _groupsSub;
   StreamSubscription? _syncSub;
   StreamSubscription? _realtimeSub;
@@ -63,10 +68,18 @@ class GroupScreenController extends GetxController {
       final tripIds =
           await _repository.fetchTripGroupIds(await _localGroupIds());
       _tripGroupIds = tripIds;
+      _archivedGroupIds =
+          await _repository.fetchArchivedGroupIds(await _localGroupIds());
       await _rebuildGroups();
-    } catch (e) {
-      debugPrint('GroupScreenController refresh error: $e');
-      groupsError.value = 'Could not refresh groups. Showing cached data.';
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupScreenController.refreshGroups failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'refreshGroups'},
+        showToastOnUserFacing: false,
+      );
+      groupsError.value = AppStrings.errors.refreshGroupsCached;
       await _rebuildGroups();
     } finally {
       isLoadingGroups.value = false;
@@ -101,6 +114,7 @@ class GroupScreenController extends GetxController {
         .map((g) => _repository.toGroupModel(
               g,
               isTrip: _tripGroupIds.contains(g.groupId),
+              isArchived: _archivedGroupIds.contains(g.groupId),
             ))
         .toList());
   }

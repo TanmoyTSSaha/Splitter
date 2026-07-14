@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 class CustomBigTextFormField extends StatelessWidget {
   final TextEditingController customBigTextFormFieldTextEditingController;
@@ -26,20 +29,25 @@ class CustomBigTextFormField extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text("₹",
-                style: headline1_text.copyWith(fontSize: 48, color: onSurface)),
-            SizedBox(width: width_10),
+            Text(userCurrencySymbol(),
+                style: headline1_text.copyWith(
+                    fontSize: splitrFontRecapXl, color: onSurface)),
+            const SizedBox(width: groupGap10),
             Expanded(
               child: TextField(
                 controller: customBigTextFormFieldTextEditingController,
                 autofocus: autofocus,
                 keyboardType: keyboardType,
-                style: headline1_text.copyWith(fontSize: 48, color: onSurface),
+                style: headline1_text.copyWith(
+                    fontSize: splitrFontRecapXl, color: onSurface),
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: "0.00",
-                  hintStyle:
-                      headline1_text.copyWith(fontSize: 48, color: neopopGrey),
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  hintText: AppAmountHints.decimal,
+                  hintStyle: headline1_text.copyWith(
+                      fontSize: splitrFontRecapXl, color: neopopGrey),
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
                 ),

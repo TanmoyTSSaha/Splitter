@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Widgets/insights_pro_gate.dart';
+import 'package:splitr/Widgets/insights_pro_gate.dart';
 
 void main() {
   tearDown(Get.reset);

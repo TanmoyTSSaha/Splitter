@@ -1,8 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/tab_empty_state.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
 
 /// Grouped bar chart comparing user's spending vs group average per category.
 class ExpenseComparisonChart extends StatelessWidget {
@@ -16,19 +21,22 @@ class ExpenseComparisonChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categoryComparison.isEmpty) {
-      return const TabEmptyState(
+      return TabEmptyState(
         variant: TabEmptyVariant.analytics,
-        title: 'No comparison data yet',
+        title: AppStrings.analytics.noComparisonData,
         compact: true,
       );
     }
 
     final entries = categoryComparison.entries.toList();
     final maxVal = entries.fold<double>(0.0, (prev, e) {
-      double user = e.value['userAmount'] ?? 0.0;
-      double avg = e.value['groupAvgAmount'] ?? 0.0;
+      final user = e.value[AnalyticsKeys.userAmount] ?? 0.0;
+      final avg = e.value[AnalyticsKeys.groupAvgAmount] ?? 0.0;
       return [prev, user, avg].reduce((a, b) => a > b ? a : b);
     });
+    final axisInterval = maxVal > 0
+        ? maxVal / ChartScaleFactors.axisDivisorThirds
+        : ChartScaleFactors.axisIntervalUnit.toDouble();
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -36,40 +44,47 @@ class ExpenseComparisonChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your Spending vs Group Average',
+            AppStrings.analytics.spendingVsGroupAverage,
             style: body1_text.copyWith(
               fontWeight: FontWeight.w600,
               color: groupOnSurface,
             ),
           ),
-          SizedBox(height: height_10),
+          const SizedBox(height: groupGapSm),
           Text(
-            'Amount paid out-of-pocket vs group average paid per member',
+            AppStrings.analytics.spendingVsGroupAverageSubtitle,
             style: caption_text.copyWith(color: groupOnSurfaceMuted),
           ),
-          SizedBox(height: height_10),
+          const SizedBox(height: groupGapSm),
           Row(
             children: [
-              _legendDot(neopopAccent, 'You paid'),
-              SizedBox(width: width_16),
-              _legendDot(neopopYellow, 'Group avg paid'),
+              _legendDot(neopopAccent, AppStrings.analytics.youPaid),
+              const SizedBox(width: groupGapMd),
+              _legendDot(neopopYellow, AppStrings.analytics.groupAvgPaid),
             ],
           ),
-          SizedBox(height: height_16),
+          const SizedBox(height: groupGapMd),
           SizedBox(
-            height: entries.length * 70.0 + 60,
+            height: entries.length * AppDimensions.chartComparisonRowHeight +
+                AppDimensions.chartComparisonPadding,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: maxVal * 1.2,
+                maxY: maxVal * ChartScaleFactors.maxY120,
                 barTouchData: BarTouchData(
                   enabled: true,
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (_) => neopopOnPrimary,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      String label = rodIndex == 0 ? 'You paid' : 'Group avg paid';
+                      final label = rodIndex == 0
+                          ? AppStrings.analytics.youPaid
+                          : AppStrings.analytics.groupAvgPaid;
                       return BarTooltipItem(
-                        "$label: ₹${rod.toY.toStringAsFixed(0)}",
+                        AppStringFormat.chartTooltip(
+                          label,
+                          userCurrencySymbol(),
+                          rod.toY.toStringAsFixed(0),
+                        ),
                         body2_text.copyWith(color: neopopBackground),
                       );
                     },
@@ -82,16 +97,16 @@ class ExpenseComparisonChart extends StatelessWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 40,
-                      interval: maxVal > 0 ? maxVal / 3 : 1,
+                      reservedSize: AppDimensions.chartAxisReservedSizeBottom,
+                      interval: axisInterval,
                       getTitlesWidget: (value, meta) {
                         return SideTitleWidget(
                           axisSide: meta.axisSide,
                           child: Text(
-                            "₹${value.toStringAsFixed(0)}",
+                            "${userCurrencySymbol()}${value.toStringAsFixed(0)}",
                             style: const TextStyle(
-                              fontSize: 9,
-                              color: neopopGrey,
+                              fontSize: splitrFontNanoSm,
+                              color: groupOnSurfaceMuted,
                             ),
                           ),
                         );
@@ -101,20 +116,20 @@ class ExpenseComparisonChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 36,
+                      reservedSize: AppDimensions.chartAxisReservedSizeBottomSm,
                       getTitlesWidget: (value, meta) {
-                        int idx = value.toInt();
+                        final idx = value.toInt();
                         if (idx >= 0 && idx < entries.length) {
-                          String name = entries[idx].key;
-                          if (name.length > 8) {
-                            name = "${name.substring(0, 7)}…";
-                          }
+                          final name = AppStringFormat.truncateChartLabel(
+                            entries[idx].key,
+                            ChartTruncateLengths.name8,
+                          );
                           return SideTitleWidget(
                             axisSide: meta.axisSide,
                             child: Text(
                               name,
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: groupFontMicro,
                                 color: groupOnSurface,
                               ),
                             ),
@@ -129,34 +144,38 @@ class ExpenseComparisonChart extends StatelessWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxVal > 0 ? maxVal / 3 : 1,
+                  horizontalInterval: axisInterval,
                   getDrawingHorizontalLine: (value) => FlLine(
-                    color: neopopGrey.withOpacity(0.1),
-                    strokeWidth: 1,
+                    color: groupMutedFillSoft,
+                    strokeWidth: AppDimensions.borderWidthHairline,
                   ),
                 ),
                 barGroups: entries.asMap().entries.map((entry) {
-                  int i = entry.key;
-                  var data = entry.value.value;
+                  final i = entry.key;
+                  final data = entry.value.value;
                   return BarChartGroupData(
                     x: i,
                     barRods: [
                       BarChartRodData(
-                        toY: data['userAmount'] ?? 0.0,
+                        toY: data[AnalyticsKeys.userAmount] ?? 0.0,
                         color: neopopAccent,
-                        width: 10,
+                        width: AppDimensions.chartBarWidthSm,
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(3),
-                          topRight: Radius.circular(3),
+                          topLeft:
+                              Radius.circular(AppDimensions.chartBarRadius),
+                          topRight:
+                              Radius.circular(AppDimensions.chartBarRadius),
                         ),
                       ),
                       BarChartRodData(
-                        toY: data['groupAvgAmount'] ?? 0.0,
+                        toY: data[AnalyticsKeys.groupAvgAmount] ?? 0.0,
                         color: neopopYellow,
-                        width: 10,
+                        width: AppDimensions.chartBarWidthSm,
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(3),
-                          topRight: Radius.circular(3),
+                          topLeft:
+                              Radius.circular(AppDimensions.chartBarRadius),
+                          topRight:
+                              Radius.circular(AppDimensions.chartBarRadius),
                         ),
                       ),
                     ],
@@ -175,14 +194,14 @@ class ExpenseComparisonChart extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: AppDimensions.chartLegendDot,
+          height: AppDimensions.chartLegendDot,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(groupRadiusXs),
           ),
         ),
-        SizedBox(width: width_10 / 2),
+        const SizedBox(width: groupGapSm),
         Text(label, style: caption_text.copyWith(color: groupOnSurface)),
       ],
     );

@@ -1,28 +1,41 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:splitter/Model/group_invite_model.dart';
-import 'package:splitter/Model/loan_model.dart';
-import 'package:splitter/Services/SupabaseServices/group_service.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Model/group_invite_model.dart';
+import 'package:splitr/Model/loan_model.dart';
+import 'package:splitr/Services/SupabaseServices/group_service.dart';
+import 'package:splitr/Services/SupabaseServices/notification_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 /// Tracks whether the bell icon should show an unseen-notification dot.
 class NotificationBadgeController extends GetxController {
-  static const _prefsKey = 'notifications_last_viewed_at';
+  final bool _forTest;
+
+  NotificationBadgeController({@visibleForTesting bool forTest = false})
+      : _forTest = forTest;
 
   final hasUnseen = false.obs;
 
   DateTime? _lastViewedAt;
-  final GroupService _groupService = GroupService();
+  GroupService? _groupService;
 
   @override
   void onInit() {
     super.onInit();
+    if (_forTest) return;
     updateBadge();
+  }
+
+  @visibleForTesting
+  void seedUnseenForTest(bool value) {
+    hasUnseen.value = value;
   }
 
   Future<void> _loadLastViewed() async {
     final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_prefsKey);
+    final stored = prefs.getString(PrefKeys.notificationsLastViewedAt);
     _lastViewedAt = stored != null ? DateTime.tryParse(stored) : null;
   }
 
@@ -31,7 +44,10 @@ class NotificationBadgeController extends GetxController {
     _lastViewedAt = DateTime.now();
     hasUnseen.value = false;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, _lastViewedAt!.toIso8601String());
+    await prefs.setString(
+      PrefKeys.notificationsLastViewedAt,
+      _lastViewedAt!.toIso8601String(),
+    );
   }
 
   /// Re-check pending invites and loan requests against last viewed time.
@@ -45,8 +61,16 @@ class NotificationBadgeController extends GetxController {
     await _loadLastViewed();
 
     try {
+      final unread =
+          await NotificationService().getUnreadCount(userID: userId);
+      if (unread > 0) {
+        hasUnseen.value = true;
+        return;
+      }
+
+      final groupService = _groupService ??= GroupService();
       final results = await Future.wait([
-        _groupService.getPendingInvites(userID: userId),
+        groupService.getPendingInvites(userID: userId),
         SupabaseDatabase().getPendingLoansAwaitingAction(userID: userId),
       ]);
 
@@ -79,8 +103,14 @@ class NotificationBadgeController extends GetxController {
       }
 
       hasUnseen.value = false;
-    } catch (_) {
-      // Keep previous badge state on transient errors.
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'NotificationBadgeController.updateBadge failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'notifications', 'operation': 'updateBadge'},
+        showToastOnUserFacing: false,
+      );
     }
   }
 }

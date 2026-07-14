@@ -1,11 +1,20 @@
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
+import 'package:splitr/Utils/num_parsing.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Services/currency_service.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
-import 'package:splitter/Services/SupabaseServices/goal_service.dart';
-import 'package:splitter/Services/SupabaseServices/transaction_service.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Services/SupabaseServices/goal_service.dart';
+import 'package:splitr/Services/SupabaseServices/transaction_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/recurring_merchant_detector.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SpendingIntelligenceService {
@@ -15,20 +24,20 @@ class SpendingIntelligenceService {
 
   String get _currency => Get.isRegistered<CurrencyController>()
       ? Get.find<CurrencyController>().code
-      : 'INR';
+      : CurrencyDefaults.code;
 
   /// Calculates total spending for a given month.
   Future<double> getMonthlySpending(DateTime month) async {
     final analytics = await _txService.getMonthlySpendAnalytics(
         userID: _currentUserId, selectedCurrency: _currency, month: month);
-    return analytics['total'] ?? 0.0;
+    return asDouble(analytics['total']);
   }
 
   /// Breakdown of spending by category for a given month.
   Future<Map<String, double>> getCategoryBreakdown(DateTime month) async {
     final analytics = await _txService.getMonthlySpendAnalytics(
         userID: _currentUserId, selectedCurrency: _currency, month: month);
-    final breakdown = Map<String, double>.from(analytics);
+    final breakdown = asDoubleMap(Map<String, dynamic>.from(analytics));
     breakdown.remove('total');
     return breakdown;
   }
@@ -50,21 +59,29 @@ class SpendingIntelligenceService {
   }
 
   String _monthLabel(DateTime month) {
-    const labels = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return labels[month.month - 1];
+    return MonthAbbreviations.labels[month.month - 1];
+  }
+
+  /// Personal merchants that look like monthly subscriptions.
+  Future<List<Map<String, dynamic>>> detectRecurringSubscriptions() async {
+    try {
+      final allTxns = await _txService.getUnifiedTransactions(
+        userID: _currentUserId,
+        limit: InsightsLimits.unifiedTxnFetch,
+        selectedCurrency: _currency,
+      );
+      return detectRecurringMerchants(allTxns)
+          .map((hit) => hit.toJson())
+          .toList();
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'detectRecurringSubscriptions failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'insights'},
+      );
+      return [];
+    }
   }
 
   /// Flags expenses with z-score > 2 vs category mean for the month.
@@ -72,7 +89,9 @@ class SpendingIntelligenceService {
       DateTime month) async {
     try {
       final allTxns = await _txService.getUnifiedTransactions(
-          userID: _currentUserId, limit: 1000, selectedCurrency: _currency);
+          userID: _currentUserId,
+          limit: InsightsLimits.unifiedTxnFetch,
+          selectedCurrency: _currency);
 
       final monthTxns = allTxns.where((txn) {
         final date = txn['date'] as DateTime;
@@ -81,30 +100,30 @@ class SpendingIntelligenceService {
             txn['is_credit'] == false;
       }).toList();
 
-      if (monthTxns.length < 3) return [];
+      if (monthTxns.length < InsightsLimits.minTxnsForAnomaly) return [];
 
       final byCategory = <String, List<double>>{};
       for (final txn in monthTxns) {
-        final cat = txn['category'] as String? ?? 'Other';
-        byCategory.putIfAbsent(cat, () => []).add(txn['amount'] as double);
+        final cat = txn['category'] as String? ?? CategoryDefaults.other;
+        byCategory.putIfAbsent(cat, () => []).add(asDouble(txn['amount']));
       }
 
       final unusual = <Map<String, dynamic>>[];
       for (final txn in monthTxns) {
-        final cat = txn['category'] as String? ?? 'Other';
+        final cat = txn['category'] as String? ?? CategoryDefaults.other;
         final amounts = byCategory[cat] ?? [];
-        if (amounts.length < 2) continue;
+        if (amounts.length < InsightsLimits.minCategoryAmounts) continue;
 
         final mean = amounts.reduce((a, b) => a + b) / amounts.length;
         final variance =
             amounts.map((a) => math.pow(a - mean, 2)).reduce((a, b) => a + b) /
                 amounts.length;
         final stdDev = math.sqrt(variance);
-        if (stdDev < 1) continue;
+        if (stdDev < InsightsLimits.minStdDev) continue;
 
-        final amount = txn['amount'] as double;
+        final amount = asDouble(txn['amount']);
         final zScore = (amount - mean) / stdDev;
-        if (zScore > 2) {
+        if (zScore > InsightsLimits.zScoreAnomaly) {
           unusual.add({
             'title': txn['title'],
             'amount': amount,
@@ -115,11 +134,16 @@ class SpendingIntelligenceService {
         }
       }
 
-      unusual.sort((a, b) =>
-          (b['zScore'] as double).compareTo(a['zScore'] as double));
-      return unusual.take(5).toList();
-    } catch (e) {
-      debugPrint('detectUnusualExpenses: $e');
+      unusual.sort(
+          (a, b) => asDouble(b['zScore']).compareTo(asDouble(a['zScore'])));
+      return unusual.take(InsightsLimits.unusualExpenseLimit).toList();
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'detectUnusualExpenses failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'insights'},
+      );
       return [];
     }
   }
@@ -128,41 +152,46 @@ class SpendingIntelligenceService {
   Future<int> getSettleUpHealthScore() async {
     try {
       final memberRows = await supabase
-          .from('group_members')
+          .from(SupabaseTables.groupMembers)
           .select('group_id')
           .eq('user_id', _currentUserId);
 
-      final groupIds =
-          memberRows.map((r) => r['group_id'] as String).toList();
-      if (groupIds.isEmpty) return 100;
+      final groupIds = memberRows.map((r) => r['group_id'] as String).toList();
+      if (groupIds.isEmpty) return InsightsLimits.settleHealthMax;
 
       final balances = await supabase
-          .from('group_balance')
+          .from(SupabaseTables.groupBalance)
           .select('donor_id, receiver_id, amount')
           .inFilter('group_id', groupIds);
 
-      if (balances.isEmpty) return 100;
+      if (balances.isEmpty) return InsightsLimits.settleHealthMax;
 
       double userExposure = 0;
       double settledExposure = 0;
-      const threshold = 50.0;
+      const threshold = SettleUpThresholds.nearSettledInr;
 
       for (final row in balances) {
         final donor = row['donor_id'] as String?;
         final receiver = row['receiver_id'] as String?;
-        final amount =
-            double.tryParse(row['amount'].toString()) ?? 0.0;
+        final amount = double.tryParse(row['amount'].toString()) ?? 0.0;
         if (donor != _currentUserId && receiver != _currentUserId) continue;
 
         userExposure += amount;
         if (amount <= threshold) settledExposure += amount;
       }
 
-      if (userExposure <= 0) return 100;
-      return ((settledExposure / userExposure) * 100).round().clamp(0, 100);
-    } catch (e) {
-      debugPrint('getSettleUpHealthScore: $e');
-      return 75;
+      if (userExposure <= 0) return InsightsLimits.settleHealthMax;
+      return ((settledExposure / userExposure) * 100)
+          .round()
+          .clamp(0, InsightsLimits.settleHealthMax);
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'getSettleUpHealthScore failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'insights'},
+      );
+      return InsightsLimits.settleHealthDefault;
     }
   }
 
@@ -176,10 +205,10 @@ class SpendingIntelligenceService {
     final settleHealth = await getSettleUpHealthScore();
 
     if (total <= 0) {
-      return 'No tracked spending this month — your wallet stayed quiet.';
+      return AppStrings.services.insights.noSpendingDigest;
     }
 
-    String topCat = 'miscellaneous';
+    String topCat = CategoryDefaults.miscellaneous;
     if (breakdown.isNotEmpty) {
       final sorted = breakdown.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
@@ -187,27 +216,27 @@ class SpendingIntelligenceService {
     }
 
     final change = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
-    final changeText = change > 5
-        ? 'up ${change.toStringAsFixed(0)}% from last month'
-        : change < -5
-            ? 'down ${change.abs().toStringAsFixed(0)}% from last month'
-            : 'steady vs last month';
+    final changeText = change > InsightsLimits.digestChangeUpPct
+        ? '${AppStrings.services.insights.upFromLastMonth}${change.toStringAsFixed(0)}${AppStrings.services.insights.percentFromLastMonth}'
+        : change < -InsightsLimits.digestChangeDownPct
+            ? '${AppStrings.services.insights.downFromLastMonth}${change.abs().toStringAsFixed(0)}${AppStrings.services.insights.percentFromLastMonth}'
+            : AppStrings.services.insights.steadyVsLastMonth;
 
     final buffer = StringBuffer(
-      'You spent ${_currencySymbol()}${total.toStringAsFixed(0)} in ${_monthLabel(month)} — $changeText. '
-      'Top category: $topCat. ',
+      '${AppStrings.services.insights.spentPrefix}${_currencySymbol()}${total.toStringAsFixed(0)}${AppStrings.services.insights.inMonth}${_monthLabel(month)} — $changeText. '
+      '${AppStrings.services.insights.topCategoryPrefix}$topCat. ',
     );
 
-    if (settleHealth >= 80) {
-      buffer.write('Group balances look healthy. ');
-    } else if (settleHealth < 50) {
-      buffer.write('Several group balances are still open — consider settling up. ');
+    if (settleHealth >= InsightsThresholds.scoreStrong) {
+      buffer.write(AppStrings.services.insights.balancesHealthy);
+    } else if (settleHealth < InsightsLimits.settleScoreLow) {
+      buffer.write(AppStrings.services.insights.balancesOpen);
     }
 
     if (unusual.isNotEmpty) {
       final top = unusual.first;
       buffer.write(
-        'Unusual spike: ${top['title']} (${_currencySymbol()}${(top['amount'] as double).toStringAsFixed(0)}).',
+        '${AppStrings.services.insights.unusualSpikePrefix}${top['title']} (${_currencySymbol()}${asDouble(top['amount']).toStringAsFixed(0)}).',
       );
     }
 
@@ -218,7 +247,7 @@ class SpendingIntelligenceService {
     if (Get.isRegistered<CurrencyController>()) {
       return Get.find<CurrencyController>().symbol;
     }
-    return '₹';
+    return CurrencyService.symbolFor(CurrencyDefaults.code);
   }
 
   /// Lightweight data for free tier and promo card.
@@ -234,7 +263,8 @@ class SpendingIntelligenceService {
           ((thisMonthAmount - lastMonthAmount) / lastMonthAmount) * 100;
     }
 
-    final miniTrend = await getSpendingTrend(months: 3);
+    final miniTrend =
+        await getSpendingTrend(months: InsightsLimits.trendMonthsMini);
     final digest = await generateMonthlyDigest(now);
 
     return {
@@ -250,28 +280,29 @@ class SpendingIntelligenceService {
   Future<Map<String, dynamic>> getPromoHook() async {
     final lite = await getInsightsLite();
     final social = await getSocialTrustInsights();
-    final percentChange = lite['percentChange'] as double;
-    final openAmount = social['openExposure'] as double;
-    final groupCount = social['groupCount'] as int;
+    final percentChange = asDouble(lite['percentChange']);
+    final openAmount = asDouble(social['openExposure']);
+    final groupCount = asInt(social['groupCount']);
 
     String message;
     String hookType;
 
-    if (openAmount >= 500 && groupCount > 0) {
-      hookType = 'settle_up';
+    if (openAmount >= InsightsThresholds.settleUpExposureInr &&
+        groupCount > 0) {
+      hookType = PromoHookTypes.settleUp;
       message =
-          '${_currencySymbol()}${openAmount.toStringAsFixed(0)} unsettled across $groupCount group${groupCount == 1 ? '' : 's'} — see your trust score';
-    } else if (percentChange > 15) {
-      hookType = 'spending_up';
+          '${_currencySymbol()}${openAmount.toStringAsFixed(0)}${AppStrings.services.insights.unsettledAcrossPrefix}$groupCount${groupCount == 1 ? AppStrings.services.insights.groupSingular : AppStrings.services.insights.groupPlural}${AppStrings.services.insights.trustScoreSuffix}';
+    } else if (percentChange > InsightsThresholds.spendChangePercent) {
+      hookType = PromoHookTypes.spendingUp;
       message =
-          'Spending up ${percentChange.toStringAsFixed(0)}% this month — see what\'s driving it';
-    } else if (percentChange < -15) {
-      hookType = 'spending_down';
+          '${AppStrings.services.insights.spendingUpPrefix}${percentChange.toStringAsFixed(0)}${AppStrings.services.insights.spendingUpSuffix}';
+    } else if (percentChange < -InsightsThresholds.spendChangePercent) {
+      hookType = PromoHookTypes.spendingDown;
       message =
-          'Spending down ${percentChange.abs().toStringAsFixed(0)}% — see your full breakdown';
+          '${AppStrings.services.insights.spendingDownPrefix}${percentChange.abs().toStringAsFixed(0)}${AppStrings.services.insights.spendingDownSuffix}';
     } else {
-      hookType = 'generic';
-      message = 'New: AI spending briefing — tap to preview your insights';
+      hookType = PromoHookTypes.generic;
+      message = AppStrings.services.insights.promoGeneric;
     }
 
     return {
@@ -308,8 +339,8 @@ class SpendingIntelligenceService {
   /// Per-category month-over-month deltas.
   Future<List<Map<String, dynamic>>> getCategoryDeltas(DateTime month) async {
     final current = await getCategoryBreakdown(month);
-    final prev = await getCategoryBreakdown(
-        DateTime(month.year, month.month - 1, 1));
+    final prev =
+        await getCategoryBreakdown(DateTime(month.year, month.month - 1, 1));
 
     final allCats = {...current.keys, ...prev.keys};
     final deltas = <Map<String, dynamic>>[];
@@ -321,7 +352,7 @@ class SpendingIntelligenceService {
       if (prevAmt > 0) {
         pct = ((cur - prevAmt) / prevAmt) * 100;
       } else if (cur > 0) {
-        pct = 100;
+        pct = InsightsLimits.percentNewCategory.toDouble();
       }
       deltas.add({
         'category': cat,
@@ -331,8 +362,8 @@ class SpendingIntelligenceService {
       });
     }
 
-    deltas.sort((a, b) =>
-        (b['current'] as double).compareTo(a['current'] as double));
+    deltas.sort(
+        (a, b) => asDouble(b['current']).compareTo(asDouble(a['current'])));
     return deltas;
   }
 
@@ -340,12 +371,11 @@ class SpendingIntelligenceService {
   Future<Map<String, dynamic>> getSocialTrustInsights() async {
     try {
       final memberRows = await supabase
-          .from('group_members')
+          .from(SupabaseTables.groupMembers)
           .select('group_id')
           .eq('user_id', _currentUserId);
 
-      final groupIds =
-          memberRows.map((r) => r['group_id'] as String).toList();
+      final groupIds = memberRows.map((r) => r['group_id'] as String).toList();
 
       if (groupIds.isEmpty) {
         return {
@@ -361,7 +391,7 @@ class SpendingIntelligenceService {
       }
 
       final balances = await supabase
-          .from('group_balance')
+          .from(SupabaseTables.groupBalance)
           .select('group_id, donor_id, receiver_id, amount')
           .inFilter('group_id', groupIds);
 
@@ -373,9 +403,8 @@ class SpendingIntelligenceService {
       for (final row in balances) {
         final donor = row['donor_id'] as String?;
         final receiver = row['receiver_id'] as String?;
-        final amount =
-            double.tryParse(row['amount'].toString()) ?? 0.0;
-        if (amount < 1) continue;
+        final amount = double.tryParse(row['amount'].toString()) ?? 0.0;
+        if (amount < InsightsLimits.minOpenBalance) continue;
         if (donor != _currentUserId && receiver != _currentUserId) continue;
 
         openExposure += amount;
@@ -392,18 +421,19 @@ class SpendingIntelligenceService {
       try {
         final now = DateTime.now();
         final groupTxns = await supabase
-            .from('group_transaction')
+            .from(SupabaseTables.groupTransaction)
             .select('paid_by, shared_transaction_amount, transaction_date')
             .or('paid_by.eq.$_currentUserId,shared_with.eq.$_currentUserId')
             .gte('transaction_date',
                 DateTime(now.year, now.month, 1).toIso8601String())
-            .neq('category', 'Settlement');
+            .neq(SupabaseColumns.category, CategoryDefaults.settlement);
 
         double userPaid = 0;
         double totalGroupSpend = 0;
         for (final txn in groupTxns) {
           final amt = double.tryParse(
-                  txn['shared_transaction_amount']?.toString() ?? '0') ??
+                  txn['shared_transaction_amount']?.toString() ??
+                      AppAmountHints.zero) ??
               0;
           totalGroupSpend += amt;
           if (txn['paid_by'] == _currentUserId) userPaid += amt;
@@ -411,8 +441,13 @@ class SpendingIntelligenceService {
         if (totalGroupSpend > 0) {
           payerRatio = (userPaid / totalGroupSpend) * 100;
         }
-      } catch (e) {
-        debugPrint('payerRatio: $e');
+      } catch (e, stack) {
+        AppErrorReporter.unexpected(
+          'payerRatio calculation failed',
+          error: e,
+          stack: stack,
+          context: {'feature': 'insights'},
+        );
       }
 
       // Settlement latency: avg days from expense to settlement (last 90 days).
@@ -420,11 +455,11 @@ class SpendingIntelligenceService {
       int staleBalanceCount = 0;
       double staleBalanceAmount = 0;
       try {
-        final cutoff = DateTime.now().subtract(const Duration(days: 90));
+        final cutoff = DateTime.now().subtract(AppMotion.insightsLookback);
         final settlements = await supabase
-            .from('group_transaction')
+            .from(SupabaseTables.groupTransaction)
             .select('transaction_date, group_id')
-            .eq('category', 'Settlement')
+            .eq(SupabaseColumns.category, CategoryDefaults.settlement)
             .or('paid_by.eq.$_currentUserId,shared_with.eq.$_currentUserId')
             .gte('transaction_date', cutoff.toIso8601String())
             .order('transaction_date', ascending: false)
@@ -432,16 +467,16 @@ class SpendingIntelligenceService {
 
         final latencies = <int>[];
         for (final s in settlements) {
-          final settleDate = DateTime.tryParse(
-              s['transaction_date']?.toString() ?? '');
+          final settleDate =
+              DateTime.tryParse(s['transaction_date']?.toString() ?? '');
           final gid = s['group_id'] as String?;
           if (settleDate == null || gid == null) continue;
 
           final priorExpense = await supabase
-              .from('group_transaction')
+              .from(SupabaseTables.groupTransaction)
               .select('transaction_date')
               .eq('group_id', gid)
-              .neq('category', 'Settlement')
+              .neq(SupabaseColumns.category, CategoryDefaults.settlement)
               .lt('transaction_date', settleDate.toIso8601String())
               .order('transaction_date', ascending: false)
               .limit(1);
@@ -450,7 +485,10 @@ class SpendingIntelligenceService {
             final expDate = DateTime.tryParse(
                 priorExpense.first['transaction_date']?.toString() ?? '');
             if (expDate != null) {
-              latencies.add(settleDate.difference(expDate).inDays.clamp(0, 365));
+              latencies.add(settleDate
+                  .difference(expDate)
+                  .inDays
+                  .clamp(0, InsightsLimits.settlementLatencyMaxDays));
             }
           }
         }
@@ -460,21 +498,21 @@ class SpendingIntelligenceService {
         }
 
         // Stale: open balances in groups with no settlement in 30 days.
-        final staleCutoff = DateTime.now().subtract(const Duration(days: 30));
+        final staleCutoff =
+            DateTime.now().subtract(AppMotion.insightsStaleCutoff);
         for (final gid in groupsWithBalance) {
           final recentSettle = await supabase
-              .from('group_transaction')
+              .from(SupabaseTables.groupTransaction)
               .select('transaction_id')
               .eq('group_id', gid)
-              .eq('category', 'Settlement')
+              .eq(SupabaseColumns.category, CategoryDefaults.settlement)
               .gte('transaction_date', staleCutoff.toIso8601String())
               .limit(1);
           if (recentSettle.isEmpty) {
             staleBalanceCount++;
             for (final row in balances) {
               if (row['group_id'] != gid) continue;
-              final amt =
-                  double.tryParse(row['amount'].toString()) ?? 0.0;
+              final amt = double.tryParse(row['amount'].toString()) ?? 0.0;
               final donor = row['donor_id'] as String?;
               final receiver = row['receiver_id'] as String?;
               if (donor == _currentUserId || receiver == _currentUserId) {
@@ -483,15 +521,20 @@ class SpendingIntelligenceService {
             }
           }
         }
-      } catch (e) {
-        debugPrint('settlement latency: $e');
+      } catch (e, stack) {
+        AppErrorReporter.unexpected(
+          'settlement latency calculation failed',
+          error: e,
+          stack: stack,
+          context: {'feature': 'insights'},
+        );
       }
 
       String? topGroupName;
       if (topGroupId != null) {
         try {
           final g = await supabase
-              .from('groups')
+              .from(SupabaseTables.groups)
               .select('group_name')
               .eq('group_id', topGroupId)
               .maybeSingle();
@@ -509,8 +552,13 @@ class SpendingIntelligenceService {
         'topGroupId': topGroupId,
         'topGroupName': topGroupName,
       };
-    } catch (e) {
-      debugPrint('getSocialTrustInsights: $e');
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'getSocialTrustInsights failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'insights'},
+      );
       return {
         'openExposure': 0.0,
         'groupCount': 0,
@@ -533,8 +581,10 @@ class SpendingIntelligenceService {
 
     Map<String, dynamic>? topLeak;
     for (final d in deltas) {
-      if ((d['percentChange'] as double) > 20 &&
-          (d['current'] as double) > 100) {
+      if (asDouble(d[UnifiedTxnResponseKeys.percentChange]) >
+              InsightsLimits.topLeakPctThreshold &&
+          asDouble(d[UnifiedTxnResponseKeys.current]) >
+              InsightsLimits.topLeakAmountThreshold) {
         topLeak = d;
         break;
       }
@@ -547,7 +597,7 @@ class SpendingIntelligenceService {
       'monthSpend': monthSpend,
       'dailyBurn': projection['dailyBurn'],
       'projection': projection['projection'],
-      'categoryDeltas': deltas.take(5).toList(),
+      'categoryDeltas': deltas.take(InsightsLimits.categoryDeltaLimit).toList(),
       'topLeak': topLeak,
       'biggestExpense': biggest,
     };
@@ -565,8 +615,7 @@ class SpendingIntelligenceService {
       'overall': {
         'score': overall,
         'label': scoreLabel(overall),
-        'explanation':
-            'Average of spending and settle-up scores. Higher means healthier finances.',
+        'explanation': AppStrings.services.insights.overallExplanation,
       },
       'spending': {
         'score': spending,
@@ -583,30 +632,32 @@ class SpendingIntelligenceService {
 
   /// 0–100 label for display.
   static String scoreLabel(int score) {
-    if (score >= 80) return 'Good';
-    if (score >= 50) return 'Watch';
-    return 'Needs attention';
+    if (score >= InsightsThresholds.scoreStrong) {
+      return InsightScoreLabels.good;
+    }
+    if (score >= PromptnessScoreTiers.good) return InsightScoreLabels.watch;
+    return InsightScoreLabels.needsAttention;
   }
 
   static String spendingExplanation(double percentChange) {
-    if (percentChange > 50) {
-      return 'Spending jumped ${percentChange.toStringAsFixed(0)}% vs last month.';
+    if (percentChange > InsightsLimits.spendingExplainHigh) {
+      return '${AppStrings.services.insights.spendingJumped}${percentChange.toStringAsFixed(0)}${AppStrings.services.insights.vsLastMonth}';
     }
-    if (percentChange > 20) {
-      return 'Spending is up ${percentChange.toStringAsFixed(0)}% — review top categories.';
+    if (percentChange > InsightsLimits.spendingExplainMed) {
+      return '${AppStrings.services.insights.spendingUpReview}${percentChange.toStringAsFixed(0)}${AppStrings.services.insights.reviewTopCategories}';
     }
-    if (percentChange < -10) {
-      return 'Spending is down ${percentChange.abs().toStringAsFixed(0)}% — nice restraint.';
+    if (percentChange < InsightsLimits.spendingExplainLow) {
+      return '${AppStrings.services.insights.spendingDownNice}${percentChange.abs().toStringAsFixed(0)}${AppStrings.services.insights.niceRestraint}';
     }
-    return 'Spending is steady compared to last month.';
+    return AppStrings.services.insights.spendingSteady;
   }
 
   static String settleUpExplanation(double openExposure, int score) {
-    if (openExposure <= 0) return 'No open group balances — you\'re all settled.';
-    if (score < 50) {
-      return '${openExposure.toStringAsFixed(0)} in open balances — settling up improves trust.';
+    if (openExposure <= 0) return AppStrings.services.insights.noOpenBalances;
+    if (score < InsightsLimits.settleScoreLow) {
+      return '${openExposure.toStringAsFixed(0)}${AppStrings.services.insights.openBalancesTrust}';
     }
-    return 'Most balances are small — keep settling regularly.';
+    return AppStrings.services.insights.balancesSmall;
   }
 
   /// Prioritized actionable items for Pro users.
@@ -617,40 +668,43 @@ class SpendingIntelligenceService {
     final unusual = await detectUnusualExpenses(month);
     final goals = await GoalService().getGoals(userID: _currentUserId);
 
-    final staleAmt = social['staleBalanceAmount'] as double;
-    final staleCount = social['staleBalanceCount'] as int;
-    if (staleAmt >= 500 && staleCount > 0) {
+    final staleAmt = asDouble(social['staleBalanceAmount']);
+    final staleCount = asInt(social['staleBalanceCount']);
+    if (staleAmt >= InsightsThresholds.settleUpExposureInr && staleCount > 0) {
       actions.add({
         'priority': 1,
-        'title': 'Settle stale balances',
+        'title': InsightActionTitles.settleStaleBalances,
         'reason':
-            '${_currencySymbol()}${staleAmt.toStringAsFixed(0)} open for 30+ days',
-        'action_type': 'settle_up',
+            '${_currencySymbol()}${staleAmt.toStringAsFixed(0)}${AppStrings.services.insights.staleOpenPrefix}',
+        'action_type': InsightActionTypes.settleUp,
         'group_id': social['topGroupId'],
         'group_name': social['topGroupName'],
       });
-    } else if ((social['openExposure'] as double) >= 500) {
+    } else if (asDouble(social['openExposure']) >=
+        InsightsThresholds.settleUpExposureInr) {
       actions.add({
         'priority': 2,
-        'title': 'Clear open balances',
+        'title': InsightActionTitles.clearOpenBalances,
         'reason':
-            '${_currencySymbol()}${(social['openExposure'] as double).toStringAsFixed(0)} across ${social['groupCount']} groups',
-        'action_type': 'settle_up',
+            '${_currencySymbol()}${asDouble(social['openExposure']).toStringAsFixed(0)}${AppStrings.services.insights.acrossGroupsPrefix}${social['groupCount']}${AppStrings.services.insights.groupsSuffix}',
+        'action_type': InsightActionTypes.settleUp,
         'group_id': social['topGroupId'],
         'group_name': social['topGroupName'],
       });
     }
 
     for (final d in deltas) {
-      final pct = d['percentChange'] as double;
-      final cur = d['current'] as double;
-      if (pct > 30 && cur > 200) {
+      final pct = asDouble(d['percentChange']);
+      final cur = asDouble(d['current']);
+      if (pct > InsightsLimits.actionCategoryPctThreshold &&
+          cur > InsightsLimits.actionCategoryAmountThreshold) {
         actions.add({
           'priority': 3,
-          'title': 'Review ${d['category']}',
+          'title':
+              '${InsightActionTitles.reviewCategoryPrefix}${d['category']}',
           'reason':
-              'Up ${pct.toStringAsFixed(0)}% this month (${_currencySymbol()}${cur.toStringAsFixed(0)})',
-          'action_type': 'review_category',
+              '${AppStrings.services.insights.upThisMonthPrefix}${pct.toStringAsFixed(0)}${AppStrings.services.insights.thisMonthSuffix}${_currencySymbol()}${cur.toStringAsFixed(0)})',
+          'action_type': InsightActionTypes.reviewCategory,
           'category': d['category'],
         });
         break;
@@ -661,28 +715,30 @@ class SpendingIntelligenceService {
       final top = unusual.first;
       actions.add({
         'priority': 4,
-        'title': 'Check unusual spend',
-        'reason': '${top['title']} — ${_currencySymbol()}${(top['amount'] as double).toStringAsFixed(0)}',
-        'action_type': 'view_expense',
+        'title': InsightActionTitles.checkUnusualSpend,
+        'reason':
+            '${top['title']}${AppStrings.services.insights.checkUnusualPrefix}${_currencySymbol()}${asDouble(top['amount']).toStringAsFixed(0)}',
+        'action_type': InsightActionTypes.viewExpense,
         'category': top['category'],
       });
     }
 
     for (final goal in goals) {
-      if (goal.status != 'active') continue;
+      if (goal.status != GoalStatusValues.active) continue;
       final target = goal.targetAmount ?? 0;
       final current = goal.currentAmount ?? 0;
       if (target <= 0) continue;
       final progress = current / target;
       final deadline = goal.deadline;
       if (deadline != null &&
-          deadline.isBefore(DateTime.now().add(const Duration(days: 60))) &&
-          progress < 0.5) {
+          deadline.isBefore(DateTime.now().add(AppMotion.goalDeadlineWindow)) &&
+          progress < InsightsLimits.goalProgressAttention) {
         actions.add({
           'priority': 5,
-          'title': 'Goal needs attention',
-          'reason': '${goal.title} is ${(progress * 100).toStringAsFixed(0)}% funded',
-          'action_type': 'view_goal',
+          'title': InsightActionTitles.goalNeedsAttention,
+          'reason':
+              '${goal.title}${AppStrings.services.insights.goalFundedPrefix}${(progress * 100).toStringAsFixed(0)}${AppStrings.services.insights.goalFundedSuffix}',
+          'action_type': InsightActionTypes.viewGoal,
           'goal_id': goal.id,
           'goal': goal,
         });
@@ -690,9 +746,9 @@ class SpendingIntelligenceService {
       }
     }
 
-    actions.sort((a, b) =>
-        (a['priority'] as int).compareTo(b['priority'] as int));
-    return actions.take(5).toList();
+    actions
+        .sort((a, b) => asInt(a['priority']).compareTo(asInt(b['priority'])));
+    return actions.take(InsightsLimits.actionQueueLimit).toList();
   }
 
   /// Structured context for AI briefing (no raw PII beyond category names).
@@ -703,13 +759,12 @@ class SpendingIntelligenceService {
     final social = await getSocialTrustInsights();
     final goals = await GoalService().getGoals(userID: _currentUserId);
     final goalSummaries = goals
-        .where((g) => g.status == 'active')
+        .where((g) => g.status == GoalStatusValues.active)
         .take(3)
         .map((g) => {
               'title': g.title,
               'progress_pct': g.targetAmount != null && g.targetAmount! > 0
-                  ? ((g.currentAmount ?? 0) / g.targetAmount! * 100)
-                      .round()
+                  ? ((g.currentAmount ?? 0) / g.targetAmount! * 100).round()
                   : 0,
               'deadline': g.deadline?.toIso8601String().split('T').first,
             })
@@ -760,7 +815,7 @@ class SpendingIntelligenceService {
     }
 
     final categoryBreakdown = await getCategoryBreakdown(now);
-    String topCategory = "-";
+    String topCategory = CategoryDefaults.dash;
     double topCatAmount = 0;
     if (categoryBreakdown.isNotEmpty) {
       final sorted = categoryBreakdown.entries.toList()
@@ -774,6 +829,7 @@ class SpendingIntelligenceService {
     final settleHealth = await getSettleUpHealthScore();
     final combinedHealth = ((spendingHealth + settleHealth) / 2).round();
     final unusual = await detectUnusualExpenses(now);
+    final recurring = await detectRecurringSubscriptions();
     final digest = await generateMonthlyDigest(now);
     final trend = await getSpendingTrend();
     final coach = await getSpendingCoachInsights(now);
@@ -784,7 +840,7 @@ class SpendingIntelligenceService {
       spending: spendingHealth,
       settleUp: settleHealth,
       percentChange: percentChange,
-      openExposure: social['openExposure'] as double,
+      openExposure: asDouble(social['openExposure']),
     );
 
     return {
@@ -798,6 +854,7 @@ class SpendingIntelligenceService {
       'settleUpHealthScore': settleHealth,
       'scoreBreakdown': scoreBreakdown,
       'unusualExpenses': unusual,
+      'recurringSubscriptions': recurring,
       'monthlyDigest': digest,
       'spendingTrend': trend,
       'spendingCoach': coach,
@@ -817,11 +874,11 @@ class SpendingIntelligenceService {
   }
 
   static int _calculateHealthScoreStatic(double current, double previous) {
-    if (previous == 0) return 80;
-    if (current > previous * 1.5) return 40;
-    if (current > previous * 1.2) return 60;
-    if (current < previous) return 90;
-    return 80;
+    if (previous == 0) return InsightsThresholds.scoreStrong;
+    if (current > previous * 1.5) return InsightsThresholds.scoreGood;
+    if (current > previous * 1.2) return InsightsThresholds.scoreWatch;
+    if (current < previous) return InsightsThresholds.scoreExcellent;
+    return InsightsThresholds.scoreStrong;
   }
 
   /// Finds the single biggest expense for a given month
@@ -842,7 +899,9 @@ class SpendingIntelligenceService {
 
     try {
       final allTxns = await _txService.getUnifiedTransactions(
-          userID: _currentUserId, limit: 1000, selectedCurrency: _currency);
+          userID: _currentUserId,
+          limit: InsightsLimits.unifiedTxnFetch,
+          selectedCurrency: _currency);
 
       final monthTxns = allTxns.where((txn) {
         final date = txn['date'] as DateTime;
@@ -852,11 +911,16 @@ class SpendingIntelligenceService {
       }).toList();
 
       for (var txn in monthTxns) {
-        checkBigger(txn['amount'] as double, txn['title'] as String,
+        checkBigger(asDouble(txn['amount']), txn['title'] as String,
             txn['category'] as String, txn['date'] as DateTime);
       }
-    } catch (e) {
-      debugPrint('Error getting biggest expense: $e');
+    } catch (e, stack) {
+      AppErrorReporter.unexpected(
+        'getBiggestExpense failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'insights'},
+      );
     }
 
     return biggest;
@@ -866,10 +930,10 @@ class SpendingIntelligenceService {
   Future<Map<String, double>> getLifetimeStats() async {
     final stats = await _txService.getLifetimeStats(userID: _currentUserId);
     return {
-      'totalSpent': stats['totalSpent'] ?? 0.0,
-      'totalReceived': stats['totalReceived'] ?? 0.0,
+      'totalSpent': asDouble(stats['totalSpent']),
+      'totalReceived': asDouble(stats['totalReceived']),
       'overallTransaction':
-          (stats['totalSpent'] ?? 0.0) + (stats['totalReceived'] ?? 0.0),
+          asDouble(stats['totalSpent']) + asDouble(stats['totalReceived']),
     };
   }
 }

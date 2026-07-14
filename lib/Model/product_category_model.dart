@@ -1,3 +1,6 @@
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_keys.dart';
+
 class MasterProductCategoryModel {
   String? category;
   String? productName;
@@ -12,21 +15,21 @@ class MasterProductCategoryModel {
   });
 
   MasterProductCategoryModel.fromJSON(Map<String, dynamic> json) {
-    category = json["category"];
-    productName = json["product_name"];
-    createdAt = json["created_at"] != null
-        ? DateTime.tryParse(json["created_at"])
+    category = json[SupabaseColumns.category];
+    productName = json[SupabaseColumns.productName];
+    createdAt = json[SupabaseColumns.createdAt] != null
+        ? DateTime.tryParse(json[SupabaseColumns.createdAt])
         : null;
-    categoryLogo = json["category_logo"] ?? "";
+    categoryLogo = json[SupabaseColumns.categoryLogo] ?? StringDefaults.empty;
   }
 
   Map<String, dynamic> toJSON() {
     Map<String, dynamic> data = <String, dynamic>{};
 
-    data["category"] = category;
-    data["product_name"] = productName;
-    data["created_at"] = createdAt;
-    data["category_logo"] = categoryLogo;
+    data[SupabaseColumns.category] = category;
+    data[SupabaseColumns.productName] = productName;
+    data[SupabaseColumns.createdAt] = createdAt;
+    data[SupabaseColumns.categoryLogo] = categoryLogo;
 
     return data;
   }
@@ -42,7 +45,12 @@ class CategoryOnlyModel {
   });
 
   CategoryOnlyModel.fromJSON(Map<String, dynamic> data) {
-    category = data["category"];
-    categoryLogo = data["category_logo"] ?? "";
+    category = data[SupabaseColumns.category];
+    categoryLogo = data[SupabaseColumns.categoryLogo] ?? StringDefaults.empty;
   }
+
+  Map<String, dynamic> toJSON() => {
+        SupabaseColumns.category: category,
+        SupabaseColumns.categoryLogo: categoryLogo,
+      };
 }

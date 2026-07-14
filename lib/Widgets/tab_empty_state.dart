@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/app_assets.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 enum TabEmptyVariant {
   activity,
@@ -14,16 +16,13 @@ enum TabEmptyVariant {
   generic,
 }
 
-const _kRupeeCoinDotLottie = 'assets/lottie/Rupee Coin.lottie';
-const _kRupeeCoinJson = 'assets/lottie/rupee_coin.json';
-
 Future<LottieComposition?> _decodeDotLottie(List<int> bytes) {
   return LottieComposition.decodeZip(
     bytes,
     filePicker: (files) {
       for (final file in files) {
-        if (file.name.startsWith('animations/') &&
-            file.name.endsWith('.json')) {
+        if (file.name.startsWith(AppAssets.lottieAnimationsDir) &&
+            file.name.endsWith(AppAssets.lottieJsonSuffix)) {
           return file;
         }
       }
@@ -35,7 +34,8 @@ Future<LottieComposition?> _decodeDotLottie(List<int> bytes) {
 class RupeeCoinAnimation extends StatelessWidget {
   final double size;
 
-  const RupeeCoinAnimation({super.key, this.size = 180});
+  const RupeeCoinAnimation(
+      {super.key, this.size = AppDimensions.groupEmptyAnimationSizeLg});
 
   @override
   Widget build(BuildContext context) {
@@ -44,14 +44,14 @@ class RupeeCoinAnimation extends StatelessWidget {
         width: size,
         height: size,
         child: Lottie.asset(
-          _kRupeeCoinDotLottie,
+          AppAssets.lottieRupeeCoin,
           decoder: _decodeDotLottie,
           repeat: true,
           animate: true,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             return Lottie.asset(
-              _kRupeeCoinJson,
+              AppAssets.lottieRupeeCoinFallback,
               repeat: true,
               animate: true,
               fit: BoxFit.contain,
@@ -92,7 +92,9 @@ class _TabEmptyStateState extends State<TabEmptyState>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final animationSize = widget.compact ? 120.0 : 180.0;
+    final animationSize = widget.compact
+        ? AppDimensions.groupEmptyAnimationSizeMd
+        : AppDimensions.groupEmptyAnimationSizeLg;
 
     return Center(
       child: Padding(
@@ -109,10 +111,12 @@ class _TabEmptyStateState extends State<TabEmptyState>
             Text(
               widget.title,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: widget.compact ? 20 : 24,
+                fontFamily: kFontAlbra,
+                fontSize: widget.compact
+                    ? AppDimensions.tabEmptyTitleCompact
+                    : AppDimensions.tabEmptyTitle,
                 fontWeight: FontWeight.w700,
-                color: neopopBackground,
+                color: groupOnSurface,
               ),
               textAlign: TextAlign.center,
             ),
@@ -121,9 +125,11 @@ class _TabEmptyStateState extends State<TabEmptyState>
               Text(
                 widget.subtitle!,
                 style: body2_text.copyWith(
-                  color: neopopGrey,
-                  height: 1.4,
-                  fontSize: widget.compact ? 13 : 14,
+                  color: groupOnSurfaceMuted,
+                  height: groupLineHeightRelaxed,
+                  fontSize: widget.compact
+                      ? AppDimensions.tabEmptySubtitleCompact
+                      : AppDimensions.tabEmptySubtitle,
                 ),
                 textAlign: TextAlign.center,
               ),

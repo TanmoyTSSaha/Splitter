@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Utils/currency_utils.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:splitter/Model/activity_model.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Services/supabase_service.dart';
+import 'package:splitr/Model/activity_model.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Services/supabase_service.dart';
 
 class ActivityService {
   final supabase = Supabase.instance.client;
@@ -44,7 +47,7 @@ class ActivityService {
       Map<String, List<Reaction>> reactionsMap = {};
       if (activityIds.isNotEmpty) {
         final reactionsData = await supabase
-            .from('activity_reactions')
+            .from(SupabaseTables.activityReactions)
             .select()
             .inFilter('activity_id', activityIds);
 
@@ -62,15 +65,20 @@ class ActivityService {
       if (activityIds.isNotEmpty) {
         try {
           final commentRows = await supabase
-              .from('activity_comments')
+              .from(SupabaseTables.activityComments)
               .select('activity_id')
               .inFilter('activity_id', activityIds);
           for (final row in commentRows) {
             final aid = row['activity_id'] as String;
             commentCounts[aid] = (commentCounts[aid] ?? 0) + 1;
           }
-        } catch (e) {
-          debugPrint('Comment count fetch: $e');
+        } catch (e, stack) {
+          AppErrorReporter.report(
+            'ActivityService comment count fetch failed',
+            error: e,
+            stack: stack,
+            context: {'feature': 'activity', 'operation': 'commentCountFetch'},
+          );
         }
       }
 
@@ -81,14 +89,14 @@ class ActivityService {
         final first = groupTrns.first;
         final payerId = first.paidByUUID ?? "";
         final isPayer = payerId == currentUserId;
-        final isSettlement = first.sharingType == "settlement";
+        final isSettlement = first.sharingType == SharingTypeValues.settlement;
 
         String splitSummary = "";
 
         if (isSettlement) {
           splitSummary = isPayer
-              ? "You paid ${first.sharedWithName} ₹${first.sharedTransactionAmount?.toStringAsFixed(2)}"
-              : "${first.paidByName} paid you ₹${first.sharedTransactionAmount?.toStringAsFixed(2)}";
+              ? "You paid ${first.sharedWithName} ${userCurrencySymbol()}${first.sharedTransactionAmount?.toStringAsFixed(2)}"
+              : "${first.paidByName} paid you ${userCurrencySymbol()}${first.sharedTransactionAmount?.toStringAsFixed(2)}";
         } else {
           // Expense
           if (isPayer) {
@@ -98,7 +106,7 @@ class ActivityService {
             for (var t in groupTrns) {
               if (t.sharedWithUUID != currentUserId) {
                 debtors.add(
-                    "${t.sharedWithName?.split(' ')[0]} owes ₹${t.sharedTransactionAmount?.toStringAsFixed(0)}");
+                    "${t.sharedWithName?.split(' ')[0]} owes ${userCurrencySymbol()}${t.sharedTransactionAmount?.toStringAsFixed(0)}");
                 totalOwedToMe += t.sharedTransactionAmount ?? 0;
               }
             }
@@ -109,7 +117,7 @@ class ActivityService {
               splitSummary = debtors.join(", ");
             } else {
               splitSummary =
-                  "You get ₹${totalOwedToMe.toStringAsFixed(0)} from ${debtors.length} people";
+                  "You get ${userCurrencySymbol()}${totalOwedToMe.toStringAsFixed(0)} from ${debtors.length} people";
             }
           } else {
             // Someone else paid.
@@ -123,7 +131,7 @@ class ActivityService {
 
             if (myShareRow != null) {
               splitSummary =
-                  "You owe ₹${myShareRow.sharedTransactionAmount?.toStringAsFixed(0)}";
+                  "You owe ${userCurrencySymbol()}${myShareRow.sharedTransactionAmount?.toStringAsFixed(0)}";
             } else {
               splitSummary = "You are not involved";
             }
@@ -138,12 +146,12 @@ class ActivityService {
           type:
               isSettlement ? ActivityType.settledUp : ActivityType.expenseAdded,
           actorId: payerId,
-          actorName: first.paidByName ?? "User",
+          actorName: first.paidByName ?? DisplayFallbacks.user,
           description:
               isSettlement ? "settled up" : "added '${first.description}'",
           amount: null,
           timestamp: first.transactionDate ?? DateTime.now(),
-          metadata: {'split_summary': splitSummary},
+          metadata: {MetadataKeys.splitSummary: splitSummary},
           reactions: reactionsMap[activityId] ?? [],
           commentCount: commentCounts[activityId] ?? 0,
         ));
@@ -165,7 +173,7 @@ class ActivityService {
     try {
       // Check if reaction exists
       final existing = await supabase
-          .from('activity_reactions')
+          .from(SupabaseTables.activityReactions)
           .select()
           .eq('activity_id', activityId)
           .eq('user_id', userId)
@@ -175,7 +183,7 @@ class ActivityService {
       if (existing != null) {
         // Remove it
         await supabase
-            .from('activity_reactions')
+            .from(SupabaseTables.activityReactions)
             .delete()
             .eq('id', existing['id']);
       } else {
@@ -183,10 +191,10 @@ class ActivityService {
         // Fetch user name for display snapshot
         // We can get it from SupabaseAuth or DB.
         // For now, let's try to get it from current session or DB
-        String userName = "User";
+        String userName = DisplayFallbacks.user;
         try {
           final userDetails = await supabase
-              .from('users')
+              .from(SupabaseTables.users)
               .select('firstname, lastname')
               .eq('user_id', userId)
               .single();
@@ -195,15 +203,20 @@ class ActivityService {
           // Ignore
         }
 
-        await supabase.from('activity_reactions').insert({
+        await supabase.from(SupabaseTables.activityReactions).insert({
           'activity_id': activityId,
           'user_id': userId,
           'emoji': emoji,
           'user_name': userName,
         });
       }
-    } catch (e) {
-      debugPrint("Error adding reaction: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ActivityService.addReaction failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'activity', 'operation': 'addReaction'},
+      );
       rethrow;
     }
   }
@@ -211,7 +224,7 @@ class ActivityService {
   Future<List<ActivityComment>> getComments(String activityId) async {
     try {
       final rows = await supabase
-          .from('activity_comments')
+          .from(SupabaseTables.activityComments)
           .select()
           .eq('activity_id', activityId)
           .order('created_at', ascending: true);
@@ -219,8 +232,13 @@ class ActivityService {
           .map<ActivityComment>(
               (r) => ActivityComment.fromJSON(Map<String, dynamic>.from(r)))
           .toList();
-    } catch (e) {
-      debugPrint('getComments error: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ActivityService.getComments failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'activity', 'operation': 'getComments'},
+      );
       return [];
     }
   }
@@ -231,10 +249,10 @@ class ActivityService {
     required String userId,
     required String body,
   }) async {
-    String userName = 'User';
+    String userName = DisplayFallbacks.user;
     try {
       final userDetails = await supabase
-          .from('users')
+          .from(SupabaseTables.users)
           .select('firstname, lastname, user_name')
           .eq('user_id', userId)
           .single();
@@ -242,11 +260,12 @@ class ActivityService {
       final last = userDetails['lastname'] ?? '';
       userName = '$first $last'.trim();
       if (userName.isEmpty) {
-        userName = userDetails['user_name'] as String? ?? 'User';
+        userName = userDetails[SupabaseColumns.userName] as String? ??
+            DisplayFallbacks.user;
       }
     } catch (_) {}
 
-    await supabase.from('activity_comments').insert({
+    await supabase.from(SupabaseTables.activityComments).insert({
       'activity_id': activityId,
       'group_id': groupId,
       'user_id': userId,

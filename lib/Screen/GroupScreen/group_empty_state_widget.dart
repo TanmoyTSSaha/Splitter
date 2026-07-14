@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:neopop/neopop.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/create_group_screen.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/create_group_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_assets.dart';
+import 'package:splitr/Constants/app_strings.dart';
 
 class GroupEmptyState extends StatefulWidget {
   final Future<void> Function() onActionComplete;
@@ -26,12 +30,15 @@ class _GroupEmptyStateState extends State<GroupEmptyState>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(seconds: 4),
+      duration: AppMotion.emptyStateFloat,
       vsync: this,
     )..repeat(reverse: true);
 
-    _floatAnimation = Tween<double>(begin: 0, end: -15).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    _floatAnimation = Tween<double>(
+      begin: 0,
+      end: AppAnimationOffsets.emptyStateFloatEnd,
+    ).animate(
+      CurvedAnimation(parent: _controller, curve: AppCurves.emptyStateFloat),
     );
   }
 
@@ -72,67 +79,68 @@ class _GroupEmptyStateState extends State<GroupEmptyState>
               );
             },
             child: Container(
-              height: 220,
-              width: 220,
+              height: AppDimensions.homeHeroImageSize,
+              width: AppDimensions.homeHeroImageSize,
               decoration: BoxDecoration(
                 image: const DecorationImage(
                   image: AssetImage(
-                    'assets/dev_images/premium_empty_state_splitting_bills.png',
+                    AppAssets.emptyStateSplittingBills,
                   ),
                   fit: BoxFit.contain,
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: neopopAccent.withOpacity(0.12),
-                    blurRadius: 60,
-                    spreadRadius: -10,
-                    offset: const Offset(0, 20),
+                    color: neopopAccentFillLight,
+                    blurRadius: AppDimensions.homeHeroShadowBlur,
+                    spreadRadius: AppDimensions.homeHeroShadowSpread,
+                    offset: const Offset(0, groupGap20),
                   ),
                 ],
               ),
             ),
           ),
-          SizedBox(height: height_16 * 2),
+          const SizedBox(height: groupGapLg),
           TweenAnimationBuilder<double>(
-            duration: const Duration(milliseconds: 800),
+            duration: AppMotion.syncPulse,
             tween: Tween(begin: 0.0, end: 1.0),
             builder: (context, value, child) {
               return Opacity(
                 opacity: value,
                 child: Transform.translate(
-                  offset: Offset(0, 20 * (1 - value)),
+                  offset: Offset(0,
+                      AppAnimationOffsets.emptyStateTranslateY * (1 - value)),
                   child: child,
                 ),
               );
             },
             child: Column(
               children: [
-                const Text(
-                  'No groups yet',
+                Text(
+                  AppStrings.groups.noGroupsYet,
                   style: TextStyle(
-                    fontFamily: 'Albra',
-                    fontSize: 28,
+                    fontFamily: kFontAlbra,
+                    fontSize: splitrFontHeadline2,
                     fontWeight: FontWeight.w700,
                     color: neopopBackground,
-                    letterSpacing: 0.5,
+                    letterSpacing: AppDimensions.letterSpacingWide,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: height_10),
+                const SizedBox(height: groupGapSm),
                 Text(
-                  'Create a group to split bills with friends, roommates, or coworkers.',
+                  AppStrings.groups.emptyStateExtendedSubtitle,
                   style: body1_text.copyWith(
-                    color: neopopGrey,
+                    color: groupOnSurfaceMuted,
                     height: 1.5,
-                    fontSize: 14,
+                    fontSize: splitrFontBody,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
-          SizedBox(height: height_16 * 2),
+          const SizedBox(height: groupGapLg),
           SizedBox(
             width: double.infinity,
             child: NeoPopButton(
@@ -142,9 +150,9 @@ class _GroupEmptyStateState extends State<GroupEmptyState>
                 Get.to(() => const CreateGroupScreen()),
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: width_16,
-                  vertical: height_16,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: groupGutter,
+                  vertical: groupGapMd,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -152,11 +160,11 @@ class _GroupEmptyStateState extends State<GroupEmptyState>
                     const Icon(
                       Icons.groups_2_rounded,
                       color: neopopBackground,
-                      size: 20,
+                      size: AppDimensions.groupIconMd,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: groupGapSm),
                     Text(
-                      'Create Group',
+                      AppStrings.groups.createGroup,
                       style: button_text.copyWith(
                         color: neopopBackground,
                         fontWeight: FontWeight.w700,
@@ -167,7 +175,7 @@ class _GroupEmptyStateState extends State<GroupEmptyState>
               ),
             ),
           ),
-          SizedBox(height: height_10 * 6),
+          const SizedBox(height: groupFabClearance),
         ],
       ),
     );

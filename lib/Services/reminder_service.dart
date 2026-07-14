@@ -1,7 +1,11 @@
 import 'dart:math';
-import 'package:flutter/foundation.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:splitter/Model/reminder_settings_model.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Model/reminder_settings_model.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -17,12 +21,12 @@ class ReminderService {
   Future<void> initialize() async {
     if (!_tzReady) {
       tz_data.initializeTimeZones();
-      tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+      tz.setLocalLocation(tz.getLocation(TimezoneDefaults.local));
       _tzReady = true;
     }
 
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings(NotificationIcons.launcher);
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -66,14 +70,14 @@ class ReminderService {
     );
 
     final scheduled = tz.TZDateTime.now(tz.local).add(delay);
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'splito_reminders',
-        'Settlement Reminders',
-        channelDescription: 'Friendly reminders to settle up',
+        AppBranding.notificationChannelId,
+        AppStrings.services.reminders.settlementChannelName,
+        channelDescription: AppStrings.services.reminders.settlementChannelDesc,
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
-        icon: '@mipmap/ic_launcher',
+        icon: NotificationIcons.launcher,
       ),
       iOS: DarwinNotificationDetails(),
     );
@@ -81,7 +85,7 @@ class ReminderService {
     try {
       await _notifications.zonedSchedule(
         id,
-        'SplitO — $groupName',
+        '${AppBranding.brandName}${AppStrings.services.reminders.notificationTitleSeparator}$groupName',
         message,
         scheduled,
         details,
@@ -89,9 +93,15 @@ class ReminderService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } catch (e) {
-      debugPrint('ReminderService.scheduleReminder: $e — showing immediately');
-      await _notifications.show(id, 'SplitO — $groupName', message, details);
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'ReminderService.scheduleReminder failed, showing immediately',
+        error: e,
+        stack: stack,
+        context: {'feature': 'reminders', 'operation': 'scheduleReminder'},
+      );
+      await _notifications.show(
+          id, '${AppBranding.brandName} — $groupName', message, details);
     }
   }
 
@@ -102,24 +112,33 @@ class ReminderService {
     required double amount,
     required ReminderTone tone,
   }) {
-    final amountStr = '₹${amount.toStringAsFixed(0)}';
+    final amountStr = '${userCurrencySymbol()}${amount.toStringAsFixed(0)}';
 
     switch (tone) {
       case ReminderTone.friendly:
         return _randomPick(_friendlyTemplates)
-            .replaceAll('{name}', debtorName)
-            .replaceAll('{amount}', amountStr)
-            .replaceAll('{group}', groupName);
+            .replaceAll(
+                AppStrings.services.reminders.namePlaceholder, debtorName)
+            .replaceAll(
+                AppStrings.services.reminders.amountPlaceholder, amountStr)
+            .replaceAll(
+                AppStrings.services.reminders.groupPlaceholder, groupName);
       case ReminderTone.casual:
         return _randomPick(_casualTemplates)
-            .replaceAll('{name}', debtorName)
-            .replaceAll('{amount}', amountStr)
-            .replaceAll('{group}', groupName);
+            .replaceAll(
+                AppStrings.services.reminders.namePlaceholder, debtorName)
+            .replaceAll(
+                AppStrings.services.reminders.amountPlaceholder, amountStr)
+            .replaceAll(
+                AppStrings.services.reminders.groupPlaceholder, groupName);
       case ReminderTone.formal:
         return _randomPick(_formalTemplates)
-            .replaceAll('{name}', debtorName)
-            .replaceAll('{amount}', amountStr)
-            .replaceAll('{group}', groupName);
+            .replaceAll(
+                AppStrings.services.reminders.namePlaceholder, debtorName)
+            .replaceAll(
+                AppStrings.services.reminders.amountPlaceholder, amountStr)
+            .replaceAll(
+                AppStrings.services.reminders.groupPlaceholder, groupName);
     }
   }
 
@@ -152,7 +171,7 @@ class ReminderService {
   ];
 
   static const _formalTemplates = [
-    "Reminder: ₹{amount} is pending settlement with {name} in {group}.",
+    "Reminder: {amount} is pending settlement with {name} in {group}.",
     "Please settle the outstanding balance of {amount} with {name}.",
     "Settlement reminder: {amount} to {name} from group {group}.",
     "You have an unsettled balance of {amount} with {name} in {group}.",
@@ -168,5 +187,28 @@ class ReminderService {
 
   Future<void> cancelAll() async {
     await _notifications.cancelAll();
+  }
+
+  /// Immediate budget threshold / overspend alert.
+  Future<void> showBudgetAlert({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    if (!_tzReady) await initialize();
+
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        AppBranding.budgetChannelId,
+        AppStrings.services.reminders.budgetChannelName,
+        channelDescription: AppStrings.services.reminders.budgetChannelDesc,
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        icon: NotificationIcons.launcher,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+
+    await _notifications.show(id, title, body, details);
   }
 }

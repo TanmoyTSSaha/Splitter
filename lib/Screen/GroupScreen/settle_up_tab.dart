@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/swipe_to_settle_widget.dart';
-import 'package:splitter/Controller/group_screen_controller.dart';
-import 'package:splitter/Controller/settle_up_controller.dart';
-import 'package:splitter/Screen/GroupScreen/shareable_settlement_card.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Controller/group_screen_controller.dart';
+import 'package:splitr/Controller/settle_up_controller.dart';
+import 'package:splitr/Screen/GroupScreen/manual_settle_up_screen.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
 
-import 'package:splitter/Widgets/tab_empty_state.dart';
+import 'package:splitr/Widgets/tab_empty_state.dart';
 
 import '../../Constants/shared.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
 
 class SettleUpTab extends StatefulWidget {
   final String groupID;
@@ -61,8 +63,7 @@ class _SettleUpTabState extends State<SettleUpTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Obx(() {
+    return Obx(() {
         // Loading state
         if (_settleUpController.isLoading.value) {
           return const Center(
@@ -79,22 +80,22 @@ class _SettleUpTabState extends State<SettleUpTab> {
                 Icon(
                   Icons.error_outline_rounded,
                   color: neopopGrey,
-                  size: height_10 * 4.8,
+                  size: groupCtaHeightCompact,
                 ),
-                SizedBox(height: height_16),
+                SizedBox(height: groupGutter),
                 Text(
                   _settleUpController.errorMessage.value,
                   style: body1_text.copyWith(color: neopopGrey),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: height_16),
+                SizedBox(height: groupGutter),
                 ElevatedButton(
                   onPressed: () => _settleUpController.fetchAndSimplifyDebts(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: neopopAccent,
                   ),
                   child: Text(
-                    "Retry",
+                    AppStrings.groups.retry,
                     style: button_text.copyWith(color: neopopOnAccent),
                   ),
                 ),
@@ -105,18 +106,18 @@ class _SettleUpTabState extends State<SettleUpTab> {
 
         // Empty state
         if (!_settleUpController.hasBalanceData.value) {
-          return const TabEmptyState(
+          return TabEmptyState(
             variant: TabEmptyVariant.settleUpNoSplits,
-            title: 'No splits yet',
-            subtitle: 'Add a group expense to see who owes what.',
+            title: AppStrings.groups.noSplitsYet,
+            subtitle: AppStrings.groups.noSplitsSubtitle,
           );
         }
 
         if (_settleUpController.simplifiedDebts.isEmpty) {
-          return const TabEmptyState(
+          return TabEmptyState(
             variant: TabEmptyVariant.settleUpAllSettled,
-            title: 'All settled up',
-            subtitle: 'No outstanding balances in this group.',
+            title: AppStrings.groups.allSettledUp,
+            subtitle: AppStrings.groups.allSettledUpSubtitle,
           );
         }
 
@@ -127,22 +128,22 @@ class _SettleUpTabState extends State<SettleUpTab> {
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child: Container(
+          child: SizedBox(
             width: devSysWidth,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Select a balance to settle!",
+                  AppStrings.validation.selectBalance,
                   style: sub_headline4_text.copyWith(color: groupOnSurface),
                 ),
-                SizedBox(height: height_10),
+                SizedBox(height: groupGap10),
                 Text(
-                  "${debts.length} transfer${debts.length > 1 ? 's' : ''} needed",
+                  AppStringFormat.transfersNeeded(debts.length),
                   style: caption_text.copyWith(color: neopopGrey),
                 ),
-                SizedBox(height: height_16),
+                SizedBox(height: groupGutter),
                 SizedBox(
                   width: devSysWidth,
                   child: ListView.separated(
@@ -155,15 +156,30 @@ class _SettleUpTabState extends State<SettleUpTab> {
                       final isCurrentUserCreditor = debt.toID == widget.userID;
 
                       return GestureDetector(
-                        onTap: () => _openSwipeToSettle(debt),
+                        onTap: () async {
+                          final settled = await Get.to<bool>(
+                            () => ManualSettleUpScreen(
+                              groupID: widget.groupID,
+                              currentUserID: widget.userID,
+                              groupName: widget.groupName,
+                              initialDebt: debt,
+                            ),
+                          );
+                          if (settled == true) {
+                            _settleUpController.fetchAndSimplifyDebts(
+                              showLoading: false,
+                            );
+                          }
+                        },
                         child: Container(
                           width: devSysWidth,
-                          padding: EdgeInsets.all(height_16),
+                          padding: EdgeInsets.all(groupGutter),
                           decoration: BoxDecoration(
-                            color: neopopBackground.withOpacity(0.03),
-                            borderRadius: BorderRadius.circular(12),
+                            color: neopopBackgroundFillWhisper,
+                            borderRadius:
+                                BorderRadius.circular(groupControlRadius),
                             border: Border.all(
-                              color: neopopGrey.withOpacity(0.2),
+                              color: neopopGreyBorder,
                               width: 1,
                             ),
                           ),
@@ -176,32 +192,32 @@ class _SettleUpTabState extends State<SettleUpTab> {
                                   UserAvatar(
                                     userID: debt.fromID,
                                     userName: debt.fromName,
-                                    radius: height_10 * 2,
+                                    radius: groupGap20,
                                     fontSize:
                                         12, // matching caption_text size approx
                                   ),
-                                  SizedBox(width: width_10),
+                                  SizedBox(width: groupGap10),
                                   // Arrow
                                   Icon(
                                     Icons.arrow_forward_rounded,
                                     color: neopopGrey,
-                                    size: height_10 * 2,
+                                    size: groupGap20,
                                   ),
-                                  SizedBox(width: width_10),
+                                  SizedBox(width: groupGap10),
                                   // To user avatar
                                   UserAvatar(
                                     userID: debt.toID,
                                     userName: debt.toName,
-                                    radius: height_10 * 2,
-                                    fontSize: 12,
+                                    radius: groupGap20,
+                                    fontSize: splitrFontCaption,
                                   ),
                                   const Spacer(),
                                   // Amount
                                   Text(
-                                    "₹${debt.amount.toStringAsFixed(2)}",
+                                    "${userCurrencySymbol()}${debt.amount.toStringAsFixed(2)}",
                                     style: sub_headline4_text.copyWith(
                                       color: isCurrentUserDebtor
-                                          ? neopopYellow
+                                          ? ThemeAccentColors.oweWarning(context)
                                           : isCurrentUserCreditor
                                               ? neopopAccent
                                               : groupOnSurface,
@@ -209,7 +225,7 @@ class _SettleUpTabState extends State<SettleUpTab> {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: height_10),
+                              SizedBox(height: groupGap10),
                               // Description text
                               RichText(
                                 text: TextSpan(
@@ -219,17 +235,17 @@ class _SettleUpTabState extends State<SettleUpTab> {
                                   children: [
                                     TextSpan(
                                       text: isCurrentUserDebtor
-                                          ? "You"
+                                          ? GroupCopy.self
                                           : debt.fromName,
                                       style: body2_text.copyWith(
                                         color: groupOnSurface,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const TextSpan(text: " pays "),
+                                    const TextSpan(text: GroupCopy.pays),
                                     TextSpan(
                                       text: isCurrentUserCreditor
-                                          ? "you"
+                                          ? GroupCopy.selfLower
                                           : debt.toName,
                                       style: body2_text.copyWith(
                                         color: groupOnSurface,
@@ -239,7 +255,7 @@ class _SettleUpTabState extends State<SettleUpTab> {
                                   ],
                                 ),
                               ),
-                              SizedBox(height: height_10),
+                              SizedBox(height: groupGap10),
                               // Progress bar
                               LinearProgressIndicator(
                                 value:
@@ -247,9 +263,10 @@ class _SettleUpTabState extends State<SettleUpTab> {
                                 color: isCurrentUserDebtor
                                     ? neopopYellow
                                     : neopopAccent,
-                                backgroundColor: neopopAccent.withOpacity(0.15),
+                                backgroundColor: neopopAccentFillMedium,
                                 minHeight: 4,
-                                borderRadius: BorderRadius.circular(height_10),
+                                borderRadius:
+                                    BorderRadius.circular(groupRadiusMd),
                               ),
                             ],
                           ),
@@ -257,132 +274,13 @@ class _SettleUpTabState extends State<SettleUpTab> {
                       );
                     },
                     separatorBuilder: (context, index) =>
-                        SizedBox(height: height_10),
+                        SizedBox(height: groupGap10),
                   ),
                 ),
               ],
             ),
           ),
         );
-      }),
-    );
-  }
-
-  /// Opens the swipe-to-settle fullscreen gesture overlay.
-  void _openSwipeToSettle(SimplifiedDebt debt) {
-    final isCurrentUserDebtor = debt.fromID == widget.userID;
-
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return SwipeToSettleWidget(
-            amount: debt.amount,
-            fromName: isCurrentUserDebtor ? "You" : debt.fromName,
-            toName: debt.toID == widget.userID ? "You" : debt.toName,
-            onSettled: () async {
-              final success = await _settleUpController.recordSettlement(
-                debt,
-                requireBiometric: true,
-              );
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-              if (success) {
-                Fluttertoast.showToast(
-                  msg: "Settlement recorded! ✅",
-                  textColor: neopopBackground,
-                  backgroundColor: neopopAccent,
-                );
-                // Show shareable settlement card
-                if (context.mounted) {
-                  _showShareableSettlementCard(
-                    debt: debt,
-                    isCurrentUserDebtor: isCurrentUserDebtor,
-                  );
-                }
-              } else {
-                Fluttertoast.showToast(
-                  msg: "Failed to record settlement.",
-                  textColor: neopopBackground,
-                  backgroundColor: neopopYellow,
-                );
-              }
-            },
-            onCancel: () => Navigator.of(context).pop(),
-          );
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// Shows a bottom sheet with the shareable settlement card.
-  void _showShareableSettlementCard({
-    required SimplifiedDebt debt,
-    required bool isCurrentUserDebtor,
-  }) {
-    final cardKey = GlobalKey();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.only(
-            top: 24,
-            bottom: MediaQuery.of(context).padding.bottom + 24,
-          ),
-          decoration: const BoxDecoration(
-            color: neopopBackground,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: neopopGrey.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Share Settlement',
-                style: sub_headline5_text.copyWith(color: neopopOnPrimary),
-              ),
-              const SizedBox(height: 20),
-              ShareableSettlementCard(
-                fromName: isCurrentUserDebtor ? "You" : debt.fromName,
-                toName: debt.toID == widget.userID ? "You" : debt.toName,
-                amount: debt.amount,
-                groupName: widget.groupName,
-                settledDate: DateTime.now(),
-                repaintKey: cardKey,
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
+      });
   }
 }

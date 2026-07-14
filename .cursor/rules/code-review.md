@@ -1,8 +1,8 @@
-# Code Review Rules — SplitO (Splitter)
+# Code Review Rules — Splitr
 
 ## Purpose
 
-Checklist for AI self-review and human PR review. Verify generated code matches SplitO architecture before merge.
+Checklist for AI self-review and human PR review. Verify generated code matches Splitr Architecture before merge.
 
 ---
 

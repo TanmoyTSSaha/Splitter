@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Model/trip_model.dart';
-import 'package:splitter/Services/shareable_card_service.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Model/trip_model.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Services/shareable_card_service.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
 
 /// A premium shareable trip summary card with dark gradient and stats.
 /// Wrapped in [RepaintBoundary] for image capture and sharing.
@@ -20,7 +26,8 @@ class ShareableTripSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('MMM d');
+    final dateFormat = DateFormat(AppDateFormats.shortDay);
+    final sym = CurrencyService.symbolFor(trip.tripCurrency);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -30,21 +37,21 @@ class ShareableTripSummaryCard extends StatelessWidget {
           key: repaintKey,
           child: Container(
             width: 340,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(groupGapLg),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(groupCardRadiusXl),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF1A1A2E),
-                  Color(0xFF16213E),
-                  Color(0xFF0F3460),
+                  AppPalette.shareCardGradientStart,
+                  AppPalette.shareCardGradientMid,
+                  AppPalette.shareCardGradientEnd,
                 ],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: neopopAccent.withOpacity(0.15),
+                  color: neopopAccentFillMedium,
                   blurRadius: 30,
                   spreadRadius: 2,
                 ),
@@ -58,10 +65,10 @@ class ShareableTripSummaryCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(groupGap10),
                       decoration: BoxDecoration(
-                        color: neopopAccent.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        color: neopopAccentFillMedium,
+                        borderRadius: BorderRadius.circular(groupControlRadius),
                       ),
                       child: const Icon(
                         Icons.flight_takeoff_rounded,
@@ -79,17 +86,17 @@ class ShareableTripSummaryCard extends StatelessWidget {
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
-                              fontSize: 18,
+                              fontSize: splitrFontSubhead,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (trip.destination != null)
                             Text(
-                              '📍 ${trip.destination}',
+                              '${AppStrings.trips.locationPinPrefix}${trip.destination}',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.5),
-                                fontSize: 12,
+                                color: shareCardTextMuted,
+                                fontSize: splitrFontCaption,
                               ),
                             ),
                         ],
@@ -102,18 +109,23 @@ class ShareableTripSummaryCard extends StatelessWidget {
 
                 // ── Date Range ──
                 Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  margin: const EdgeInsets.only(top: groupGapXxs),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGap10, vertical: groupGapXxs),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
+                    color: shareCardFillSubtle,
+                    borderRadius: BorderRadius.circular(groupControlRadiusSm),
                   ),
                   child: Text(
-                    '${dateFormat.format(trip.startDate)} – ${dateFormat.format(trip.endDate)}, ${trip.endDate.year}  •  ${trip.totalDays} days',
+                    AppStringFormat.tripShareCardDateRange(
+                      dateFormat.format(trip.startDate),
+                      dateFormat.format(trip.endDate),
+                      trip.endDate.year,
+                      trip.totalDays,
+                    ),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
-                      fontSize: 11,
+                      color: shareCardBorderStrong,
+                      fontSize: splitrFontCaptionSm,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -126,20 +138,20 @@ class ShareableTripSummaryCard extends StatelessWidget {
                   child: Column(
                     children: [
                       Text(
-                        'Total Spent',
+                        AppStrings.trips.totalSpent,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.4),
-                          fontSize: 12,
+                          color: shareCardBorderStrong,
+                          fontSize: splitrFontCaption,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 1,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '₹${summary.totalSpent.toStringAsFixed(0)}',
+                        '${sym}${summary.totalSpent.toStringAsFixed(0)}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 38,
+                          fontSize: splitrFontDisplayLg,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,
                         ),
@@ -152,12 +164,12 @@ class ShareableTripSummaryCard extends StatelessWidget {
 
                 // ── Stats Grid ──
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(groupGap14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(16),
+                    color: shareCardFillWhisper,
+                    borderRadius: BorderRadius.circular(groupCardRadius),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
+                      color: shareCardFillFaint,
                     ),
                   ),
                   child: Column(
@@ -167,26 +179,26 @@ class ShareableTripSummaryCard extends StatelessWidget {
                           Expanded(
                             child: _statTile(
                               '📊',
-                              'Per Day',
-                              '₹${summary.avgPerDay.toStringAsFixed(0)}',
+                              AppStrings.trips.perDay,
+                              '${sym}${summary.avgPerDay.toStringAsFixed(0)}',
                             ),
                           ),
                           Container(
                             width: 1,
                             height: 36,
-                            color: Colors.white.withOpacity(0.08),
+                            color: shareCardFillSoft,
                           ),
                           Expanded(
                             child: _statTile(
                               '🧾',
-                              'Transactions',
+                              AppStrings.trips.transactions,
                               '${summary.totalTransactions}',
                             ),
                           ),
                         ],
                       ),
                       Divider(
-                        color: Colors.white.withOpacity(0.06),
+                        color: shareCardFillFaint,
                         height: 20,
                       ),
                       Row(
@@ -194,21 +206,21 @@ class ShareableTripSummaryCard extends StatelessWidget {
                           Expanded(
                             child: _statTile(
                               '🏆',
-                              'MVP',
+                              AppStrings.trips.mvp,
                               summary.mvpMemberName,
                               subtitle:
-                                  '₹${summary.mvpAmount.toStringAsFixed(0)}',
+                                  '${sym}${summary.mvpAmount.toStringAsFixed(0)}',
                             ),
                           ),
                           Container(
                             width: 1,
                             height: 36,
-                            color: Colors.white.withOpacity(0.08),
+                            color: shareCardFillSoft,
                           ),
                           Expanded(
                             child: _statTile(
                               '📂',
-                              'Top Category',
+                              AppStrings.trips.topCategory,
                               summary.topCategory,
                             ),
                           ),
@@ -223,28 +235,29 @@ class ShareableTripSummaryCard extends StatelessWidget {
                 // ── Biggest Expense ──
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGap14, vertical: groupGap10),
                   decoration: BoxDecoration(
-                    color: neopopYellow.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    color: neopopYellowFillSoft,
+                    borderRadius: BorderRadius.circular(groupControlRadius),
                     border: Border.all(
-                      color: neopopYellow.withOpacity(0.15),
+                      color: neopopYellowFillMedium,
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Text('💰', style: TextStyle(fontSize: 18)),
+                      const Text('💰',
+                          style: TextStyle(fontSize: splitrFontSubhead)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Biggest Expense',
+                              AppStrings.trips.biggestExpense,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.4),
-                                fontSize: 10,
+                                color: shareCardBorderStrong,
+                                fontSize: splitrFontMicro,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -253,7 +266,7 @@ class ShareableTripSummaryCard extends StatelessWidget {
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                fontSize: splitrFontBodySm,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -262,11 +275,11 @@ class ShareableTripSummaryCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '₹${summary.biggestExpenseAmount.toStringAsFixed(0)}',
+                        '${sym}${summary.biggestExpenseAmount.toStringAsFixed(0)}',
                         style: const TextStyle(
                           color: neopopYellow,
                           fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                          fontSize: splitrFontBodyMd,
                         ),
                       ),
                     ],
@@ -281,14 +294,14 @@ class ShareableTripSummaryCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.auto_awesome_rounded,
-                          color: neopopAccent.withOpacity(0.5), size: 14),
-                      const SizedBox(width: 4),
+                          color: neopopAccentIconMuted, size: 14),
+                      const SizedBox(width: groupGapXxs),
                       Text(
-                        'SplitO',
+                        AppBranding.brandLogo,
                         style: TextStyle(
-                          color: neopopAccent.withOpacity(0.5),
+                          color: neopopAccentIconMuted,
                           fontWeight: FontWeight.w700,
-                          fontSize: 13,
+                          fontSize: splitrFontBodySm,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -309,23 +322,28 @@ class ShareableTripSummaryCard extends StatelessWidget {
             onPressed: () => ShareableCardService.captureAndShare(
               repaintKey,
               filename:
-                  'splito_trip_${trip.tripName.replaceAll(' ', '_').toLowerCase()}',
-              shareText:
-                  '${trip.tripName} — ₹${summary.totalSpent.toStringAsFixed(0)} spent over ${trip.totalDays} days! Shared via SplitO ✨',
+                  '${AppBranding.exportFilePrefix}_trip_${trip.tripName.replaceAll(' ', '_').toLowerCase()}',
+              shareText: AppStringFormat.tripShareMessage(
+                tripName: trip.tripName,
+                symbol: sym,
+                spentAmount: summary.totalSpent.toStringAsFixed(0),
+                totalDays: trip.totalDays,
+              ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: neopopAccent,
               foregroundColor: neopopBackground,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: groupGap14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(groupCardRadius),
               ),
               elevation: 0,
             ),
             icon: const Icon(Icons.share_rounded, size: 18),
-            label: const Text(
-              'Share Trip',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            label: Text(
+              AppStrings.trips.shareTrip,
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: splitrFontBodyMd),
             ),
           ),
         ),
@@ -336,16 +354,16 @@ class ShareableTripSummaryCard extends StatelessWidget {
   Widget _statTile(String emoji, String label, String value,
       {String? subtitle}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: groupGapSm),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 16)),
+          Text(emoji, style: const TextStyle(fontSize: splitrFontBodyLg)),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
-              fontSize: 10,
+              color: shareCardBorderStrong,
+              fontSize: splitrFontMicro,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -355,7 +373,7 @@ class ShareableTripSummaryCard extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
-              fontSize: 13,
+              fontSize: splitrFontBodySm,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -365,8 +383,8 @@ class ShareableTripSummaryCard extends StatelessWidget {
             Text(
               subtitle,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.35),
-                fontSize: 10,
+                color: shareCardBorderSoft,
+                fontSize: splitrFontMicro,
               ),
             ),
         ],

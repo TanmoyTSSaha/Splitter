@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/AuthScreens/login_screen.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Screen/AuthScreens/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,33 +21,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<_OnboardingPage> _pages = [
+  late final List<_OnboardingPage> _pages = [
     _OnboardingPage(
-      title: "Split Bills Instantly",
-      description:
-          "Effortlessly divide expenses with friends, family, or roommates. No more awkward money conversations.",
+      title: AppStrings.onboarding.page1Title,
+      description: AppStrings.onboarding.page1Desc,
       icon: Icons.group,
-      gradient: [neopopAccent, const Color(0xFF00C9A7)],
+      gradient: [neopopAccent, AppPalette.onboardingTeal],
     ),
     _OnboardingPage(
-      title: "Track Every Penny",
-      description:
-          "Get detailed spending insights, category breakdowns, and monthly recaps to stay on top of your finances.",
+      title: AppStrings.onboarding.page2Title,
+      description: AppStrings.onboarding.page2Desc,
       icon: Icons.insights,
-      gradient: [const Color(0xFF667EEA), const Color(0xFF764BA2)],
+      gradient: [
+        AppPalette.onboardingPurpleStart,
+        AppPalette.onboardingPurpleEnd,
+      ],
     ),
     _OnboardingPage(
-      title: "Settle Up Simply",
-      description:
-          "Smart debt simplification finds the fastest way to settle balances. One tap is all it takes.",
+      title: AppStrings.onboarding.page3Title,
+      description: AppStrings.onboarding.page3Desc,
       icon: Icons.handshake,
-      gradient: [const Color(0xFFF093FB), const Color(0xFFF5576C)],
+      gradient: [
+        AppPalette.onboardingPinkStart,
+        AppPalette.onboardingPinkEnd,
+      ],
     ),
   ];
 
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasSeenOnboarding', true);
+    await prefs.setBool(PrefKeys.hasSeenOnboarding, true);
     Get.offAll(() => const LoginScreen());
   }
 
@@ -53,24 +62,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Scaffold(
-      backgroundColor: neopopBackground,
-      body: SafeArea(
+      backgroundColor: surface,
+      body: Padding(
+        padding: EdgeInsets.only(
+          top: MediaQuery.paddingOf(context).top,
+          bottom: MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           children: [
-            // Skip button
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _completeOnboarding,
                 child: Text(
-                  "Skip",
-                  style: body1_text.copyWith(color: Colors.grey),
+                  AppStrings.actions.skip,
+                  style: body1_text.copyWith(color: groupOnSurfaceMuted),
                 ),
               ),
             ),
-
-            // Page View
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -83,65 +94,65 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
               ),
             ),
-
-            // Dot Indicator
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 _pages.length,
                 (index) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 8,
-                  width: _currentPage == index ? 24 : 8,
+                  duration: AppMotion.nav,
+                  margin: const EdgeInsets.symmetric(horizontal: groupGapXxs),
+                  height: AppDimensions.onboardingDotHeight,
+                  width: _currentPage == index
+                      ? AppDimensions.onboardingDotActiveWidth
+                      : AppDimensions.onboardingDotHeight,
                   decoration: BoxDecoration(
                     color: _currentPage == index
                         ? neopopAccent
-                        : Colors.grey.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(4),
+                        : AppPalette.greyIcon.withOpacity(
+                            AppDimensions.inactiveDotOpacity,
+                          ),
+                    borderRadius: BorderRadius.circular(groupRadiusSm),
                   ),
                 ),
               ),
             ),
-
-            const SizedBox(height: 32),
-
-            // Next / Get Started Button
+            const SizedBox(height: groupGapXl),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(horizontal: groupGapXl),
               child: SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: groupCtaHeight,
                 child: ElevatedButton(
                   onPressed: () {
                     if (_currentPage == _pages.length - 1) {
                       _completeOnboarding();
                     } else {
                       _pageController.nextPage(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeInOut,
+                        duration: AppMotion.slide,
+                        curve: AppCurves.standard,
                       );
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: neopopAccent,
-                    foregroundColor: neopopBackground,
+                    foregroundColor: groupOnSurface,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(groupCardRadius),
                     ),
                     elevation: 0,
                   ),
                   child: Text(
-                    _currentPage == _pages.length - 1 ? "Get Started" : "Next",
+                    _currentPage == _pages.length - 1
+                        ? AppStrings.actions.getStarted
+                        : AppStrings.actions.next,
                     style: sub_headline5_text.copyWith(
-                      color: neopopBackground,
+                      color: groupOnSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
             ),
-
             const SizedBox(height: 40),
           ],
         ),
@@ -151,53 +162,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildPage(_OnboardingPage page) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: groupGapXl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon with gradient background
           Container(
-            height: 140,
-            width: 140,
+            height: AppDimensions.onboardingIconContainer,
+            width: AppDimensions.onboardingIconContainer,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: page.gradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(70),
+              borderRadius: BorderRadius.circular(groupRadiusHero),
               boxShadow: [
                 BoxShadow(
                   color: page.gradient.first.withOpacity(0.4),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
+                  blurRadius: AppDimensions.onboardingShadowBlur,
+                  offset: AppAnimationOffsets.meshShadow,
                 ),
               ],
             ),
             child: Icon(
               page.icon,
-              size: 64,
-              color: Colors.white,
+              size: AppDimensions.onboardingIconSize,
+              color: neopopOnPrimary,
             ),
           ),
-          const SizedBox(height: 48),
-
-          // Title
+          const SizedBox(height: groupCtaHeightCompact),
           Text(
             page.title,
             style: headline2_text.copyWith(
-              color: neopopOnPrimary,
+              color: groupOnSurface,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
-
-          // Description
+          const SizedBox(height: groupGutter),
           Text(
             page.description,
             style: body1_text.copyWith(
-              color: neopopOnPrimary.withOpacity(0.7),
+              color: groupOnSurfaceMuted,
               height: 1.5,
             ),
             textAlign: TextAlign.center,

@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Repository/transaction_repository.dart';
-import 'package:splitter/Services/realtime_service.dart';
-import 'package:splitter/Services/supabase_service.dart';
-import 'package:splitter/Services/sync_service.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Repository/transaction_repository.dart';
+import 'package:splitr/Services/realtime_service.dart';
+import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Services/sync_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 /// Drives the group transactions tab from local Drift cache + remote refresh.
 class TransactionTabController extends GetxController {
@@ -19,8 +21,7 @@ class TransactionTabController extends GetxController {
   final SyncService _syncService = Get.find();
   final RealtimeService _realtimeService = Get.find();
 
-  final consolidatedTransactions =
-      <ConsolidatedGroupTransactionModel>[].obs;
+  final consolidatedTransactions = <ConsolidatedGroupTransactionModel>[].obs;
   final isLoading = true.obs;
   final errorMessage = RxnString();
   final syncStatus = SyncStatus.synced.obs;
@@ -49,9 +50,14 @@ class TransactionTabController extends GetxController {
   Future<void> refresh() async {
     try {
       await _repository.refreshFromServer(groupId);
-    } catch (e) {
-      debugPrint('Transaction refresh error: $e');
-      // Keep showing cached Drift data when offline.
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TransactionTabController.refresh failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'transactions', 'operation': 'refresh'},
+        showToastOnUserFacing: false,
+      );
     }
     await _loadConsolidatedFromLocal();
   }
@@ -74,9 +80,15 @@ class TransactionTabController extends GetxController {
       final consolidated = SupabaseDatabase()
           .getConsolidatedGroupTransactionData(groupTransactionList: models);
       consolidatedTransactions.assignAll(consolidated);
-    } catch (e) {
-      debugPrint('TransactionTabController load error: $e');
-      errorMessage.value = 'Failed to load transactions.';
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'TransactionTabController._loadConsolidatedFromLocal failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'transactions', 'operation': 'loadConsolidatedFromLocal'},
+        showToastOnUserFacing: false,
+      );
+      errorMessage.value = AppStrings.errors.loadTransactions;
     } finally {
       isLoading.value = false;
     }

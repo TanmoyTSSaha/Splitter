@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/insights_navigation.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/theme_accent_colors.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/insights_navigation.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
 
 class InsightsSocialTrustSection extends StatelessWidget {
   final Map<String, dynamic> social;
@@ -15,58 +20,71 @@ class InsightsSocialTrustSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final openExposure = (social['openExposure'] as num?)?.toDouble() ?? 0;
-    final groupCount = social['groupCount'] as int? ?? 0;
-    final payerRatio = (social['payerRatio'] as num?)?.toDouble() ?? 0;
-    final avgDays = social['settlementAvgDays'] as int? ?? 0;
-    final staleAmt = (social['staleBalanceAmount'] as num?)?.toDouble() ?? 0;
-    final staleCount = social['staleBalanceCount'] as int? ?? 0;
+    final openExposure =
+        (social[SocialTrustKeys.openExposure] as num?)?.toDouble() ?? 0;
+    final groupCount = social[SocialTrustKeys.groupCount] as int? ?? 0;
+    final payerRatio =
+        (social[SocialTrustKeys.payerRatio] as num?)?.toDouble() ?? 0;
+    final avgDays = social[SocialTrustKeys.settlementAvgDays] as int? ?? 0;
+    final staleAmt =
+        (social[SocialTrustKeys.staleBalanceAmount] as num?)?.toDouble() ?? 0;
+    final staleCount = social[SocialTrustKeys.staleBalanceCount] as int? ?? 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _row(
           Icons.account_balance_wallet_outlined,
-          'Open exposure',
+          AppStrings.insights.openExposure,
           openExposure > 0
-              ? '$currencySymbol${openExposure.toStringAsFixed(0)} across $groupCount group${groupCount == 1 ? '' : 's'}'
-              : 'All clear — no open balances',
+              ? AppStringFormat.insightsOpenExposure(
+                  currencySymbol,
+                  openExposure.toStringAsFixed(0),
+                  groupCount,
+                )
+              : AppStrings.insights.allClearNoBalances,
           neopopAccent,
           openExposure >= 500
               ? () => InsightsNavigation.handleAction({
-                    'action_type': 'settle_up',
-                    'group_id': social['topGroupId'],
-                    'group_name': social['topGroupName'],
+                    'action_type': InsightActionTypes.settleUp,
+                    UnifiedTxnKeys.groupId: social[SocialTrustKeys.topGroupId],
+                    SupabaseColumns.groupName:
+                        social[SocialTrustKeys.topGroupName],
                   })
               : null,
         ),
         if (payerRatio > 0)
           _row(
             Icons.payments_outlined,
-            'You front group spends',
-            '${payerRatio.toStringAsFixed(0)}% of group expenses this month',
-            neopopYellow,
+            AppStrings.insights.youFrontGroupSpends,
+            AppStringFormat.insightsPayerRatio(
+              payerRatio.toStringAsFixed(0),
+            ),
+            ThemeAccentColors.oweWarning(context),
             null,
           ),
         if (avgDays > 0)
           _row(
             Icons.schedule_outlined,
-            'Settlement speed',
-            'Avg $avgDays days from expense to settle-up',
-            const Color(0xFF2E7D32),
+            AppStrings.insights.settlementSpeed,
+            AppStringFormat.insightsSettlementSpeed(avgDays),
+            neopopSuccess,
             null,
           ),
         if (staleAmt > 0 && staleCount > 0)
           _row(
             Icons.warning_amber_rounded,
-            'Stale balances',
-            '$currencySymbol${staleAmt.toStringAsFixed(0)} unsettled 30+ days',
-            Colors.orangeAccent,
+            AppStrings.insights.staleBalances,
+            AppStringFormat.insightsStaleBalances(
+              currencySymbol,
+              staleAmt.toStringAsFixed(0),
+            ),
+            InsightsChartPalette.orange,
             () => InsightsNavigation.handleAction({
-                  'action_type': 'settle_up',
-                  'group_id': social['topGroupId'],
-                  'group_name': social['topGroupName'],
-                }),
+              'action_type': InsightActionTypes.settleUp,
+              UnifiedTxnKeys.groupId: social[SocialTrustKeys.topGroupId],
+              SupabaseColumns.groupName: social[SocialTrustKeys.topGroupName],
+            }),
           ),
       ],
     );
@@ -90,8 +108,10 @@ class InsightsSocialTrustSection extends StatelessWidget {
         trailing: onTap != null
             ? TextButton(
                 onPressed: onTap,
-                child: Text('Settle',
-                    style: caption_text.copyWith(color: neopopAccent)),
+                child: Text(
+                  AppStrings.insights.settle,
+                  style: caption_text.copyWith(color: neopopAccent),
+                ),
               )
             : null,
       ),

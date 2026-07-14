@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Services/currency_service.dart';
 import 'package:get/get.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Constants/glass_card.dart';
-import 'package:splitter/Constants/shared.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Services/gamification_service.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
+import 'package:splitr/Constants/app_branding.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/glass_card.dart';
+import 'package:splitr/Constants/shared.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/gamification_service.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Services/public_share_link_service.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-
-const Color _lightBg = Color(0xFFFAFAFA);
-const Color _lightBorder = Color(0xFFE0E0E0);
+import 'package:splitr/Constants/app_motion.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_palette.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
+import 'package:splitr/Utils/num_parsing.dart';
+import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
 
 class MonthlyRecapScreen extends StatefulWidget {
-  const MonthlyRecapScreen({Key? key}) : super(key: key);
+  const MonthlyRecapScreen({super.key});
 
   @override
   State<MonthlyRecapScreen> createState() => _MonthlyRecapScreenState();
@@ -43,6 +52,19 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
     super.dispose();
   }
 
+  EdgeInsets _recapSlideInsets({
+    double horizontal = groupGapLg,
+    double vertical = groupGutter,
+  }) {
+    final padding = MediaQuery.paddingOf(context);
+    return EdgeInsets.fromLTRB(
+      horizontal,
+      vertical + padding.top,
+      horizontal,
+      vertical + padding.bottom,
+    );
+  }
+
   Future<void> _loadRecap() async {
     final now = DateTime.now();
     final data = await _gamificationService.generateRecap(now);
@@ -54,22 +76,90 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
     }
   }
 
+  String _trendVsLastMonthLabel() {
+    if (_recapData == null) return AppStrings.recap.unavailableTrend;
+    final totalSpent = asDouble(_recapData![RecapDataKeys.totalSpent]);
+    final lastMonthTotal = asDouble(_recapData![RecapDataKeys.lastMonthTotal]);
+    final month = _recapData![RecapDataKeys.month] as DateTime;
+    if (lastMonthTotal <= 0) return AppStrings.recap.noPriorMonthData;
+    final pct = ((totalSpent - lastMonthTotal) / lastMonthTotal) * 100;
+    final prevMonth = DateFormat(AppDateFormats.monthAbbr)
+        .format(DateTime(month.year, month.month - 1));
+    final sign = pct > 0 ? '+' : '';
+    return AppStringFormat.recapTrendVsMonth(
+      '$sign${pct.toStringAsFixed(0)}',
+      prevMonth,
+    );
+  }
+
+  String _trendPercentLabel() {
+    if (_recapData == null) return AppStrings.recap.unavailableTrend;
+    final totalSpent = asDouble(_recapData![RecapDataKeys.totalSpent]);
+    final lastMonthTotal = asDouble(_recapData![RecapDataKeys.lastMonthTotal]);
+    if (lastMonthTotal <= 0) return AppStrings.recap.unavailableTrend;
+    final pct = ((totalSpent - lastMonthTotal) / lastMonthTotal) * 100;
+    final sign = pct > 0 ? '+' : '';
+    return AppStringFormat.recapSignedPercent('$sign${pct.toStringAsFixed(0)}');
+  }
+
+  bool get _trendIsUp {
+    if (_recapData == null) return false;
+    final totalSpent = asDouble(_recapData![RecapDataKeys.totalSpent]);
+    final lastMonthTotal = asDouble(_recapData![RecapDataKeys.lastMonthTotal]);
+    return totalSpent > lastMonthTotal;
+  }
+
+  Future<void> _shareWebLink() async {
+    if (_recapData == null) return;
+    try {
+      final month = _recapData![RecapDataKeys.month] as DateTime;
+      final url = await PublicShareLinkService().createLink(
+        type: ShareTypes.monthlyRecap,
+        payload: {
+          RecapSharePayloadKeys.totalSpent:
+              _recapData![RecapDataKeys.totalSpent],
+          RecapSharePayloadKeys.monthLabel:
+              DateFormat(AppDateFormats.monthYear).format(month),
+          RecapSharePayloadKeys.trendLabel: _trendVsLastMonthLabel(),
+          RecapSharePayloadKeys.topCategory:
+              _recapData![RecapDataKeys.topCategory],
+        },
+      );
+      if (url == null) return;
+      await Share.share(
+        AppStringFormat.shareWebRecap(url),
+      );
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.recap.errorSharingWeb,
+        error: e,
+        stack: stack,
+      );
+    }
+  }
+
   void _shareSummary() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final imagePath = await _screenshotController.captureAndSave(
         directory.path,
-        fileName: "monthly_recap_${DateTime.now().millisecondsSinceEpoch}.png",
+        fileName: AppStringFormat.recapFilename(
+          DateTime.now().millisecondsSinceEpoch,
+        ),
         pixelRatio: 2.0,
       );
       if (imagePath != null) {
         await Share.shareXFiles(
           [XFile(imagePath)],
-          text: "Here's my spending wrap-up for this month! 🚀 #SplitterApp",
+          text: AppStringFormat.shareImageRecap(),
         );
       }
-    } catch (e) {
-      debugPrint("Error sharing recap: $e");
+    } catch (e, stack) {
+      AppErrorReporter.reportActionFailure(
+        AppStrings.recap.errorSharingImage,
+        error: e,
+        stack: stack,
+      );
     } finally {
       // Don't resume automatically if user is still viewing options, but it's safe to resume here
       // or just leave paused since it's the last slide.
@@ -78,37 +168,36 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: _lightBg,
-        body: Center(child: LoadingWidget()),
+      return Scaffold(
+        backgroundColor: surface,
+        appBar: SplitrDetailAppBar(
+          title: AppStrings.profile.monthlyRecap,
+        ),
+        body: const Center(child: LoadingWidget()),
       );
     }
 
-    if (_recapData == null || (_recapData!['totalSpent'] as double) == 0.0) {
+    if (_recapData == null ||
+        (asDouble(_recapData![RecapDataKeys.totalSpent])) == 0.0) {
       return Scaffold(
-        backgroundColor: _lightBg,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: groupOnSurface),
-            onPressed: () => Get.back(),
-          ),
+        backgroundColor: surface,
+        appBar: SplitrDetailAppBar(
+          title: AppStrings.profile.monthlyRecap,
         ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.receipt_long_outlined,
                 size: 64,
                 color: groupOnSurfaceMuted,
               ),
               const SizedBox(height: 16),
               Text(
-                'No spending data found for this month.',
+                AppStrings.recap.noSpendingData,
                 style: body1_text.copyWith(color: groupOnSurfaceMuted),
                 textAlign: TextAlign.center,
               ),
@@ -118,16 +207,21 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
       );
     }
 
-    final totalSpent = _recapData!['totalSpent'] as double;
-    final lastMonthTotal = _recapData!['lastMonthTotal'] as double;
-    final topCategory = _recapData!['topCategory'] as String;
-    final topCategoryAmount = _recapData!['topCategoryAmount'] as double;
-    final biggestExpenseAmount = _recapData!['biggestExpenseAmount'] as double;
-    final biggestExpenseTitle = _recapData!['biggestExpenseTitle'] as String;
+    final totalSpent = asDouble(_recapData![RecapDataKeys.totalSpent]);
+    final lastMonthTotal = asDouble(_recapData![RecapDataKeys.lastMonthTotal]);
+    final topCategory = _recapData![RecapDataKeys.topCategory] as String;
+    final topCategoryAmount =
+        asDouble(_recapData![RecapDataKeys.topCategoryAmount]);
+    final biggestExpenseAmount =
+        asDouble(_recapData![RecapDataKeys.biggestExpenseAmount]);
+    final biggestExpenseTitle =
+        _recapData![RecapDataKeys.biggestExpenseTitle] as String;
     final biggestExpenseCategory =
-        _recapData!['biggestExpenseCategory'] as String? ?? '-';
-    final biggestExpenseDate = _recapData!['biggestExpenseDate'] as DateTime?;
-    final month = _recapData!['month'] as DateTime;
+        _recapData![RecapDataKeys.biggestExpenseCategory] as String? ??
+            CategoryDefaults.dash;
+    final biggestExpenseDate =
+        _recapData![RecapDataKeys.biggestExpenseDate] as DateTime?;
+    final month = _recapData![RecapDataKeys.month] as DateTime;
 
     double percentChange = 0.0;
     if (lastMonthTotal > 0) {
@@ -135,78 +229,72 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
     }
 
     return Scaffold(
-      backgroundColor: _lightBg,
+      backgroundColor: surface,
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         children: [
           // Slide 1: Custom Recap Card
           Container(
-            color: _lightBg,
+            color: AppPalette.recapLightBg,
             child: _buildNewFirstSlide(
               month: month,
               totalSpent: totalSpent,
               percentChange: percentChange,
               onNext: () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
               onBack: () => Get.back(),
             ),
           ),
 
           // Slide 2: The Big Number
           Container(
-            color: _lightBg,
+            color: AppPalette.recapLightBg,
             child: _buildSecondSlide(
               month: month,
               totalSpent: totalSpent,
               lastMonthTotal: lastMonthTotal,
-              categoryBreakdown:
-                  _recapData!['categoryBreakdown'] as Map<String, double>,
+              categoryBreakdown: _recapData![RecapDataKeys.categoryBreakdown]
+                  as Map<String, double>,
               onNext: () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
               onBack: () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
             ),
           ),
 
           // Slide 3: Category King
           Container(
-            color: _lightBg,
+            color: AppPalette.recapLightBg,
             child: _buildThirdSlide(
               month: month,
               topCategory: topCategory,
               topCategoryAmount: topCategoryAmount,
               totalSpent: totalSpent,
               onNext: () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
               onBack: () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
             ),
           ),
 
           // Slide 4: Spending Habit
           Container(
-            color: _lightBg,
+            color: AppPalette.recapLightBg,
             child: _buildFourthSlide(
               month: month,
-              averageDailySpend: _recapData!['averageDailySpend'] as double,
+              averageDailySpend:
+                  asDouble(_recapData![RecapDataKeys.averageDailySpend]),
               onNext: () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
               onBack: () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
             ),
           ),
 
           // Slide 5: Biggest Payment
           Container(
-            color: _lightBg,
+            color: AppPalette.recapLightBg,
             child: _buildFifthSlide(
               month: month,
               biggestExpenseAmount: biggestExpenseAmount,
@@ -214,25 +302,22 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               biggestExpenseCategory: biggestExpenseCategory,
               biggestExpenseDate: biggestExpenseDate,
               onNext: () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
               onBack: () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
             ),
           ),
 
           // Slide 6: The Summary Card
           Container(
-            color: _lightBg,
+            color: AppPalette.recapLightBg,
             child: _buildFinalSlide(
               totalSpent: totalSpent,
               month: month,
               onNext: () =>
                   Get.back(), // Repurposing next as "close recap" for 6th slide
               onBack: () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
+                  duration: AppMotion.nav, curve: AppCurves.standard),
             ),
           ),
         ],
@@ -248,38 +333,47 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
   }) {
     final curSymbol = Get.isRegistered<CurrencyController>()
         ? Get.find<CurrencyController>().symbol
-        : '₹';
+        : CurrencyService.symbolFor(CurrencyDefaults.code);
 
-    final formattedTotal = NumberFormat('#,##0').format(totalSpent);
+    final formattedTotal =
+        NumberFormat(AppDateFormats.numberGrouped).format(totalSpent);
 
     // Format Date Range
     final firstDay = DateTime(month.year, month.month, 1);
     final lastDay = DateTime(month.year, month.month + 1, 0);
-    final dateRangeStr =
-        "${DateFormat('MMM dd').format(firstDay).toUpperCase()} - ${DateFormat('MMM dd').format(lastDay).toUpperCase()}, ${month.year}";
-    final monthNameTitle = DateFormat('MMMM').format(month).toUpperCase();
+    final dateRangeStr = AppStringFormat.recapDateRange(
+      DateFormat(AppDateFormats.monthAbbrDay).format(firstDay).toUpperCase(),
+      DateFormat(AppDateFormats.monthAbbrDay).format(lastDay).toUpperCase(),
+      month.year,
+    );
+    final monthNameTitle =
+        DateFormat(AppDateFormats.monthName).format(month).toUpperCase();
 
     // Profile data fallback
-    final firstName =
-        "YOUR"; // We can fetch actual first name if available in state, defaulting to YOUR for now
+    const firstName = DisplayFallbacks
+        .your; // We can fetch actual first name if available in state, defaulting to YOUR for now
 
-    return SafeArea(
+    return Padding(
+      padding: EdgeInsets.only(
+        top: MediaQuery.paddingOf(context).top,
+        bottom: MediaQuery.paddingOf(context).bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           children: [
             // Top Area Outside Screenshot
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGapLg, vertical: groupGutter),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Splitr text logo
-                  const Text(
-                    'Splitr.',
+                  Text(
+                    AppBranding.brandLogo,
                     style: TextStyle(
-                      fontFamily: 'Albra',
-                      fontSize: 24,
+                      fontFamily: kFontAlbra,
+                      fontSize: splitrFontHeadline3,
                       fontWeight: FontWeight.w800,
                       color: groupOnSurface,
                       letterSpacing: -0.5,
@@ -288,12 +382,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   GestureDetector(
                     onTap: () => Get.back(),
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(groupGapSm),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: _lightBorder),
+                        border: Border.all(color: AppPalette.recapLightBorder),
                       ),
-                      child: const Icon(Icons.close,
+                      child: const Icon(Icons.arrow_back_ios_new_rounded,
                           color: groupOnSurface, size: 18),
                     ),
                   ),
@@ -307,7 +401,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             GlassCard(
               margin: EdgeInsets.zero,
               opacity: 0.09,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: groupGutter, vertical: groupGapXs),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -321,10 +416,10 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'READY TO SHARE',
+                    AppStrings.recap.readyToShare,
                     style: TextStyle(
-                      fontFamily: 'Courier',
-                      fontSize: 10,
+                      fontFamily: kFontCourier,
+                      fontSize: splitrFontMicro,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
                       color: groupOnSurface,
@@ -340,16 +435,16 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             Screenshot(
               controller: _screenshotController,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
+                margin: const EdgeInsets.symmetric(horizontal: groupGapLg),
                 width: double.infinity,
                 decoration: BoxDecoration(
                     color: Colors.white, // Light theme card
-                    borderRadius: BorderRadius.circular(24),
-                    border:
-                        Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
+                    borderRadius: BorderRadius.circular(groupCardRadiusXl),
+                    border: Border.all(
+                        color: AppPalette.recapLightBorder, width: 1.5),
                     boxShadow: [
                       BoxShadow(
-                        color: groupOnSurface.withOpacity(0.15),
+                        color: groupSurfaceFillMedium,
                         blurRadius: 30,
                         offset: const Offset(0, 15),
                       )
@@ -365,13 +460,13 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         height: 150,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF1DE9B6).withOpacity(0.05),
+                          color: AppPalette.mintAccent.withOpacity(0.05),
                         ),
                       ),
                     ),
 
                     Padding(
-                      padding: const EdgeInsets.all(28.0),
+                      padding: const EdgeInsets.all(groupGap28),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -380,18 +475,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: groupOnSurface.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(4),
+                              color: groupSurfaceFillFaint,
+                              borderRadius:
+                                  BorderRadius.circular(groupRadiusSm),
                               border: Border.all(
-                                color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                                color: groupMutedBorderStrong,
                               ),
                             ),
                             child: Text(
-                              '$firstName $monthNameTitle RECAP',
+                              AppStringFormat.recapNameTitle(
+                                  firstName, monthNameTitle),
                               style: TextStyle(
-                                fontFamily: 'Courier',
+                                fontFamily: kFontCourier,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 10,
+                                fontSize: splitrFontMicro,
                                 letterSpacing: 1.5,
                                 color: groupOnSurface,
                               ),
@@ -409,9 +506,9 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                               const SizedBox(width: 8),
                               Text(
                                 dateRangeStr,
-                                style: const TextStyle(
-                                  fontFamily: 'Courier',
-                                  fontSize: 10,
+                                style: TextStyle(
+                                  fontFamily: kFontCourier,
+                                  fontSize: splitrFontMicro,
                                   letterSpacing: 1.5,
                                   color: groupOnSurfaceMuted,
                                   fontWeight: FontWeight.bold,
@@ -423,11 +520,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                           const SizedBox(height: 32),
 
                           // Main Text
-                          const Text(
-                            "This month\nI spent",
+                          Text(
+                            AppStrings.recap.thisMonthISpent,
                             style: TextStyle(
-                              fontFamily: 'Albra',
-                              fontSize: 36,
+                              fontFamily: kFontAlbra,
+                              fontSize: splitrFontRecapMd,
                               color: groupOnSurface,
                               height: 1.1,
                             ),
@@ -441,38 +538,38 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             children: [
                               Text(
                                 curSymbol,
-                                style: const TextStyle(
-                                  fontFamily: 'Albra',
-                                  fontSize: 40,
+                                style: TextStyle(
+                                  fontFamily: kFontAlbra,
+                                  fontSize: splitrFontRecapLg,
                                   color: groupOnSurfaceMuted,
                                   height: 1.0,
                                 ),
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: groupGapXxs),
                               Text(
                                 formattedTotal,
-                                style: const TextStyle(
-                                  fontFamily: 'Albra',
-                                  fontSize: 56,
+                                style: TextStyle(
+                                  fontFamily: kFontAlbra,
+                                  fontSize: splitrFontSwipeHero,
                                   fontWeight: FontWeight.bold,
                                   color: groupOnSurface, // Dark text
                                   height: 1.0,
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              const Text(
-                                "💸",
-                                style: TextStyle(fontSize: 32),
+                              Text(
+                                AppStrings.recap.moneyEmoji,
+                                style: TextStyle(fontSize: splitrFontHeadline1),
                               )
                             ],
                           ),
 
-                          const SizedBox(height: 48),
+                          const SizedBox(height: groupCtaHeightCompact),
 
                           // Divider
                           Container(
                             height: 1,
-                            color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                            color: groupMutedBorderStrong,
                           ),
 
                           const SizedBox(height: 24),
@@ -485,12 +582,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    "POWERED BY",
+                                  Text(
+                                    AppStrings.recap.poweredBy,
                                     style: TextStyle(
-                                      fontFamily: 'Courier',
+                                      fontFamily: kFontCourier,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 9,
+                                      fontSize: splitrFontNanoSm,
                                       letterSpacing: 2.0,
                                       color: groupOnSurfaceMuted,
                                     ),
@@ -498,11 +595,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      const Text(
-                                        "Splitr",
+                                      Text(
+                                        AppBranding.brandName,
                                         style: TextStyle(
-                                          fontFamily: 'Albra',
-                                          fontSize: 24,
+                                          fontFamily: kFontAlbra,
+                                          fontSize: splitrFontHeadline3,
                                           fontWeight: FontWeight.bold,
                                           color: groupOnSurface,
                                         ),
@@ -513,7 +610,7 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                                         width: 4,
                                         height: 4,
                                         decoration: const BoxDecoration(
-                                          color: Color(0xFF1DE9B6),
+                                          color: AppPalette.mintAccent,
                                           shape: BoxShape.circle,
                                         ),
                                       ),
@@ -527,10 +624,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.transparent,
+                                  color: groupTransparent,
                                   border: Border.all(
                                       color: groupOnSurface, width: 2),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius:
+                                      BorderRadius.circular(groupRadiusSm),
                                 ),
                                 alignment: Alignment.center,
                                 child: const Icon(Icons.qr_code_2,
@@ -549,12 +647,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const SizedBox(height: 32),
 
             // Quote Text
-            Text(
-              "\"Better experiences, better\nrewards, better rules.\"",
+                          Text(
+              AppStrings.recap.tagline,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 16,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontBodyLg,
                 fontStyle: FontStyle.italic,
                 color: groupOnSurface,
                 height: 1.3,
@@ -572,13 +670,13 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     height: 4,
                     decoration: const BoxDecoration(
                         color: groupOnSurfaceMuted, shape: BoxShape.circle)),
-                const SizedBox(width: 4),
+                const SizedBox(width: groupGapXxs),
                 Container(
                     width: 4,
                     height: 4,
                     decoration: const BoxDecoration(
                         color: groupOnSurfaceMuted, shape: BoxShape.circle)),
-                const SizedBox(width: 4),
+                const SizedBox(width: groupGapXxs),
                 Container(
                     width: 4,
                     height: 4,
@@ -591,7 +689,7 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
 
             // Share Recap Button Neopop
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: groupGutter),
               child: GestureDetector(
                 onTap: _shareSummary,
                 child: Stack(
@@ -612,27 +710,28 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     // Button Top layer
                     Container(
                       width: double.infinity,
-                      height: 56,
+                      height: groupCtaHeight,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1DE9B6), // Mint green
+                        color: AppPalette.mintAccent, // Mint green
                         border: Border.all(color: groupOnSurface, width: 2),
                       ),
                       alignment: Alignment.center,
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            "SHARE RECAP",
+                            AppStrings.recap.shareRecap,
                             style: TextStyle(
-                              fontFamily: 'Courier',
-                              fontSize: 16,
+                              fontFamily: kFontCourier,
+                              fontSize: splitrFontBodyLg,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 2.0,
                               color: groupOnSurface,
                             ),
                           ),
                           SizedBox(width: 12),
-                          Icon(Icons.ios_share, color: groupOnSurface, size: 20),
+                          Icon(Icons.ios_share,
+                              color: groupOnSurface, size: 20),
                         ],
                       ),
                     ),
@@ -640,31 +739,39 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: groupGapSm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: groupGutter),
+              child: TextButton.icon(
+                onPressed: _shareWebLink,
+                icon: const Icon(Icons.link_rounded, size: 18),
+                label: Text(AppStrings.recap.shareWebLink),
+              ),
+            ),
 
             const SizedBox(height: 16),
 
             // Download Image Button Ghost
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: groupGapLg),
               child: GestureDetector(
                 onTap: onNext,
                 child: Container(
                   width: double.infinity,
-                  height: 56,
+                  height: groupCtaHeight,
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    border:
-                        Border.all(color: groupOnSurface, width: 1.5),
+                    color: groupTransparent,
+                    border: Border.all(color: groupOnSurface, width: 1.5),
                   ),
                   alignment: Alignment.center,
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "BACK TO PROFILE",
+                        AppStrings.recap.backToProfile,
                         style: TextStyle(
-                          fontFamily: 'Courier',
-                          fontSize: 14,
+                          fontFamily: kFontCourier,
+                          fontSize: splitrFontBody,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2.0,
                           color: groupOnSurface,
@@ -695,27 +802,27 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
   }) {
     final curSymbol = Get.isRegistered<CurrencyController>()
         ? Get.find<CurrencyController>().symbol
-        : '₹';
-    final monthName = DateFormat('MMMM').format(month);
+        : CurrencyService.symbolFor(CurrencyDefaults.code);
+    final monthName = DateFormat(AppDateFormats.monthName).format(month);
     final year = month.year;
-    final formattedTotal = NumberFormat('#,##0').format(totalSpent);
+    final formattedTotal =
+        NumberFormat(AppDateFormats.numberGrouped).format(totalSpent);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-        child: Column(
+    return Padding(
+      padding: _recapSlideInsets(vertical: groupGapLg),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Logo "Splitr." and Close Icon
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Splitr.",
+                          Text(
+                  AppBranding.brandLogo,
                   style: TextStyle(
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                     fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                    fontSize: splitrFontHeadline3,
                     color: groupOnSurface,
                     letterSpacing: 1.0,
                   ),
@@ -723,12 +830,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 GestureDetector(
                   onTap: () => Get.back(),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(groupGapSm),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: _lightBorder),
+                      border: Border.all(color: AppPalette.recapLightBorder),
                     ),
-                    child: const Icon(Icons.close,
+                    child: const Icon(Icons.arrow_back_ios_new_rounded,
                         color: groupOnSurface, size: 18),
                   ),
                 ),
@@ -742,23 +849,23 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               child: Column(
                 children: [
                   Text(
-                    "Your\n$monthName\nRecap",
+                    AppStringFormat.yourMonthRecap(monthName),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Albra',
-                      fontSize: 54,
+                    style: TextStyle(
+                      fontFamily: kFontAlbra,
+                      fontSize: splitrFontRecapDisplay,
                       fontWeight: FontWeight.w800,
                       color: groupOnSurface,
                       height: 1.05,
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
-                    "HERE'S HOW YOUR MONEY MOVED THIS MONTH",
+                  Text(
+                    AppStrings.recap.moneyMovedSubtitle,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontFamily: 'Courier',
-                      fontSize: 10,
+                      fontFamily: kFontCourier,
+                      fontSize: splitrFontMicro,
                       letterSpacing: 2.0,
                       fontWeight: FontWeight.bold,
                       color: groupOnSurfaceMuted,
@@ -768,25 +875,26 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   Container(
                     height: 1,
                     width: 240,
-                    color: _lightBorder,
+                    color: AppPalette.recapLightBorder,
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 48),
+            const SizedBox(height: groupCtaHeightCompact),
 
             // The main card
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(groupGapLg),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.zero,
-                border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
+                border:
+                    Border.all(color: AppPalette.recapLightBorder, width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: groupOnSurface.withOpacity(0.04),
+                    color: groupSurfaceFillWhisper,
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -801,8 +909,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     child: Text(
                       curSymbol,
                       style: const TextStyle(
-                        fontSize: 80,
-                        color: Color(0xFFF5F5F7), // Very faint
+                        fontSize: splitrFontRecapWatermark,
+                        color: AppPalette.recapMutedFill, // Very faint
                         fontWeight: FontWeight.bold,
                         height: 1.0,
                       ),
@@ -818,13 +926,13 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           border: Border.all(
-                              color: _lightBorder, width: 1.0),
+                              color: AppPalette.recapLightBorder, width: 1.0),
                         ),
                         child: Text(
-                          "${monthName.toUpperCase()} $year",
-                          style: const TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 10,
+                          AppStringFormat.monthYearCaps(monthName, year),
+                          style: TextStyle(
+                            fontFamily: kFontCourier,
+                            fontSize: splitrFontMicro,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.5,
                             color: groupOnSurfaceMuted,
@@ -833,11 +941,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      const Text(
-                        "TOTAL SPENT",
+                      Text(
+                        AppStrings.profile.totalSpent,
                         style: TextStyle(
-                          fontFamily: 'Courier',
-                          fontSize: 10,
+                          fontFamily: kFontCourier,
+                          fontSize: splitrFontMicro,
                           letterSpacing: 2.0,
                           fontWeight: FontWeight.bold,
                           color: groupOnSurfaceMuted,
@@ -850,19 +958,19 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         children: [
                           Text(
                             curSymbol,
-                            style: const TextStyle(
-                              fontFamily: 'Albra',
-                              fontSize: 36,
+                            style: TextStyle(
+                              fontFamily: kFontAlbra,
+                              fontSize: splitrFontRecapMd,
                               fontWeight: FontWeight.w600,
                               color: groupOnSurface,
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: groupGapXxs),
                           Text(
                             formattedTotal,
-                            style: const TextStyle(
-                              fontFamily: 'Albra',
-                              fontSize: 54,
+                            style: TextStyle(
+                              fontFamily: kFontAlbra,
+                              fontSize: splitrFontRecapDisplay,
                               fontWeight: FontWeight.bold,
                               color: groupOnSurface,
                               height: 1.0,
@@ -884,14 +992,16 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                           Container(
                             width: 40,
                             height: 4,
-                            color: const Color(0xFFEEEEEE),
+                            color: AppPalette.surfaceMuted,
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            "${percentChange > 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}%",
+                            AppStringFormat.recapSignedPercentFromValue(
+                              percentChange,
+                            ),
                             style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 12,
+                              fontFamily: kFontPoppins,
+                              fontSize: splitrFontCaption,
                               fontWeight: FontWeight.bold,
                               color: percentChange > 0
                                   ? neopopError
@@ -902,19 +1012,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                       ),
 
                       const SizedBox(height: 32),
-                      const Divider(color: Color(0xFFEEEEEE), thickness: 1.5),
+                      const Divider(
+                          color: AppPalette.surfaceMuted, thickness: 1.5),
                       const SizedBox(height: 20),
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              "Your spending patterns\nacross categories.",
+                              AppStrings.recap.spendingPatterns,
                               style: TextStyle(
-                                fontFamily: 'Courier',
-                                fontSize: 11,
+                                fontFamily: kFontCourier,
+                                fontSize: splitrFontCaptionSm,
                                 fontWeight: FontWeight.w600,
                                 color: groupOnSurfaceMuted,
                                 height: 1.4,
@@ -926,8 +1037,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: groupOnSurface, width: 1.5),
+                              border:
+                                  Border.all(color: groupOnSurface, width: 1.5),
                             ),
                             child: const Icon(Icons.arrow_forward_rounded,
                                 color: groupOnSurface, size: 18),
@@ -945,7 +1056,7 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             // Bottom Button
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: groupCtaHeight,
               child: ElevatedButton(
                 onPressed: onNext,
                 style: ElevatedButton.styleFrom(
@@ -954,14 +1065,14 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                       borderRadius: BorderRadius.zero),
                   elevation: 0,
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "VIEW FULL RECAP",
+                      AppStrings.recap.viewFullRecap,
                       style: TextStyle(
-                        fontFamily: 'Courier',
-                        fontSize: 13,
+                        fontFamily: kFontCourier,
+                        fontSize: splitrFontBodySm,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
                         color: groupOnSurface,
@@ -976,7 +1087,6 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -990,16 +1100,17 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
   }) {
     final curSymbol = Get.isRegistered<CurrencyController>()
         ? Get.find<CurrencyController>().symbol
-        : '₹';
+        : CurrencyService.symbolFor(CurrencyDefaults.code);
 
     double percentChange = 0.0;
     if (lastMonthTotal > 0) {
       percentChange = ((totalSpent - lastMonthTotal) / lastMonthTotal) * 100;
     }
 
-    final formattedTotal = NumberFormat('#,##0').format(totalSpent);
-    final prevMonthName =
-        DateFormat('MMMM').format(DateTime(month.year, month.month - 1));
+    final formattedTotal =
+        NumberFormat(AppDateFormats.numberGrouped).format(totalSpent);
+    final prevMonthName = DateFormat(AppDateFormats.monthName)
+        .format(DateTime(month.year, month.month - 1));
 
     // Get Top 2 Categories
     final sortedCategories = categoryBreakdown.entries.toList()
@@ -1008,21 +1119,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
 
     final double maxCategoryAmount = top2.isNotEmpty ? top2.first.value : 1.0;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Column(
+    return Padding(
+      padding: _recapSlideInsets(),
+      child: Column(
           children: [
             // Top App Bar Area
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Splitr.",
+                          Text(
+                  AppBranding.brandLogo,
                   style: TextStyle(
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                     fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                    fontSize: splitrFontHeadline3,
                     color: groupOnSurface,
                     letterSpacing: 1.0,
                   ),
@@ -1030,12 +1140,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 GestureDetector(
                   onTap: () => Get.back(),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(groupGapSm),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: _lightBorder),
+                      border: Border.all(color: AppPalette.recapLightBorder),
                     ),
-                    child: const Icon(Icons.close,
+                    child: const Icon(Icons.arrow_back_ios_new_rounded,
                         color: groupOnSurface, size: 18),
                   ),
                 ),
@@ -1052,12 +1162,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(groupCarouselGap),
                     decoration: BoxDecoration(
-                      color: groupOnSurface.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(16),
+                      color: groupSurfaceFillFaint,
+                      borderRadius: BorderRadius.circular(groupCardRadius),
                       border: Border.all(
-                        color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                        color: groupMutedBorderStrong,
                         width: 1.5,
                       ),
                     ),
@@ -1071,19 +1181,19 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     children: [
                       Text(
                         curSymbol,
-                        style: const TextStyle(
-                          fontFamily: 'Albra',
-                          fontSize: 28,
+                        style: TextStyle(
+                          fontFamily: kFontAlbra,
+                          fontSize: splitrFontHeadline2,
                           color: groupOnSurfaceMuted,
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: groupGapXxs),
                       Text(
                         formattedTotal,
-                        style: const TextStyle(
-                          fontFamily: 'Albra',
-                          fontSize: 52,
+                        style: TextStyle(
+                          fontFamily: kFontAlbra,
+                          fontSize: splitrFontRecapHero,
                           fontWeight: FontWeight.bold,
                           color: neopopAccent,
                           height: 1.0,
@@ -1092,11 +1202,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'TOTAL SPENT THIS MONTH',
+                  Text(
+                    AppStrings.recap.totalSpentThisMonth,
                     style: TextStyle(
-                      fontFamily: 'Courier',
-                      fontSize: 10,
+                      fontFamily: kFontCourier,
+                      fontSize: splitrFontMicro,
                       letterSpacing: 1.5,
                       color: groupOnSurfaceMuted,
                       fontWeight: FontWeight.bold,
@@ -1111,13 +1221,13 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'SPENDING TREND',
+                          Text(
+                            AppStrings.recap.spendingTrend,
                             style: TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: kFontCourier,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.5,
-                              fontSize: 10,
+                              fontSize: splitrFontMicro,
                               color: groupOnSurfaceMuted,
                             ),
                           ),
@@ -1128,14 +1238,17 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                               color: percentChange > 0
                                   ? neopopError
                                   : neopopAccent,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius:
+                                  BorderRadius.circular(groupRadiusSm),
                             ),
                             child: Text(
-                              percentChange > 0 ? 'HIGH' : 'LOW',
-                              style: const TextStyle(
-                                fontFamily: 'Courier',
+                              percentChange > 0
+                                  ? AppStrings.recap.trendHigh
+                                  : AppStrings.recap.trendLow,
+                              style: TextStyle(
+                                fontFamily: kFontCourier,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 10,
+                                fontSize: splitrFontMicro,
                                 color: groupOnSurface,
                               ),
                             ),
@@ -1156,21 +1269,23 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${percentChange > 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}%',
-                              style: const TextStyle(
-                                fontFamily: 'Poppins',
+                              AppStringFormat.recapSignedPercentFromValue(
+                                percentChange,
+                              ),
+                              style: TextStyle(
+                                fontFamily: kFontPoppins,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
+                                fontSize: splitrFontTitle,
                                 color: groupOnSurface,
                                 height: 1.0,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'compared to $prevMonthName',
-                              style: const TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 11,
+                              AppStringFormat.comparedToMonth(prevMonthName),
+                              style: TextStyle(
+                                fontFamily: kFontPoppins,
+                                fontSize: splitrFontCaptionSm,
                                 color: groupOnSurfaceMuted,
                               ),
                             ),
@@ -1182,8 +1297,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         width: double.infinity,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: groupOnSurfaceMuted.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(3),
+                          color: groupMutedBorderHairline,
+                          borderRadius: BorderRadius.circular(groupRadiusXs),
                         ),
                         child: Row(
                           children: [
@@ -1203,7 +1318,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                                   color: percentChange > 0
                                       ? neopopError
                                       : neopopAccent,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius:
+                                      BorderRadius.circular(groupRadiusXs),
                                 ),
                               ),
                             ),
@@ -1233,22 +1349,23 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const SizedBox(height: 32),
 
             // Top Categories Header
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "TOP CATEGORIES",
+                  AppStrings.recap.topCategories,
                   style: TextStyle(
-                    fontFamily: 'Courier',
+                    fontFamily: kFontCourier,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
-                    fontSize: 12,
+                    fontSize: splitrFontCaption,
                     color: groupOnSurfaceMuted,
                   ),
                 ),
-                Text("...",
+                Text(AppStrings.recap.chartEllipsis,
                     style: TextStyle(
-                        color: groupOnSurfaceMuted, fontWeight: FontWeight.bold)),
+                        color: groupOnSurfaceMuted,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
@@ -1258,41 +1375,48 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               ...top2.map((cat) {
                 final val = cat.value;
                 final String shortLabel = val >= 1000
-                    ? '${(val / 1000).toStringAsFixed(1)}k'
+                    ? AppStringFormat.shortAmountK(val)
                     : val.toStringAsFixed(0);
 
                 // Mapping category to icon
                 IconData catIcon = Icons.category_outlined;
-                if (cat.key.toLowerCase().contains('food') ||
-                    cat.key.toLowerCase().contains('dining')) {
+                if (cat.key.toLowerCase().contains(CategorySlugValues.food) ||
+                    cat.key.toLowerCase().contains(CategorySlugValues.dining)) {
                   catIcon = Icons.restaurant;
-                } else if (cat.key.toLowerCase().contains('shop')) {
+                } else if (cat.key
+                    .toLowerCase()
+                    .contains(RecapCategoryKeywords.shop)) {
                   catIcon = Icons.shopping_bag_outlined;
-                } else if (cat.key.toLowerCase().contains('travel') ||
-                    cat.key.toLowerCase().contains('transport')) {
+                } else if (cat.key
+                        .toLowerCase()
+                        .contains(CategorySlugValues.travel) ||
+                    cat.key
+                        .toLowerCase()
+                        .contains(CategorySlugValues.transport)) {
                   catIcon = Icons.directions_car_outlined;
                 }
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
+                  padding: const EdgeInsets.only(bottom: groupGutter),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(groupGap10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF9E9E9E).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppPalette.greyIcon.withOpacity(0.2),
+                          borderRadius:
+                              BorderRadius.circular(groupControlRadiusSm),
                         ),
                         child: Icon(catIcon,
-                            color: const Color(0xFF757575), size: 20),
+                            color: AppPalette.greyIconDark, size: 20),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Container(
                           height: 6,
                           decoration: BoxDecoration(
-                            color: _lightBorder,
-                            borderRadius: BorderRadius.circular(3),
+                            color: AppPalette.recapLightBorder,
+                            borderRadius: BorderRadius.circular(groupRadiusXs),
                           ),
                           alignment: Alignment.centerLeft,
                           child: LayoutBuilder(builder: (context, constraints) {
@@ -1304,8 +1428,9 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             return Container(
                               width: constraints.maxWidth * safePercentage,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF757575),
-                                borderRadius: BorderRadius.circular(3),
+                                color: AppPalette.greyIconDark,
+                                borderRadius:
+                                    BorderRadius.circular(groupRadiusXs),
                               ),
                             );
                           }),
@@ -1317,9 +1442,9 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         child: Text(
                           "$curSymbol$shortLabel",
                           textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 12,
+                          style: TextStyle(
+                            fontFamily: kFontCourier,
+                            fontSize: splitrFontCaption,
                             fontWeight: FontWeight.bold,
                             color: groupOnSurfaceMuted,
                           ),
@@ -1328,15 +1453,15 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     ],
                   ),
                 );
-              }).toList()
+              })
             else
-              const Padding(
-                padding: EdgeInsets.only(bottom: 16.0),
+              Padding(
+                padding: EdgeInsets.only(bottom: groupGutter),
                 child: Text(
-                  "No categorical data available",
+                  AppStrings.recap.noCategoricalData,
                   style: TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 12,
+                    fontFamily: kFontCourier,
+                    fontSize: splitrFontCaption,
                     color: groupOnSurfaceMuted,
                   ),
                 ),
@@ -1365,20 +1490,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   // Button Top layer
                   Container(
                     width: double.infinity,
-                    height: 56,
+                    height: groupCtaHeight,
                     decoration: BoxDecoration(
                       color: neopopAccent, // The light green
                       border: Border.all(color: groupOnSurface, width: 2),
                     ),
                     alignment: Alignment.center,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "NEXT",
+                          AppStrings.recap.next,
                           style: TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 16,
+                            fontFamily: kFontCourier,
+                            fontSize: splitrFontBodyLg,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 2.0,
                             color: groupOnSurface,
@@ -1397,18 +1522,17 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const SizedBox(height: 32),
 
             // Footer
-            const Text(
-              "SECURED BY CRED PROTECT",
+                          Text(
+              AppStrings.recap.securedByCredProtect,
               style: TextStyle(
-                fontFamily: 'Courier',
-                fontSize: 10,
+                fontFamily: kFontCourier,
+                fontSize: splitrFontMicro,
                 color: groupOnSurfaceMuted,
                 letterSpacing: 1.0,
               ),
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1429,42 +1553,45 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
 
     // Map Category to icon and color
     IconData catIcon = Icons.category_outlined;
-    Color accentC = const Color(0xFFFF9800); // Default Orange
+    Color accentC = AppPalette.categoryOrange; // Default Orange
 
     final lowerCat = topCategory.toLowerCase();
-    if (lowerCat.contains('food') || lowerCat.contains('dining')) {
+    if (lowerCat.contains(CategorySlugValues.food) ||
+        lowerCat.contains(CategorySlugValues.dining)) {
       catIcon = Icons.restaurant;
-      accentC = const Color(0xFFFF9800); // Orange
-    } else if (lowerCat.contains('shop')) {
+      accentC = AppPalette.categoryOrange; // Orange
+    } else if (lowerCat.contains(RecapCategoryKeywords.shop)) {
       catIcon = Icons.shopping_bag;
-      accentC = const Color(0xFFE91E63); // Pink
-    } else if (lowerCat.contains('travel') || lowerCat.contains('transport')) {
+      accentC = AppPalette.categoryPink; // Pink
+    } else if (lowerCat.contains(CategorySlugValues.travel) ||
+        lowerCat.contains(CategorySlugValues.transport)) {
       catIcon = Icons.directions_car;
-      accentC = const Color(0xFF2196F3); // Blue
-    } else if (lowerCat.contains('grocery') || lowerCat.contains('groceries')) {
+      accentC = AppPalette.categoryBlue; // Blue
+    } else if (lowerCat.contains(RecapCategoryKeywords.grocery) ||
+        lowerCat.contains(CategorySlugValues.groceries)) {
       catIcon = Icons.local_grocery_store;
-      accentC = const Color(0xFF4CAF50); // Green
-    } else if (lowerCat.contains('bill') || lowerCat.contains('utilit')) {
+      accentC = AppPalette.categoryGreen; // Green
+    } else if (lowerCat.contains(RecapCategoryKeywords.bill) ||
+        lowerCat.contains(RecapCategoryKeywords.utility)) {
       catIcon = Icons.receipt_long;
-      accentC = const Color(0xFF9C27B0); // Purple
+      accentC = AppPalette.categoryPurple; // Purple
     }
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Column(
+    return Padding(
+      padding: _recapSlideInsets(),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top App Bar Area
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Splitr.",
+                          Text(
+                  AppBranding.brandLogo,
                   style: TextStyle(
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                     fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                    fontSize: splitrFontHeadline3,
                     color: groupOnSurface,
                     letterSpacing: 1.0,
                   ),
@@ -1472,12 +1599,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 GestureDetector(
                   onTap: () => Get.back(),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(groupGapSm),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: _lightBorder),
+                      border: Border.all(color: AppPalette.recapLightBorder),
                     ),
-                    child: const Icon(Icons.close,
+                    child: const Icon(Icons.arrow_back_ios_new_rounded,
                         color: groupOnSurface, size: 18),
                   ),
                 ),
@@ -1487,32 +1614,32 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const Spacer(flex: 1),
 
             // Giant Title Area
-            const Text(
-              "Your",
+                          Text(
+              AppStrings.recap.your,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 48,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapXl,
                 fontWeight: FontWeight.w800,
                 color: groupOnSurface,
                 height: 1.1,
               ),
             ),
-            const Text(
-              "favourite",
+                          Text(
+              AppStrings.recap.favourite,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 48,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapXl,
                 fontWeight: FontWeight.w600,
                 fontStyle: FontStyle.italic,
                 color: groupOnSurfaceMuted,
                 height: 1.1,
               ),
             ),
-            const Text(
-              "Category",
+            Text(
+              AppStrings.groups.category,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 52,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapHero,
                 fontWeight: FontWeight.w800,
                 color: groupOnSurface,
                 height: 1.1,
@@ -1528,20 +1655,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               padding: const EdgeInsets.all(groupGapMd),
               child: Column(
                 children: [
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('...',
+                      Text(AppStrings.recap.chartEllipsis,
                           style: TextStyle(
                               color: groupOnSurfaceMuted,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16)),
+                              fontSize: splitrFontBodyLg)),
                       Text(
-                        'SPLITR • ID 8821',
+                        AppStrings.recap.splitrId,
                         style: TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: kFontCourier,
                           color: groupOnSurfaceMuted,
-                          fontSize: 10,
+                          fontSize: splitrFontMicro,
                           letterSpacing: 2.0,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1553,10 +1680,10 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: groupOnSurface.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(20),
+                      color: groupSurfaceFillFaint,
+                      borderRadius: BorderRadius.circular(groupCardRadiusLg),
                       border: Border.all(
-                        color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                        color: groupMutedBorderStrong,
                         width: 1.5,
                       ),
                     ),
@@ -1564,11 +1691,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     child: Icon(catIcon, color: accentC, size: 40),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
-                    'You spent the most on',
+                  Text(
+                    AppStrings.recap.spentMostOn,
                     style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 18,
+                      fontFamily: kFontPoppins,
+                      fontSize: splitrFontSubhead,
                       fontWeight: FontWeight.bold,
                       color: groupOnSurface,
                     ),
@@ -1577,8 +1704,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   Text(
                     topCategory,
                     style: TextStyle(
-                      fontFamily: 'Albra',
-                      fontSize: 28,
+                      fontFamily: kFontAlbra,
+                      fontSize: splitrFontHeadline2,
                       fontWeight: FontWeight.bold,
                       color: accentC,
                     ),
@@ -1596,11 +1723,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'IMPACT',
+                            Text(
+                              AppStrings.recap.impact,
                               style: TextStyle(
-                                fontFamily: 'Courier',
-                                fontSize: 10,
+                                fontFamily: kFontCourier,
+                                fontSize: splitrFontMicro,
                                 letterSpacing: 2.0,
                                 fontWeight: FontWeight.bold,
                                 color: groupOnSurfaceMuted,
@@ -1608,21 +1735,21 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '$impactInt%',
-                              style: const TextStyle(
-                                fontFamily: 'Albra',
-                                fontSize: 32,
+                              AppStringFormat.impactPercent(impactInt),
+                              style: TextStyle(
+                                fontFamily: kFontAlbra,
+                                fontSize: splitrFontHeadline1,
                                 fontWeight: FontWeight.bold,
                                 color: groupOnSurface,
                                 height: 1.0,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Text(
-                              'of your total spend',
+                            Text(
+                              AppStrings.recap.ofTotalSpend,
                               style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 10,
+                                fontFamily: kFontPoppins,
+                                fontSize: splitrFontMicro,
                                 color: groupOnSurfaceMuted,
                               ),
                             ),
@@ -1630,20 +1757,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         ),
                         SizedBox(
                           width: 56,
-                          height: 56,
+                          height: groupCtaHeight,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
                               CircularProgressIndicator(
                                 value: 1.0,
                                 strokeWidth: 8,
-                                color: groupOnSurfaceMuted.withValues(alpha: 0.25),
+                                color: groupMutedBorderHairline,
                               ),
                               CircularProgressIndicator(
                                 value: impactPercentage / 100,
                                 strokeWidth: 8,
                                 color: accentC,
-                                backgroundColor: Colors.transparent,
+                                backgroundColor: groupTransparent,
                                 strokeCap: StrokeCap.round,
                               ),
                               const Center(
@@ -1663,13 +1790,13 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const SizedBox(height: 24),
 
             // Witty remark
-            const Center(
+            Center(
               child: Text(
-                "Your taste is impeccable, just like your credit\nscore.",
+                AppStrings.recap.tasteTagline,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Courier',
-                  fontSize: 11,
+                  fontFamily: kFontCourier,
+                  fontSize: splitrFontCaptionSm,
                   color: groupOnSurfaceMuted,
                   height: 1.4,
                 ),
@@ -1699,20 +1826,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   // Button Top layer
                   Container(
                     width: double.infinity,
-                    height: 56,
+                    height: groupCtaHeight,
                     decoration: BoxDecoration(
                       color: neopopAccent, // The light green
                       border: Border.all(color: groupOnSurface, width: 2),
                     ),
                     alignment: Alignment.center,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "NEXT INSIGHT",
+                          AppStrings.recap.nextInsight,
                           style: TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 16,
+                            fontFamily: kFontCourier,
+                            fontSize: splitrFontBodyLg,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 2.0,
                             color: groupOnSurface,
@@ -1729,7 +1856,6 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1739,17 +1865,17 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
     required VoidCallback onNext,
     required VoidCallback onBack,
   }) {
-    final monthName = DateFormat('MMMM').format(month);
+    final monthName = DateFormat(AppDateFormats.monthName).format(month);
     final curSymbol = Get.isRegistered<CurrencyController>()
         ? Get.find<CurrencyController>().symbol
-        : '₹';
+        : CurrencyService.symbolFor(CurrencyDefaults.code);
 
-    final formattedDaily = NumberFormat('#,##0').format(averageDailySpend);
+    final formattedDaily =
+        NumberFormat(AppDateFormats.numberGrouped).format(averageDailySpend);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Column(
+    return Padding(
+      padding: _recapSlideInsets(),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top App Bar Area
@@ -1757,11 +1883,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Splitr text logo
-                const Text(
-                  'Splitr.',
+                          Text(
+                  AppBranding.brandLogo,
                   style: TextStyle(
-                    fontFamily: 'Albra',
-                    fontSize: 24,
+                    fontFamily: kFontAlbra,
+                    fontSize: splitrFontHeadline3,
                     fontWeight: FontWeight.w800,
                     color: groupOnSurface,
                     letterSpacing: -0.5,
@@ -1770,12 +1896,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 GestureDetector(
                   onTap: () => Get.back(),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(groupGapSm),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: _lightBorder),
+                      border: Border.all(color: AppPalette.recapLightBorder),
                     ),
-                    child: const Icon(Icons.close,
+                    child: const Icon(Icons.arrow_back_ios_new_rounded,
                         color: groupOnSurface, size: 18),
                   ),
                 ),
@@ -1785,25 +1911,25 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const Spacer(flex: 1),
 
             // Giant Title Area
-            const Text(
-              "your spending",
+                          Text(
+              AppStrings.recap.yourSpending,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 48,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapXl,
                 fontWeight: FontWeight.w800,
                 color: groupOnSurface,
                 height: 1.1,
                 letterSpacing: -1.0,
               ),
             ),
-            const Text(
-              "habit.",
+                          Text(
+              AppStrings.recap.habit,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 52,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapHero,
                 fontWeight: FontWeight.w800,
                 fontStyle: FontStyle.italic,
-                color: Color(0xFF1DE9B6), // Mint green
+                color: AppPalette.mintAccent, // Mint green
                 height: 1.1,
               ),
             ),
@@ -1815,14 +1941,14 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 Container(
                   width: 3,
                   height: 14,
-                  color: const Color(0xFF1DE9B6),
+                  color: AppPalette.mintAccent,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  "MONTHLY RECAP • ${monthName.toUpperCase()}",
-                  style: const TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 10,
+                  AppStringFormat.monthlyRecapLabel(monthName),
+                  style: TextStyle(
+                    fontFamily: kFontCourier,
+                    fontSize: splitrFontMicro,
                     letterSpacing: 1.5,
                     fontWeight: FontWeight.bold,
                     color: groupOnSurfaceMuted,
@@ -1878,7 +2004,7 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                           color: neopopAccent,
                           boxShadow: [
                             BoxShadow(
-                              color: neopopAccent.withOpacity(0.4),
+                              color: neopopAccentBorderStrong,
                               blurRadius: 20,
                             ),
                           ],
@@ -1886,9 +2012,9 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         alignment: Alignment.center,
                         child: Text(
                           curSymbol,
-                          style: const TextStyle(
-                            fontFamily: 'Albra',
-                            fontSize: 28,
+                          style: TextStyle(
+                            fontFamily: kFontAlbra,
+                            fontSize: splitrFontHeadline2,
                             fontWeight: FontWeight.bold,
                             color: groupOnSurface,
                           ),
@@ -1902,20 +2028,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         children: [
                           Text(
                             '$curSymbol$formattedDaily',
-                            style: const TextStyle(
-                              fontFamily: 'Albra',
-                              fontSize: 56,
+                            style: TextStyle(
+                              fontFamily: kFontAlbra,
+                              fontSize: splitrFontSwipeHero,
                               fontWeight: FontWeight.bold,
                               color: groupOnSurface,
                               height: 1.0,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            '/day',
+                          const SizedBox(width: groupGapXxs),
+                          Text(
+                            AppStrings.recap.perDay,
                             style: TextStyle(
-                              fontFamily: 'Albra',
-                              fontSize: 20,
+                              fontFamily: kFontAlbra,
+                              fontSize: splitrFontTitle,
                               fontStyle: FontStyle.italic,
                               color: groupOnSurfaceMuted,
                             ),
@@ -1923,11 +2049,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'AVERAGE DAILY SPEND',
+                      Text(
+                        AppStrings.recap.averageDailySpend,
                         style: TextStyle(
-                          fontFamily: 'Courier',
-                          fontSize: 10,
+                          fontFamily: kFontCourier,
+                          fontSize: splitrFontMicro,
                           letterSpacing: 2.0,
                           fontWeight: FontWeight.bold,
                           color: groupOnSurfaceMuted,
@@ -1945,30 +2071,30 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "TREND",
+                          Text(
+                  AppStrings.recap.trend,
                   style: TextStyle(
-                    fontFamily: 'Courier',
+                    fontFamily: kFontCourier,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: splitrFontCaption,
                     letterSpacing: 1.5,
                     color: groupOnSurface,
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: groupGapSm, vertical: groupGapXxs),
                   decoration: BoxDecoration(
-                    color: neopopAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
+                    color: neopopAccentFillLight,
+                    borderRadius: BorderRadius.circular(groupRadiusSm),
                   ),
-                  child: const Text(
-                    '+12% vs Sep',
+                  child: Text(
+                    _trendVsLastMonthLabel(),
                     style: TextStyle(
-                      fontFamily: 'Courier',
-                      fontSize: 10,
+                      fontFamily: kFontCourier,
+                      fontSize: splitrFontMicro,
                       fontWeight: FontWeight.bold,
-                      color: neopopAccent,
+                      color: _trendIsUp ? neopopError : neopopAccent,
                     ),
                   ),
                 ),
@@ -1981,7 +2107,8 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             GlassCard(
               margin: EdgeInsets.zero,
               opacity: 0.06,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              padding: const EdgeInsets.symmetric(
+                  vertical: groupGutter, horizontal: groupGapSm),
               child: SizedBox(
                 height: 100,
                 width: double.infinity,
@@ -1999,7 +2126,7 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                       horizontalInterval: 5,
                       getDrawingHorizontalLine: (value) {
                         return FlLine(
-                          color: groupOnSurfaceMuted.withValues(alpha: 0.25),
+                          color: groupMutedBorderHairline,
                           strokeWidth: 1,
                         );
                       },
@@ -2028,7 +2155,7 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         dotData: const FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: neopopAccent.withOpacity(0.05),
+                          color: neopopAccentFillWhisper,
                         ),
                       ),
                     ],
@@ -2052,22 +2179,22 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Weekend Warrior',
+                        Text(
+                          AppStrings.recap.weekendWarrior,
                           style: TextStyle(
-                            fontFamily: 'Poppins',
+                            fontFamily: kFontPoppins,
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: splitrFontBody,
                             color: groupOnSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Most of your high-value transactions happened on Saturdays and Sundays.',
+                          AppStrings.recap.weekendWarriorDesc,
                           style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            color: groupOnSurfaceMuted.withValues(alpha: 0.8),
+                            fontFamily: kFontPoppins,
+                            fontSize: splitrFontCaptionSm,
+                            color: groupMutedTextFaint,
                             height: 1.3,
                           ),
                         ),
@@ -2101,20 +2228,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   // Button Top layer
                   Container(
                     width: double.infinity,
-                    height: 56,
+                    height: groupCtaHeight,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1DE9B6), // Mint green
+                      color: AppPalette.mintAccent, // Mint green
                       border: Border.all(color: groupOnSurface, width: 2),
                     ),
                     alignment: Alignment.center,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "NEXT INSIGHT",
+                          AppStrings.recap.nextInsight,
                           style: TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 16,
+                            fontFamily: kFontCourier,
+                            fontSize: splitrFontBodyLg,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 2.0,
                             color: groupOnSurface,
@@ -2131,7 +2258,6 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -2146,50 +2272,55 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
   }) {
     final curSymbol = Get.isRegistered<CurrencyController>()
         ? Get.find<CurrencyController>().symbol
-        : '₹';
+        : CurrencyService.symbolFor(CurrencyDefaults.code);
 
-    final formattedAmount = NumberFormat('#,##0').format(biggestExpenseAmount);
+    final formattedAmount =
+        NumberFormat(AppDateFormats.numberGrouped).format(biggestExpenseAmount);
 
     // Process Date string to extract 'FEB' and '12'
-    String tMonth = "N/A";
-    String tDay = "-";
+    String tMonth = DisplayFallbacks.na;
+    String tDay = CategoryDefaults.dash;
     if (biggestExpenseDate != null) {
-      tMonth = DateFormat('MMM').format(biggestExpenseDate).toUpperCase();
+      tMonth = DateFormat(AppDateFormats.monthAbbr)
+          .format(biggestExpenseDate)
+          .toUpperCase();
       tDay = biggestExpenseDate.day.toString();
     }
 
     // Process Category to icon
     IconData catIcon = Icons.category;
     final lowerCat = biggestExpenseCategory.toLowerCase();
-    if (lowerCat.contains('food') || lowerCat.contains('dining')) {
+    if (lowerCat.contains(CategorySlugValues.food) ||
+        lowerCat.contains(CategorySlugValues.dining)) {
       catIcon = Icons.restaurant;
-    } else if (lowerCat.contains('shop')) {
+    } else if (lowerCat.contains(RecapCategoryKeywords.shop)) {
       catIcon = Icons.shopping_bag;
-    } else if (lowerCat.contains('travel') ||
-        lowerCat.contains('transport') ||
-        lowerCat.contains('flight')) {
+    } else if (lowerCat.contains(CategorySlugValues.travel) ||
+        lowerCat.contains(CategorySlugValues.transport) ||
+        lowerCat.contains(RecapCategoryKeywords.flight)) {
       catIcon = Icons.flight_takeoff;
-    } else if (lowerCat.contains('grocery') || lowerCat.contains('groceries')) {
+    } else if (lowerCat.contains(RecapCategoryKeywords.grocery) ||
+        lowerCat.contains(CategorySlugValues.groceries)) {
       catIcon = Icons.local_grocery_store;
-    } else if (lowerCat.contains('bill') || lowerCat.contains('utilit')) {
+    } else if (lowerCat.contains(RecapCategoryKeywords.bill) ||
+        lowerCat.contains(RecapCategoryKeywords.utility)) {
       catIcon = Icons.receipt_long;
     }
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Column(
+    return Padding(
+      padding: _recapSlideInsets(),
+      child: Column(
           children: [
             // Top App Bar Area
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Splitr.",
+                          Text(
+                  AppBranding.brandLogo,
                   style: TextStyle(
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                     fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                    fontSize: splitrFontHeadline3,
                     color: groupOnSurface,
                     letterSpacing: 1.0,
                   ),
@@ -2197,12 +2328,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                 GestureDetector(
                   onTap: () => Get.back(),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(groupGapSm),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: _lightBorder),
+                      border: Border.all(color: AppPalette.recapLightBorder),
                     ),
-                    child: const Icon(Icons.close,
+                    child: const Icon(Icons.arrow_back_ios_new_rounded,
                         color: groupOnSurface, size: 18),
                   ),
                 ),
@@ -2212,21 +2343,21 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             const SizedBox(height: 32),
 
             // Giant Title Area
-            const Text(
-              "Biggest",
+                          Text(
+              AppStrings.recap.biggest,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 48,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapXl,
                 fontWeight: FontWeight.w800,
                 color: groupOnSurface,
                 height: 1.1,
               ),
             ),
-            const Text(
-              "Payment",
+                          Text(
+              AppStrings.recap.payment,
               style: TextStyle(
-                fontFamily: 'Albra',
-                fontSize: 52,
+                fontFamily: kFontAlbra,
+                fontSize: splitrFontRecapHero,
                 fontWeight: FontWeight.w800,
                 color: groupOnSurface,
                 height: 1.1,
@@ -2242,11 +2373,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
               padding: const EdgeInsets.all(groupGapMd),
               child: Column(
                 children: [
-                  const Text(
-                    'TOTAL SPENT',
+                  Text(
+                    AppStrings.profile.totalSpent,
                     style: TextStyle(
-                      fontFamily: 'Courier',
-                      fontSize: 10,
+                      fontFamily: kFontCourier,
+                      fontSize: splitrFontMicro,
                       letterSpacing: 2.0,
                       color: groupOnSurfaceMuted,
                       fontWeight: FontWeight.bold,
@@ -2259,19 +2390,19 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     children: [
                       Text(
                         curSymbol,
-                        style: const TextStyle(
-                          fontFamily: 'Albra',
-                          fontSize: 28,
+                        style: TextStyle(
+                          fontFamily: kFontAlbra,
+                          fontSize: splitrFontHeadline2,
                           color: groupOnSurfaceMuted,
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: groupGapXxs),
                       Text(
                         formattedAmount,
-                        style: const TextStyle(
-                          fontFamily: 'Albra',
-                          fontSize: 56,
+                        style: TextStyle(
+                          fontFamily: kFontAlbra,
+                          fontSize: splitrFontSwipeHero,
                           fontWeight: FontWeight.bold,
                           color: groupOnSurface,
                           height: 1.0,
@@ -2280,11 +2411,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Biggest payment you made',
+                  Text(
+                    AppStrings.recap.biggestPaymentMade,
                     style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
+                      fontFamily: kFontPoppins,
+                      fontSize: splitrFontBodySm,
                       color: groupOnSurfaceMuted,
                     ),
                   ),
@@ -2298,12 +2429,13 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                       children: [
                         Container(
                           width: 48,
-                          height: 48,
+                          height: groupCtaHeightCompact,
                           decoration: BoxDecoration(
-                            color: groupOnSurface.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(12),
+                            color: groupSurfaceFillFaint,
+                            borderRadius:
+                                BorderRadius.circular(groupControlRadius),
                             border: Border.all(
-                              color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                              color: groupMutedBorderStrong,
                               width: 1.0,
                             ),
                           ),
@@ -2317,10 +2449,10 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             children: [
                               Text(
                                 biggestExpenseTitle,
-                                style: const TextStyle(
-                                  fontFamily: 'Albra',
+                                style: TextStyle(
+                                  fontFamily: kFontAlbra,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 18,
+                                  fontSize: splitrFontSubhead,
                                   color: groupOnSurface,
                                 ),
                                 maxLines: 2,
@@ -2328,10 +2460,12 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '$biggestExpenseCategory • SPLITR',
-                                style: const TextStyle(
-                                  fontFamily: 'Courier',
-                                  fontSize: 10,
+                                AppStringFormat.categoryWithBrand(
+                                  biggestExpenseCategory,
+                                ),
+                                style: TextStyle(
+                                  fontFamily: kFontCourier,
+                                  fontSize: splitrFontMicro,
                                   color: groupOnSurfaceMuted,
                                   letterSpacing: 1.0,
                                 ),
@@ -2346,10 +2480,11 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            color: groupTransparent,
+                            borderRadius:
+                                BorderRadius.circular(groupControlRadiusSm),
                             border: Border.all(
-                              color: groupOnSurfaceMuted.withValues(alpha: 0.35),
+                              color: groupMutedBorderStrong,
                               width: 1.0,
                             ),
                           ),
@@ -2357,9 +2492,9 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                             children: [
                               Text(
                                 tMonth,
-                                style: const TextStyle(
-                                  fontFamily: 'Courier',
-                                  fontSize: 9,
+                                style: TextStyle(
+                                  fontFamily: kFontCourier,
+                                  fontSize: splitrFontNanoSm,
                                   color: groupOnSurfaceMuted,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -2367,9 +2502,9 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 tDay,
-                                style: const TextStyle(
-                                  fontFamily: 'Albra',
-                                  fontSize: 16,
+                                style: TextStyle(
+                                  fontFamily: kFontAlbra,
+                                  fontSize: splitrFontBodyLg,
                                   fontWeight: FontWeight.bold,
                                   color: groupOnSurface,
                                 ),
@@ -2394,30 +2529,35 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                     margin: EdgeInsets.zero,
                     opacity: 0.06,
                     padding: const EdgeInsets.all(groupGapMd),
-                    child: const Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'vs Last Month',
+                          AppStrings.recap.vsLastMonth,
                           style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 12,
+                            fontFamily: kFontPoppins,
+                            fontSize: splitrFontCaption,
                             color: groupOnSurfaceMuted,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Row(
                           children: [
-                            Icon(Icons.trending_up,
-                                color: neopopAccent, size: 16),
-                            SizedBox(width: 8),
+                            Icon(
+                              _trendIsUp
+                                  ? Icons.trending_up
+                                  : Icons.trending_down,
+                              color: _trendIsUp ? neopopError : neopopAccent,
+                              size: groupIconMd,
+                            ),
+                            const SizedBox(width: 8),
                             Text(
-                              '+12%',
+                              _trendPercentLabel(),
                               style: TextStyle(
-                                fontFamily: 'Albra',
+                                fontFamily: kFontAlbra,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                                color: neopopAccent,
+                                fontSize: splitrFontTitle,
+                                color: _trendIsUp ? neopopError : neopopAccent,
                               ),
                             ),
                           ],
@@ -2431,15 +2571,15 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   child: GlassCard(
                     margin: EdgeInsets.zero,
                     opacity: 0.06,
-                    padding: const EdgeInsets.all(groupGapMd),
-                    child: const Column(
+                    padding: EdgeInsets.all(groupGapMd),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Category Rank',
+                          AppStrings.recap.categoryRank,
                           style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 12,
+                            fontFamily: kFontPoppins,
+                            fontSize: splitrFontCaption,
                             color: groupOnSurfaceMuted,
                           ),
                         ),
@@ -2447,14 +2587,14 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                         Row(
                           children: [
                             Icon(Icons.emoji_events,
-                                color: Colors.amber, size: 16),
+                                color: Colors.amber, size: splitrFontBodyLg),
                             SizedBox(width: 8),
                             Text(
-                              '#1',
+                              AppStrings.recap.rankFirst,
                               style: TextStyle(
-                                fontFamily: 'Albra',
+                                fontFamily: kFontAlbra,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
+                                fontSize: splitrFontTitle,
                                 color: groupOnSurface,
                               ),
                             ),
@@ -2490,20 +2630,20 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
                   // Button Top layer
                   Container(
                     width: double.infinity,
-                    height: 56,
+                    height: groupCtaHeight,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1DE9B6), // Mint green
+                      color: AppPalette.mintAccent, // Mint green
                       border: Border.all(color: groupOnSurface, width: 2),
                     ),
                     alignment: Alignment.center,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "SEE SUMMARY",
+                          AppStrings.recap.seeSummary,
                           style: TextStyle(
-                            fontFamily: 'Courier',
-                            fontSize: 16,
+                            fontFamily: kFontCourier,
+                            fontSize: splitrFontBodyLg,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 2.0,
                             color: groupOnSurface,
@@ -2520,7 +2660,6 @@ class _MonthlyRecapScreenState extends State<MonthlyRecapScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

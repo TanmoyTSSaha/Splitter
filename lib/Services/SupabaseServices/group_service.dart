@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_keys.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:splitter/Model/group_model.dart';
-import 'package:splitter/Model/group_invite_model.dart';
-import 'package:splitter/Services/currency_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
+import 'package:splitr/Model/group_model.dart';
+import 'package:splitr/Model/group_invite_model.dart';
+import 'package:splitr/Services/currency_service.dart';
+import 'package:splitr/Utils/transaction_date_formatter.dart';
 
 class GroupService {
   final supabase = Supabase.instance.client;
@@ -13,14 +16,19 @@ class GroupService {
   }) async {
     try {
       await supabase.rpc(
-        'add_group_members',
+        SupabaseRpc.addGroupMembers,
         params: {
           'p_group_id': groupID,
           'p_user_ids': memberIDs,
         },
       );
-    } catch (e) {
-      debugPrint("ADD MEMBER EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.addMembersToGroup failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'addMembersToGroup'},
+      );
       rethrow;
     }
   }
@@ -28,8 +36,10 @@ class GroupService {
   Future<List<GroupMembers>> getGroupMembersData(
       {required String userID}) async {
     try {
-      final groupMemberData =
-          await supabase.from("group_members").select().eq("user_id", userID);
+      final groupMemberData = await supabase
+          .from(SupabaseTables.groupMembers)
+          .select()
+          .eq("user_id", userID);
 
       List<GroupMembers> groupMembersDetails = [];
 
@@ -38,11 +48,13 @@ class GroupService {
       }
 
       return groupMembersDetails;
-    } catch (e) {
-      debugPrint("GROUP MEMBER EXCEPTION: $e");
-      if (e is PostgrestException) {
-        debugPrint("Postgrest Details: ${e.details} Code: ${e.code}");
-      }
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.getGroupMembersData failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'getGroupMembersData'},
+      );
       List<GroupMembers> groupMembersDetails = [];
       return groupMembersDetails;
     }
@@ -63,7 +75,7 @@ class GroupService {
 
       // 1. Fetch Groups
       final groupData = await supabase
-          .from("groups")
+          .from(SupabaseTables.groups)
           .select()
           .inFilter('group_id', groupIDs)
           .order('updated_on', ascending: false)
@@ -71,7 +83,7 @@ class GroupService {
 
       // 2. Fetch Trip Metadata to identify which groups are actually trips
       final tripData = await supabase
-          .from("trip_metadata")
+          .from(SupabaseTables.tripMetadata)
           .select("group_id")
           .inFilter('group_id', groupIDs);
 
@@ -104,11 +116,13 @@ class GroupService {
       }
 
       return groupModelData;
-    } catch (e) {
-      debugPrint("GROUPS EXCEPTION: $e");
-      if (e is PostgrestException) {
-        debugPrint("Postgrest Details: ${e.details} Code: ${e.code}");
-      }
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.getGroupData failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'getGroupData'},
+      );
       List<GroupModel> groupModelData = [];
       return groupModelData;
     }
@@ -117,8 +131,10 @@ class GroupService {
   Future<List<GroupMembersWithNameModel>> getGroupMembers(
       {required String groupID, required String currentUserID}) async {
     // Single query: join group_members with users via foreign key
-    final groupMembersRawData =
-        await supabase.from("group_members").select().eq("group_id", groupID);
+    final groupMembersRawData = await supabase
+        .from(SupabaseTables.groupMembers)
+        .select()
+        .eq("group_id", groupID);
 
     if (groupMembersRawData.isEmpty) return [];
 
@@ -127,7 +143,7 @@ class GroupService {
         groupMembersRawData.map<String>((e) => e["user_id"] as String).toList();
 
     final groupMembersNameData = await supabase
-        .from("users")
+        .from(SupabaseTables.users)
         .select("user_id, firstname, lastname, profile_picture_url")
         .inFilter("user_id", userIDs);
 
@@ -165,7 +181,7 @@ class GroupService {
       {required String userID}) async {
     // Fetch group IDs for user
     final memberRows = await supabase
-        .from("group_members")
+        .from(SupabaseTables.groupMembers)
         .select("group_id")
         .eq("user_id", userID);
 
@@ -177,7 +193,7 @@ class GroupService {
 
     // Single query for group details
     final groupData = await supabase
-        .from("groups")
+        .from(SupabaseTables.groups)
         .select("group_id, group_name")
         .inFilter("group_id", distinctGroupIDs);
 
@@ -189,7 +205,7 @@ class GroupService {
       {required String groupID}) async {
     try {
       final groupData = await supabase
-          .from("groups")
+          .from(SupabaseTables.groups)
           .select("group_balance")
           .eq("group_id", groupID)
           .single();
@@ -210,8 +226,13 @@ class GroupService {
       }
 
       return balances;
-    } catch (e) {
-      debugPrint("GET GROUP BALANCES EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.getGroupBalancesForSettleUp failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'getGroupBalancesForSettleUp'},
+      );
       return [];
     }
   }
@@ -223,6 +244,7 @@ class GroupService {
     required String toUserID,
     required double amount,
     required String currency,
+    DateTime? transactionDate,
   }) async {
     try {
       // Step 1: Insert settlement transaction
@@ -231,8 +253,10 @@ class GroupService {
 
       final double exchangeRate =
           await CurrencyService().getExchangeRateToInr(currency);
+      final txInstant =
+          transactionDate ?? TransactionDateFormatter.nowForTransaction();
 
-      await supabase.from("group_transaction").insert({
+      await supabase.from(SupabaseTables.groupTransaction).insert({
         "transaction_group_id": transactionGroupID,
         "group_id": groupID,
         "paid_by": fromUserID,
@@ -242,19 +266,20 @@ class GroupService {
         "shared_percentage": 100.0,
         "self_share_amount": 0.0,
         "self_share_percentage": 0.0,
-        "sharing_type": "settlement",
-        "category": "Settlement",
-        "description": "Settlement payment",
+        "sharing_type": SharingTypeValues.settlement,
+        "category": CategoryDefaults.settlement,
+        "description": CategoryDefaults.settlementPayment,
         "currency": currency,
         "exchange_rate_to_inr": exchangeRate,
         "is_settled_up": true,
-        "transaction_date": DateTime.now().toIso8601String(),
+        "transaction_date":
+            TransactionDateFormatter.toStorageIso(txInstant),
       });
 
       // Step 2: Update group_balance JSONB
       // Fetch current balances
       final groupData = await supabase
-          .from("groups")
+          .from(SupabaseTables.groups)
           .select("group_balance")
           .eq("group_id", groupID)
           .single();
@@ -298,12 +323,17 @@ class GroupService {
       }
 
       // Write updated balances back
-      await supabase.from("groups").update({
+      await supabase.from(SupabaseTables.groups).update({
         "group_balance": updatedBalances,
         "updated_on": DateTime.now().toIso8601String(),
       }).eq("group_id", groupID);
-    } catch (e) {
-      debugPrint("RECORD SETTLEMENT EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.recordSettlement failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'recordSettlement'},
+      );
       rethrow;
     }
   }
@@ -321,35 +351,40 @@ class GroupService {
 
       // Check if already member
       final memberCheck = await supabase
-          .from('group_members')
+          .from(SupabaseTables.groupMembers)
           .select()
           .eq('group_id', groupID)
           .eq('user_id', invitedUserID);
 
       if (memberCheck.isNotEmpty) {
-        throw "User is already a member of this group.";
+        throw ServiceErrors.alreadyGroupMember;
       }
 
       // Check if invite already exists (pending)
       final existingInvite = await supabase
-          .from('group_invites')
+          .from(SupabaseTables.groupInvites)
           .select()
           .eq('group_id', groupID)
           .eq('invited_user_id', invitedUserID)
-          .eq('status', 'pending');
+          .eq(SupabaseColumns.status, FriendStatusValues.pending);
 
       if (existingInvite.isNotEmpty) {
-        throw "Invite already sent.";
+        throw ServiceErrors.inviteAlreadySent;
       }
 
-      await supabase.from('group_invites').insert({
+      await supabase.from(SupabaseTables.groupInvites).insert({
         'group_id': groupID,
         'invited_by': currentUserID,
         'invited_user_id': invitedUserID,
-        'status': 'pending',
+        'status': FriendStatusValues.pending,
       });
-    } catch (e) {
-      debugPrint("SEND INVITE EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.sendGroupInvite failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'sendGroupInvite'},
+      );
       rethrow;
     }
   }
@@ -359,10 +394,10 @@ class GroupService {
       {required String userID}) async {
     try {
       final response = await supabase
-          .from('group_invites')
+          .from(SupabaseTables.groupInvites)
           .select()
           .eq('invited_user_id', userID)
-          .eq('status', 'pending')
+          .eq(SupabaseColumns.status, FriendStatusValues.pending)
           .order('created_at', ascending: false);
 
       if (response.isEmpty) return [];
@@ -378,11 +413,11 @@ class GroupService {
 
       final lookups = await Future.wait([
         supabase
-            .from('groups')
+            .from(SupabaseTables.groups)
             .select('group_id, group_name')
             .inFilter('group_id', groupIds),
         supabase
-            .from('users')
+            .from(SupabaseTables.users)
             .select('user_id, user_name')
             .inFilter('user_id', inviterIds),
       ]);
@@ -396,7 +431,7 @@ class GroupService {
       final inviterNameById = <String, String>{};
       for (final user in lookups[1] as List) {
         inviterNameById[user['user_id'] as String] =
-            user['user_name'] as String? ?? 'Someone';
+            user['user_name'] as String? ?? DisplayFallbacks.someone;
       }
 
       return response.map((item) {
@@ -413,11 +448,13 @@ class GroupService {
           inviterName: inviterNameById[invitedBy],
         );
       }).toList();
-    } catch (e) {
-      debugPrint("GET INVITES EXCEPTION: $e");
-      if (e is PostgrestException) {
-        debugPrint("Postgrest Details: ${e.details} Code: ${e.code}");
-      }
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.getPendingInvites failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'getPendingInvites'},
+      );
       return [];
     }
   }
@@ -428,12 +465,17 @@ class GroupService {
     required bool accept,
   }) async {
     try {
-      await supabase.rpc('respond_to_group_invite', params: {
+      await supabase.rpc(SupabaseRpc.respondToGroupInvite, params: {
         'p_invite_id': inviteID,
         'p_accept': accept,
       });
-    } catch (e) {
-      debugPrint("RESPOND INVITE EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.respondToInvite failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'respondToInvite'},
+      );
       rethrow;
     }
   }
@@ -448,12 +490,16 @@ class GroupService {
     required Map<String, double> splits, // Map of UserID -> Amount Owed
     required String currency,
     String? note, // New optional parameter
-    String sharingType = 'evenly',
+    String sharingType = SharingTypeValues.evenly,
+    DateTime? transactionDate,
   }) async {
     try {
       final transactionGroupID =
           "${groupID}_${DateTime.now().millisecondsSinceEpoch}";
-      final transactionDate = DateTime.now().toIso8601String();
+      final txInstant =
+          transactionDate ?? TransactionDateFormatter.nowForTransaction();
+      final transactionDateIso =
+          TransactionDateFormatter.toStorageIso(txInstant);
 
       // Fetch exchange rate once for all rows in this transaction
       final double exchangeRate =
@@ -488,7 +534,7 @@ class GroupService {
             "currency": currency,
             "exchange_rate_to_inr": exchangeRate,
             "is_settled_up": false,
-            "transaction_date": transactionDate,
+            "transaction_date": transactionDateIso,
           });
         }
       });
@@ -513,16 +559,18 @@ class GroupService {
           "currency": currency,
           "exchange_rate_to_inr": exchangeRate,
           "is_settled_up": true, // Self expense is settled?
-          "transaction_date": transactionDate,
+          "transaction_date": transactionDateIso,
         });
       }
 
-      await supabase.from("group_transaction").insert(transactionRows);
+      await supabase
+          .from(SupabaseTables.groupTransaction)
+          .insert(transactionRows);
 
       // 3. Update Group Balances
       // Fetch current balances
       final groupData = await supabase
-          .from("groups")
+          .from(SupabaseTables.groups)
           .select("group_balance")
           .eq("group_id", groupID)
           .single();
@@ -606,12 +654,17 @@ class GroupService {
       });
 
       // Write updated balances
-      await supabase.from("groups").update({
+      await supabase.from(SupabaseTables.groups).update({
         "group_balance": currentBalances,
         "updated_on": DateTime.now().toIso8601String(),
       }).eq("group_id", groupID);
-    } catch (e) {
-      debugPrint("ADD EXPENSE EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.addGroupExpense failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'addGroupExpense'},
+      );
       rethrow;
     }
   }
@@ -620,14 +673,14 @@ class GroupService {
   Future<GroupModel?> getGroupModel(String groupID) async {
     try {
       final groupData = await supabase
-          .from("groups")
+          .from(SupabaseTables.groups)
           .select()
           .eq("group_id", groupID)
           .single();
 
       // Check if it's a trip
       final tripCheck = await supabase
-          .from("trip_metadata")
+          .from(SupabaseTables.tripMetadata)
           .select("group_id")
           .eq("group_id", groupID)
           .maybeSingle();
@@ -649,8 +702,13 @@ class GroupService {
       groupData["is_trip"] = tripCheck != null;
 
       return GroupModel.fromJSON(groupData);
-    } catch (e) {
-      debugPrint("GET GROUP MODEL EXCEPTION: $e");
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.getGroupModel failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'getGroupModel'},
+      );
       return null;
     }
   }
@@ -675,8 +733,13 @@ class GroupService {
         }
       }
       return null;
-    } catch (e) {
-      debugPrint('FIND DIRECT SPLIT GROUP EXCEPTION: $e');
+    } catch (e, stack) {
+      AppErrorReporter.report(
+        'GroupService.findDirectSplitGroupId failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'groups', 'operation': 'findDirectSplitGroupId'},
+      );
       return null;
     }
   }
@@ -696,20 +759,21 @@ class GroupService {
       if (model != null) return model;
     }
 
-    final result = await supabase.rpc('create_group_with_member', params: {
-      'p_group_name': 'Split with $friendName',
+    final result =
+        await supabase.rpc(SupabaseRpc.createGroupWithMember, params: {
+      'p_group_name': '${GroupCopyExtras.splitWithPrefix}$friendName',
     });
 
     final groupId = result['group_id'] as String;
 
-    await supabase.rpc('add_group_members', params: {
+    await supabase.rpc(SupabaseRpc.addGroupMembers, params: {
       'p_group_id': groupId,
       'p_user_ids': [friendUserId],
     });
 
     final model = await getGroupModel(groupId);
     if (model == null) {
-      throw 'Could not load new split group';
+      throw ServiceErrors.couldNotLoadSplitGroup;
     }
     return model;
   }

@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Model/group_model.dart';
+
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_motion.dart';
+
+import 'package:splitr/Constants/app_palette.dart';
+
+import 'package:splitr/Constants/app_strings.dart';
+
+import 'package:splitr/Constants/constants.dart';
+
+import 'package:splitr/Constants/domain_values.dart';
+
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+
+import 'package:splitr/Model/group_model.dart';
 
 class ActiveGroupCard extends StatelessWidget {
   final GroupModel groupModel;
+
   final VoidCallback onTap;
 
   const ActiveGroupCard({
@@ -15,22 +29,26 @@ class ActiveGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Determine color and icon based on group name or type (fallback for now)
+
     final Color cardColor = _getGroupColor(groupModel.groupName ?? "");
+
     final IconData cardIcon = _getGroupIcon(groupModel.groupName ?? "");
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(16),
+        width: groupCarouselCardWidth,
+        padding: const EdgeInsets.all(groupGutter),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(groupCardRadius),
           boxShadow: [
             BoxShadow(
-              color: cardColor.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: cardColor.withValues(
+                alpha: AppDimensions.cardShadowColorOpacity,
+              ),
+              blurRadius: AppDimensions.groupCardShadowBlur,
+              offset: AppAnimationOffsets.cardShadow,
             ),
           ],
         ),
@@ -42,43 +60,43 @@ class ActiveGroupCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(groupGapSm),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: shareCardFillMedium,
                     shape: BoxShape.circle,
                   ),
                   child: const CircleAvatar(
-                    radius: 4,
+                    radius: AppDimensions.activeGroupDotRadius,
                     backgroundColor: neopopPrimary,
                   ),
                 ),
                 Icon(
                   cardIcon,
-                  color: Colors.white.withOpacity(0.5),
-                  size: 24,
+                  color: shareCardTextMuted,
+                  size: groupCarouselIconLg,
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: groupGap20),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "MONTHLY",
+                  AppStrings.premium.monthly.toUpperCase(),
                   style: caption_text.copyWith(
-                    color: Colors.white.withOpacity(0.7),
+                    color: shareCardTextFaint,
                     fontStyle: FontStyle.normal,
                     fontWeight: FontWeight.bold,
-                    fontSize: 8,
+                    fontSize: splitrFontNano,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: groupGapXxs),
                 Text(
-                  groupModel.groupName ?? "Untitled Group",
+                  groupModel.groupName ?? DisplayFallbacks.untitledGroup,
                   style: sub_headline5_text.copyWith(
-                    color: Colors.white,
+                    color: shareCardOnSurface,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'Albra',
+                    fontFamily: kFontAlbra,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -93,21 +111,38 @@ class ActiveGroupCard extends StatelessWidget {
 
   Color _getGroupColor(String name) {
     final lowerName = name.toLowerCase();
-    if (lowerName.contains("apartment") || lowerName.contains("rent"))
-      return const Color(0xFF1E1E1E);
-    if (lowerName.contains("dining") || lowerName.contains("food"))
+
+    if (lowerName.contains(CategorySlugValues.apartment) ||
+        lowerName.contains(CategorySlugValues.rent)) {
+      return AppPalette.cardDarkFill;
+    }
+
+    if (lowerName.contains(CategorySlugValues.dining) ||
+        lowerName.contains(CategorySlugValues.food)) {
       return neopopAccent;
-    if (lowerName.contains("trip") || lowerName.contains("travel"))
-      return Colors.blueAccent;
-    return neopopSecondaryGrey;
+    }
+
+    if (lowerName.contains(CategorySlugValues.trip) ||
+        lowerName.contains(CategorySlugValues.travel)) {
+      return CategoryMaterialColors.blue;
+    }
+
+    return AppPalette.cardDarkFill;
   }
 
   IconData _getGroupIcon(String name) {
     final lowerName = name.toLowerCase();
-    if (lowerName.contains("apartment") || lowerName.contains("rent"))
+
+    if (lowerName.contains(CategorySlugValues.apartment) ||
+        lowerName.contains(CategorySlugValues.rent)) {
       return Icons.home_rounded;
-    if (lowerName.contains("dining") || lowerName.contains("food"))
+    }
+
+    if (lowerName.contains(CategorySlugValues.dining) ||
+        lowerName.contains(CategorySlugValues.food)) {
       return Icons.restaurant_rounded;
+    }
+
     return Icons.group_rounded;
   }
 }

@@ -1,7 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/business_rules.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 
 /// Smooth line chart with gradient fill showing monthly group spending trends.
 class SpendingTrendsChart extends StatelessWidget {
@@ -17,8 +21,8 @@ class SpendingTrendsChart extends StatelessWidget {
     if (monthlyTrends.isEmpty) {
       return Center(
         child: Text(
-          "Not enough data for trends yet.",
-          style: body2_text.copyWith(color: neopopGrey),
+          AppStrings.analytics.notEnoughTrendData,
+          style: body2_text.copyWith(color: groupOnSurfaceMuted),
         ),
       );
     }
@@ -26,6 +30,9 @@ class SpendingTrendsChart extends StatelessWidget {
     final entries = monthlyTrends.entries.toList();
     final maxVal =
         entries.fold<double>(0.0, (prev, e) => e.value > prev ? e.value : prev);
+    final axisInterval = maxVal > 0
+        ? maxVal / ChartScaleFactors.axisDivisorQuarters
+        : ChartScaleFactors.axisIntervalUnit.toDouble();
 
     final spots = entries.asMap().entries.map((entry) {
       return FlSpot(entry.key.toDouble(), entry.value.value);
@@ -37,24 +44,24 @@ class SpendingTrendsChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Monthly Spending Overview",
+            AppStrings.analytics.monthlySpendingOverview,
             style: body1_text.copyWith(
               fontWeight: FontWeight.w600,
               color: groupOnSurface,
             ),
           ),
-          SizedBox(height: height_16),
+          const SizedBox(height: groupGapMd),
           SizedBox(
-            height: devSysWidth * 0.6,
+            height: devSysWidth * AppDimensions.chartLineHeightFactor,
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxVal > 0 ? maxVal / 4 : 1,
+                  horizontalInterval: axisInterval,
                   getDrawingHorizontalLine: (value) => FlLine(
-                    color: neopopGrey.withOpacity(0.15),
-                    strokeWidth: 1,
+                    color: groupMutedFillMedium,
+                    strokeWidth: AppDimensions.borderWidthHairline,
                   ),
                 ),
                 titlesData: FlTitlesData(
@@ -64,22 +71,21 @@ class SpendingTrendsChart extends StatelessWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 45,
-                      interval: maxVal > 0 ? maxVal / 4 : 1,
+                      reservedSize: AppDimensions.chartAxisReservedSizeLeft,
+                      interval: axisInterval,
                       getTitlesWidget: (value, meta) {
-                        String text;
-                        if (value >= 1000) {
-                          text = "₹${(value / 1000).toStringAsFixed(1)}K";
-                        } else {
-                          text = "₹${value.toStringAsFixed(0)}";
-                        }
+                        final symbol = userCurrencySymbol();
+                        final text = value >=
+                                ChartScaleFactors.axisCompactThousands
+                            ? '$symbol${(value / ChartScaleFactors.axisCompactThousands).toStringAsFixed(1)}${AppAmountSuffix.thousand}'
+                            : '$symbol${value.toStringAsFixed(0)}';
                         return SideTitleWidget(
                           axisSide: meta.axisSide,
                           child: Text(
                             text,
                             style: const TextStyle(
-                              fontSize: 10,
-                              color: neopopGrey,
+                              fontSize: groupFontMicro,
+                              color: groupOnSurfaceMuted,
                             ),
                           ),
                         );
@@ -89,18 +95,18 @@ class SpendingTrendsChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 30,
-                      interval: 1,
+                      reservedSize: AppDimensions.chartAxisReservedSizeBottomXs,
+                      interval: ChartScaleFactors.axisIntervalUnit.toDouble(),
                       getTitlesWidget: (value, meta) {
-                        int idx = value.toInt();
+                        final idx = value.toInt();
                         if (idx >= 0 && idx < entries.length) {
                           return SideTitleWidget(
                             axisSide: meta.axisSide,
                             child: Text(
-                              entries[idx].key.split(' ')[0],
+                              entries[idx].key.split(' ').first,
                               style: const TextStyle(
-                                fontSize: 10,
-                                color: neopopGrey,
+                                fontSize: groupFontMicro,
+                                color: groupOnSurfaceMuted,
                               ),
                             ),
                           );
@@ -114,17 +120,17 @@ class SpendingTrendsChart extends StatelessWidget {
                 minX: 0,
                 maxX: (entries.length - 1).toDouble(),
                 minY: 0,
-                maxY: maxVal * 1.15,
+                maxY: maxVal * ChartScaleFactors.maxY115,
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (_) => neopopOnPrimary,
                     getTooltipItems: (touchedSpots) {
                       return touchedSpots.map((spot) {
-                        int idx = spot.x.toInt();
-                        String month =
+                        final idx = spot.x.toInt();
+                        final month =
                             idx < entries.length ? entries[idx].key : '';
                         return LineTooltipItem(
-                          "$month\n₹${spot.y.toStringAsFixed(0)}",
+                          "$month\n${userCurrencySymbol()}${spot.y.toStringAsFixed(0)}",
                           body2_text.copyWith(color: neopopBackground),
                         );
                       }).toList();
@@ -135,17 +141,17 @@ class SpendingTrendsChart extends StatelessWidget {
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
-                    curveSmoothness: 0.3,
+                    curveSmoothness: ChartScaleFactors.curveSmoothness,
                     color: neopopAccent,
-                    barWidth: 3,
+                    barWidth: AppDimensions.chartLineWidth,
                     isStrokeCapRound: true,
                     dotData: FlDotData(
                       show: true,
                       getDotPainter: (spot, percent, bar, index) =>
                           FlDotCirclePainter(
-                        radius: 4,
+                        radius: AppDimensions.chartDotRadius,
                         color: neopopAccent,
-                        strokeWidth: 2,
+                        strokeWidth: groupProgressStrokeWidth,
                         strokeColor: neopopBackground,
                       ),
                     ),
@@ -153,8 +159,8 @@ class SpendingTrendsChart extends StatelessWidget {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          neopopAccent.withOpacity(0.3),
-                          neopopAccent.withOpacity(0.05),
+                          neopopAccentBorderSoft,
+                          neopopAccentFillWhisper,
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -165,8 +171,7 @@ class SpendingTrendsChart extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: height_16 * 1.5),
-          // Summary
+          const SizedBox(height: groupGapLg),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -174,11 +179,11 @@ class SpendingTrendsChart extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Total Spent",
-                    style: caption_text.copyWith(color: neopopGrey),
+                    AppStrings.trips.totalSpent,
+                    style: caption_text.copyWith(color: groupOnSurfaceMuted),
                   ),
                   Text(
-                    "₹${entries.fold<double>(0.0, (sum, e) => sum + e.value).toStringAsFixed(0)}",
+                    "${userCurrencySymbol()}${entries.fold<double>(0.0, (sum, e) => sum + e.value).toStringAsFixed(0)}",
                     style: sub_headline4_text.copyWith(color: neopopAccent),
                   ),
                 ],
@@ -187,11 +192,11 @@ class SpendingTrendsChart extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    "Avg/Month",
-                    style: caption_text.copyWith(color: neopopGrey),
+                    AppStrings.analytics.avgPerMonth,
+                    style: caption_text.copyWith(color: groupOnSurfaceMuted),
                   ),
                   Text(
-                    "₹${(entries.fold<double>(0.0, (sum, e) => sum + e.value) / entries.length).toStringAsFixed(0)}",
+                    "${userCurrencySymbol()}${(entries.fold<double>(0.0, (sum, e) => sum + e.value) / entries.length).toStringAsFixed(0)}",
                     style: sub_headline4_text.copyWith(color: groupOnSurface),
                   ),
                 ],

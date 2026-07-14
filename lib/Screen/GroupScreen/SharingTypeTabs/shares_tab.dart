@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:splitr/Widgets/splitr_toast.dart';
+import 'package:splitr/Utils/currency_utils.dart';
 import 'package:get/get.dart';
 
 import '../../../Constants/constants.dart';
 import '../../../Constants/shared.dart';
 import '../../../Controller/add_transaction_controller.dart';
 import '../../../Model/group_model.dart';
-import 'package:splitter/Screen/GroupScreen/group_screen_spacing.dart';
-import 'package:splitter/Widgets/user_avatar.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Widgets/user_avatar.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_dimensions.dart';
 
 class SharesTab extends StatelessWidget {
   final List<GroupMembersWithNameModel> groupMembersWithNameModel;
@@ -36,36 +41,40 @@ class SharesTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              "Split by Shares",
+              SharingMode.byShares.tabTitle,
               style: sub_headline4_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16 / 2),
+            const SizedBox(height: groupGapSm),
             Text(
-              "Assign shares to each person",
+              SharingMode.byShares.tabSubtitle,
               style: body1_text.copyWith(color: groupOnSurface),
             ),
-            SizedBox(height: height_16 * 2),
-            Container(
-              width: devSysWidth - (height_16 * 2),
+            const SizedBox(height: groupGapXl),
+            SizedBox(
+              width: devSysWidth - (groupGutter * 2),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    "₹${perShareAmount.toStringAsFixed(2)} / share",
+                    AppStringFormat.perShareRate(
+                      userCurrencySymbol(),
+                      perShareAmount
+                          .toStringAsFixed(DefaultDecimalPlaces.amount),
+                    ),
                     style: sub_headline5_text.copyWith(
                         color: currentTotalShares > 0
                             ? neopopAccent
                             : groupOnSurface),
                   ),
                   Text(
-                    "(${currentTotalShares} ${currentTotalShares == 1 ? 'share' : 'shares'} total)",
+                    AppStringFormat.sharesTotalCount(currentTotalShares),
                     style: body1_text.copyWith(color: groupOnSurface),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: height_16 * 2),
+            const SizedBox(height: groupGapXl),
             Expanded(
               child: ListView.separated(
                 physics: const BouncingScrollPhysics(),
@@ -76,7 +85,8 @@ class SharesTab extends StatelessWidget {
                       .sharesTextControllers[index];
                   int memberShares = int.tryParse(
                           _addTransactionScreenController
-                              .sharesSplitDetails[index]["shares"]) ??
+                                  .sharesSplitDetails[index]
+                              [SharingTypeValues.shares]) ??
                       0;
                   double memberAmount = perShareAmount * memberShares;
                   return Row(
@@ -93,12 +103,12 @@ class SharesTab extends StatelessWidget {
                                   groupMembersWithNameModel[index].userID ?? "",
                               userName:
                                   groupMembersWithNameModel[index].userName ??
-                                      "User",
+                                      DisplayFallbacks.user,
                               imageUrl:
                                   groupMembersWithNameModel[index].userPic,
-                              radius: height_16 * 1.25,
+                              radius: AppDimensions.groupIconMd,
                             ),
-                            SizedBox(width: width_10),
+                            const SizedBox(width: groupGap10),
                             Flexible(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,7 +120,7 @@ class SharesTab extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    "₹${memberAmount.toStringAsFixed(2)}",
+                                    "${userCurrencySymbol()}${memberAmount.toStringAsFixed(DefaultDecimalPlaces.amount)}",
                                     style: caption_text.copyWith(
                                         color: neopopGrey,
                                         fontStyle: FontStyle.normal),
@@ -122,7 +132,7 @@ class SharesTab extends StatelessWidget {
                         ),
                       ),
                       SizedBox(
-                        width: width_10 * 8,
+                        width: groupShareInputWidth,
                         child: ExtraSmallTextFormField(
                           extraSmallTextFieldTextEditingController:
                               sharesController,
@@ -130,19 +140,11 @@ class SharesTab extends StatelessWidget {
                             if (value != null && value.isNumericOnly) {
                               return null;
                             } else if (value == null) {
-                              Fluttertoast.showToast(
-                                msg: "Need shares here!",
-                                textColor: neopopBackground,
-                                backgroundColor: neopopYellow,
-                              );
-                              return "Need shares here!";
+                              SplitrToast.show(AppStrings.validation.needShares);
+                              return AppStrings.validation.needShares;
                             } else if (!value.isNumericOnly) {
-                              Fluttertoast.showToast(
-                                msg: "Only whole numbers are allowed!",
-                                textColor: neopopBackground,
-                                backgroundColor: neopopYellow,
-                              );
-                              return "Only whole numbers are allowed!";
+                              SplitrToast.show(AppStrings.validation.wholeNumbersOnly);
+                              return AppStrings.validation.wholeNumbersOnly;
                             }
                             return null;
                           },
@@ -155,19 +157,19 @@ class SharesTab extends StatelessWidget {
                           },
                         ),
                       ),
-                      Padding(
-                        padding: EdgeInsets.only(left: width_10 / 2),
+                      const Padding(
+                        padding: EdgeInsets.only(left: groupGap5),
                         child: Icon(
                           Icons.pie_chart_outline_rounded,
                           color: neopopGrey,
-                          size: height_16,
+                          size: groupIconMd,
                         ),
                       ),
                     ],
                   );
                 },
                 separatorBuilder: (context, index) {
-                  return SizedBox(height: height_10);
+                  return const SizedBox(height: groupGap10);
                 },
               ),
             ),

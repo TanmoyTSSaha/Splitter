@@ -1,8 +1,8 @@
-# Theming Rules — SplitO (Splitter)
+# Theming Rules — Splitr
 
 ## Purpose
 
-Visual design system for SplitO: colors, typography, Material theme, and Neopop components.
+Visual design system for Splitr: colors, typography, Material theme, and Neopop components.
 
 ---
 
@@ -34,7 +34,7 @@ Single light-theme shell with **dark** `neopopColorScheme` (`brightness: Brightn
 
 ## Color Tokens
 
-Import from `package:splitter/Constants/constants.dart`:
+Import from `package:splitr/Constants/constants.dart`:
 
 | Token | Hex | Use |
 |-------|-----|-----|
@@ -114,7 +114,7 @@ Use for premium/empty states and hero sections.
 ### Do
 
 ```dart
-import 'package:splitter/Constants/constants.dart';
+import 'package:splitr/Constants/constants.dart';
 
 Text('Title', style: headline2_text);
 Container(color: neopopSurface);

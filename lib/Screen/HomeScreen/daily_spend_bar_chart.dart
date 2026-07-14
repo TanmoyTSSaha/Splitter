@@ -2,9 +2,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:splitter/Constants/category_style.dart';
-import 'package:splitter/Constants/constants.dart';
-import 'package:splitter/Controllers/currency_controller.dart';
+import 'package:splitr/Constants/app_formats.dart';
+import 'package:splitr/Constants/app_strings.dart';
+import 'package:splitr/Constants/category_style.dart';
+import 'package:splitr/Constants/constants.dart';
+import 'package:splitr/Constants/domain_values.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
+import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
 class DailySpendBarChart extends StatelessWidget {
   final List<Map<String, dynamic>> dailySpendData;
@@ -16,14 +20,12 @@ class DailySpendBarChart extends StatelessWidget {
     required this.monthlyTotal,
   });
 
-  static const TextStyle _headerMetaStyle = TextStyle(
-    fontFamily: 'Poppins',
-    fontSize: 12,
-    fontWeight: FontWeight.normal,
-    fontStyle: FontStyle.italic,
-    color: Colors.white54,
-    height: 1.3,
-  );
+  static TextStyle _headerMetaStyle(BuildContext context) =>
+      caption_text.copyWith(
+        color: groupOnSurfaceMuted,
+        height: groupLineHeightTight,
+        fontStyle: FontStyle.italic,
+      );
 
   bool get _hasSpendData =>
       dailySpendData.any((d) => ((d['total'] as num?) ?? 0) > 0);
@@ -33,35 +35,39 @@ class DailySpendBarChart extends StatelessWidget {
     final monthNames = <String>[];
 
     for (final entry in dailySpendData) {
-      final year = entry['year'] as int? ??
-          DateTime.parse(entry['date'] as String).year;
+      final year =
+          entry['year'] as int? ?? DateTime.parse(entry['date'] as String).year;
       final month = entry['month'] as int? ??
           DateTime.parse(entry['date'] as String).month;
-      final key = '$year-$month';
+      final key = '${year}-${month}';
       if (!monthKeys.contains(key)) {
         monthKeys.add(key);
-        monthNames.add(DateFormat('MMMM').format(DateTime(year, month)));
+        monthNames.add(
+            DateFormat(AppDateFormats.monthName).format(DateTime(year, month)));
       }
     }
 
-    return monthNames.join(' & ');
+    return monthNames.join(AppSeparators.monthJoiner);
   }
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+
     if (!_hasSpendData) {
       return Container(
-        height: 200,
+        height: homeSpendChartEmptyHeight,
         width: double.infinity,
-        padding: EdgeInsets.all(height_16),
+        padding: const EdgeInsets.all(groupGutter),
         decoration: BoxDecoration(
-          color: neopopBackground,
-          borderRadius: BorderRadius.circular(20),
+          color: surface,
+          borderRadius: BorderRadius.circular(groupCardRadiusLg),
+          border: Border.all(color: groupMutedBorder),
         ),
         child: Center(
           child: Text(
-            'No Data Yet',
-            style: body1_text.copyWith(color: Colors.white),
+            AppStrings.home.chartNoData,
+            style: body1_text.copyWith(color: groupOnSurfaceMuted),
           ),
         ),
       );
@@ -70,20 +76,28 @@ class DailySpendBarChart extends StatelessWidget {
     final peakDailySpend = dailySpendData
         .map((d) => (d['total'] as num?)?.toDouble() ?? 0)
         .fold<double>(0, (a, b) => a > b ? a : b);
-    final double maxY = peakDailySpend > 0 ? peakDailySpend * 1.2 : 100;
+    final double maxY = peakDailySpend > 0
+        ? peakDailySpend * homeSpendChartMaxYPaddingFactor
+        : homeSpendChartMaxYFallback;
 
     return Container(
-      height: 220,
+      height: homeSpendChartHeight,
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(width_16, height_16 * 1.5, width_16, height_16),
+      padding: const EdgeInsets.fromLTRB(
+        groupGutter,
+        groupGapLg,
+        groupGutter,
+        groupGutter,
+      ),
       decoration: BoxDecoration(
-        color: neopopBackground,
-        borderRadius: BorderRadius.circular(24),
+        color: surface,
+        borderRadius: BorderRadius.circular(groupCardRadiusXl),
+        border: Border.all(color: groupMutedBorder),
         boxShadow: [
           BoxShadow(
-            color: neopopBackground.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: groupMutedFillFaint,
+            blurRadius: homeSpendChartShadowBlur,
+            offset: homeSpendChartShadowOffset,
           ),
         ],
       ),
@@ -97,11 +111,9 @@ class DailySpendBarChart extends StatelessWidget {
                 final sym = Get.find<CurrencyController>().symbol;
                 return Text(
                   '$sym${monthlyTotal.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    fontFamily: 'Albra',
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  style: headline1_text.copyWith(
+                    fontFamily: kFontAlbra,
+                    color: groupOnSurface,
                   ),
                 );
               }),
@@ -109,13 +121,14 @@ class DailySpendBarChart extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Total true spend', style: _headerMetaStyle),
-                  Text(_monthRangeLabel, style: _headerMetaStyle),
+                  Text(AppStrings.home.chartTotalTrueSpend,
+                      style: _headerMetaStyle(context)),
+                  Text(_monthRangeLabel, style: _headerMetaStyle(context)),
                 ],
               ),
             ],
           ),
-          SizedBox(height: height_10),
+          const SizedBox(height: groupGapSm),
           Expanded(
             child: BarChart(
               BarChartData(
@@ -137,7 +150,7 @@ class DailySpendBarChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 24,
+                      reservedSize: homeSpendChartAxisReservedSize,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
                         if (index < 0 || index >= dailySpendData.length) {
@@ -145,12 +158,12 @@ class DailySpendBarChart extends StatelessWidget {
                         }
                         final day = dailySpendData[index]['day'];
                         return Padding(
-                          padding: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.only(top: groupGapXs),
                           child: Text(
                             '$day',
                             style: caption_text.copyWith(
-                              color: Colors.white54,
-                              fontSize: 10,
+                              color: groupMutedIconDim,
+                              fontSize: groupFontMicro,
                               fontStyle: FontStyle.normal,
                             ),
                           ),
@@ -162,7 +175,7 @@ class DailySpendBarChart extends StatelessWidget {
                 barGroups: _buildBarGroups(),
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => Colors.white,
+                    getTooltipColor: (_) => groupCardFill,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       if (groupIndex < 0 ||
                           groupIndex >= dailySpendData.length) {
@@ -170,8 +183,7 @@ class DailySpendBarChart extends StatelessWidget {
                       }
                       final dayData = dailySpendData[groupIndex];
                       final date = DateTime.parse(dayData['date'] as String);
-                      final total =
-                          (dayData['total'] as num?)?.toDouble() ?? 0;
+                      final total = (dayData['total'] as num?)?.toDouble() ?? 0;
                       if (total <= 0) return null;
 
                       final sym = Get.find<CurrencyController>().symbol;
@@ -179,8 +191,11 @@ class DailySpendBarChart extends StatelessWidget {
                         (dayData['categories'] as Map?) ?? {},
                       );
                       final lines = <String>[
-                        DateFormat('MMM d').format(date),
-                        '$sym${total.toStringAsFixed(0)} spent',
+                        DateFormat(AppDateFormats.shortDay).format(date),
+                        AppStringFormat.daySpendTotal(
+                          sym,
+                          total.toStringAsFixed(0),
+                        ),
                       ];
 
                       final sorted = categories.entries
@@ -195,17 +210,22 @@ class DailySpendBarChart extends StatelessWidget {
                       for (final entry in sorted) {
                         final pct = (entry.value / total * 100).round();
                         lines.add(
-                          '${_formatCategory(entry.key)}: $sym${entry.value.toStringAsFixed(0)} ($pct%)',
+                          AppStringFormat.categoryShareLine(
+                            _formatCategory(entry.key),
+                            sym,
+                            entry.value.toStringAsFixed(0),
+                            pct,
+                          ),
                         );
                       }
 
                       return BarTooltipItem(
                         lines.join('\n'),
-                        const TextStyle(
-                          color: Colors.black,
+                        caption_text.copyWith(
+                          color: groupOnSurface,
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          height: 1.35,
+                          fontStyle: FontStyle.normal,
+                          height: groupLineHeightRelaxed,
                         ),
                       );
                     },
@@ -233,8 +253,8 @@ class DailySpendBarChart extends StatelessWidget {
           barRods: [
             BarChartRodData(
               toY: 0,
-              width: 8,
-              color: Colors.transparent,
+              width: homeSpendChartBarWidth,
+              color: groupTransparent,
             ),
           ],
         );
@@ -247,11 +267,13 @@ class DailySpendBarChart extends StatelessWidget {
         barRods: [
           BarChartRodData(
             toY: total,
-            width: 8,
+            width: homeSpendChartBarWidth,
             color: stackItems.length == 1
                 ? stackItems.first.color
-                : categoryColor('Others'),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                : categoryColor(CategoryDefaults.others),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(homeSpendChartBarRadius),
+            ),
             rodStackItems: stackItems.length > 1 ? stackItems : null,
           ),
         ],
@@ -293,7 +315,7 @@ class DailySpendBarChart extends StatelessWidget {
   }
 
   String _formatCategory(String category) {
-    if (category.isEmpty) return 'Others';
+    if (category.isEmpty) return CategoryDefaults.others;
     return category[0].toUpperCase() + category.substring(1);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:splitr/Constants/app_motion.dart';
 
 /// Wraps a list item with staggered fade-in + slide-up animation.
 /// Use inside a ListView to create a cascading entrance effect.
@@ -11,8 +12,8 @@ class StaggeredListItem extends StatefulWidget {
   const StaggeredListItem({
     required this.child,
     required this.index,
-    this.delay = const Duration(milliseconds: 50),
-    this.duration = const Duration(milliseconds: 400),
+    this.delay = AppMotion.staggerItemDelay,
+    this.duration = AppMotion.staggerItemDuration,
     super.key,
   });
 
@@ -36,15 +37,15 @@ class _StaggeredListItemState extends State<StaggeredListItem>
 
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOut,
+      curve: AppCurves.staggerFade,
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.15),
+      begin: AppAnimationOffsets.staggerSlideBegin,
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: AppCurves.staggerSlide,
     ));
 
     // Staggered delay based on index
