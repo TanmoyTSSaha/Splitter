@@ -1,0 +1,270 @@
+/* _homePadding = fromLTRB(16, 16, 16, 16 + bottomNavClearance) */
+.scroll {
+  height: 100%;
+  padding: var(--sp-16) var(--sp-16) 96px;
+}
+
+/* GlassCard padding = symmetric(vertical: 16) — no horizontal inset */
+.hero {
+  padding: var(--sp-16) 0;
+}
+
+.tagline {
+  margin: 0;
+  padding-left: var(--sp-16);
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-headline1);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--app-on-surface);
+}
+
+.gapMd {
+  height: var(--sp-16);
+}
+
+.gapLg {
+  height: var(--sp-32);
+}
+
+.sectionSerif {
+  margin: 0;
+  padding-left: var(--sp-16);
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--app-on-surface);
+}
+
+.spendRow {
+  display: flex;
+  padding-left: var(--sp-16);
+  overflow: hidden;
+}
+
+/* homeSpendCardWidth 140, homeSpendCardHeight 160, radius groupCardRadiusXl */
+.spendCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex: none;
+  width: 140px;
+  height: 160px;
+  margin-right: var(--sp-16);
+  padding: var(--sp-16);
+  border-radius: var(--r-card-xl);
+  background: var(--app-bg);
+  box-sizing: border-box;
+}
+
+.spendCategory {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spendAmount {
+  margin: 0;
+  font-size: var(--fs-headline3);
+  font-weight: 700;
+  color: var(--app-on-primary);
+  line-height: 1.2;
+}
+
+.miniBars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+.miniBars span {
+  display: block;
+  width: 12px;
+  border-radius: var(--r-sm);
+}
+
+/* Section header rows use zero-padding TextButtons on the right */
+.sectionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sectionHead .sectionSerif {
+  padding-left: 0;
+}
+
+.sectionSub {
+  margin: 0;
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: var(--app-on-surface-muted);
+}
+
+.action {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--app-on-surface);
+  text-transform: uppercase;
+}
+
+/* transaction_tile.dart */
+.txn {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--sp-16);
+}
+
+.txnIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: var(--sp-12);
+  border-radius: var(--r-full);
+  background: var(--app-chip-track);
+  color: var(--app-bg);
+}
+
+.txnBody {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--sp-16);
+}
+
+.txnTitleRow {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.txnTitle {
+  font-size: var(--fs-body-lg);
+  font-weight: 700;
+  color: var(--app-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.groupBadge {
+  flex: none;
+  margin-left: var(--sp-6);
+  padding: var(--sp-2) var(--sp-6);
+  border-radius: var(--r-sm);
+  background: rgba(24, 197, 149, 0.12);
+  color: var(--app-accent);
+  font-size: var(--fs-nano-sm);
+  font-weight: 700;
+}
+
+.txnMetaRow {
+  display: flex;
+  align-items: center;
+  margin-top: var(--sp-2);
+}
+
+.txnMeta {
+  font-size: var(--fs-micro);
+  color: var(--app-grey);
+  white-space: nowrap;
+}
+
+.txnPipe {
+  padding: 0 var(--sp-6);
+  font-size: var(--fs-micro);
+  color: rgba(138, 141, 142, 0.5);
+}
+
+.txnAmount {
+  margin-left: var(--sp-8);
+  font-size: var(--fs-body-lg);
+  font-weight: 700;
+}
+
+/* Spend/Flow toggle — height 40, track chipTrackBg, radius 20 */
+.toggle {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-radius: var(--r-card-lg);
+  background: var(--app-chip-track);
+}
+
+.toggleOn,
+.toggleOff {
+  padding: var(--sp-8) var(--sp-16);
+  border-radius: var(--r-card-lg);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.toggleOn {
+  background: var(--app-bg);
+  color: #ffffff;
+}
+
+.toggleOff {
+  color: var(--app-grey);
+}
+
+/* _buildCashFlowSection */
+.flowCard {
+  padding: var(--sp-16);
+  border: 1px solid var(--app-surface-border);
+  border-radius: var(--r-card-lg);
+  background: var(--app-card-fill);
+}
+
+.flowRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-16);
+}
+
+.flowIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-12);
+  border-radius: var(--r-full);
+  background: rgba(198, 40, 40, 0.1);
+  color: var(--app-error);
+}
+
+.flowLabel {
+  margin: 0;
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: var(--app-on-surface-muted);
+}
+
+.flowAmount {
+  margin: 0;
+  font-size: var(--fs-headline3);
+  font-weight: 700;
+  color: var(--app-on-surface);
+  line-height: 1.2;
+}
+
+/* FAB: endFloat (16) + Padding(bottom: bottomNavClearance + 16) */
+.fab {
+  position: absolute;
+  right: var(--sp-16);
+  bottom: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-full);
+  background: var(--app-bg);
+  color: var(--app-on-primary);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}

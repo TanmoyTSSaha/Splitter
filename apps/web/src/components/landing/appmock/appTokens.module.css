@@ -1,0 +1,109 @@
+/*
+ * Mirrors apps/mobile/lib/Constants/constants.dart, app_palette.dart and
+ * group_screen_spacing.dart. Values are in Flutter dp, which map 1:1 to px
+ * inside MockCanvas before it is scaled down to the phone screen.
+ */
+.root {
+  /* neopop* — constants.dart */
+  --app-primary: #fe885d;
+  --app-accent: #18c595;
+  --app-bg: #0d0d0d;
+  --app-surface: #333333;
+  --app-error: #c62828;
+  --app-on-primary: #ffffff;
+  --app-on-accent: #000000;
+  --app-on-bg: #ffffff;
+  --app-grey: #8a8d8e;
+  --app-secondary-grey: #323232;
+  --app-yellow: #f9fe8a;
+
+  /* AppPalette */
+  --app-label-muted: #91919f;
+  --app-accent-purple: #8b5cf6;
+  --app-surface-muted: #eeeeee;
+  --app-chip-track: #e8e8e8;
+  --app-surface-muted-fill: #f5f5f5;
+  --app-card-dark: #1e1e1e;
+  --app-avatar-glow-green: #b5f542;
+  --app-grey-icon: #9e9e9e;
+
+  /* Light ColorScheme — app_themes.dart */
+  --app-scaffold: #ffffff;
+  --app-on-surface: #0d0d0d;
+  --app-on-surface-muted: #8a8d8e;
+  --app-card-fill: #ffffff;
+  --app-surface-border: #eeeeee;
+
+  /* Category colors */
+  --app-cat-orange: #ff9800;
+  --app-cat-green: #4caf50;
+  --app-cat-blue: #2196f3;
+
+  /* splitrFont* scale */
+  --fs-nano: 8px;
+  --fs-nano-sm: 9px;
+  --fs-micro: 10px;
+  --fs-caption-sm: 11px;
+  --fs-caption: 12px;
+  --fs-body-sm: 13px;
+  --fs-body: 14px;
+  --fs-body-md: 15px;
+  --fs-body-lg: 16px;
+  --fs-subhead: 18px;
+  --fs-title: 20px;
+  --fs-subhead-lg: 22px;
+  --fs-headline3: 24px;
+  --fs-headline2: 28px;
+  --fs-headline1-sm: 30px;
+  --fs-headline1: 32px;
+  --fs-display: 40px;
+
+  /* group* spacing scale */
+  --sp-2: 2px;
+  --sp-3: 3px;
+  --sp-4: 4px;
+  --sp-5: 5px;
+  --sp-6: 6px;
+  --sp-8: 8px;
+  --sp-10: 10px;
+  --sp-12: 12px;
+  --sp-14: 14px;
+  --sp-16: 16px;
+  --sp-18: 18px;
+  --sp-20: 20px;
+  --sp-22: 22px;
+  --sp-24: 24px;
+  --sp-28: 28px;
+  --sp-32: 32px;
+  --sp-80: 80px;
+  --gutter: 16px;
+
+  /* group* radii */
+  --r-hairline: 2px;
+  --r-xs: 3px;
+  --r-sm: 4px;
+  --r-md-sm: 6px;
+  --r-control-sm: 8px;
+  --r-chip: 9px;
+  --r-md: 10px;
+  --r-control: 12px;
+  --r-lg-sm: 14px;
+  --r-card: 16px;
+  --r-card-lg: 20px;
+  --r-card-xl: 24px;
+  --r-stat: 30px;
+  --r-pill: 32px;
+  --r-badge: 35px;
+  --r-full: 999px;
+
+  /* Font families. 'Poppins' is declared in the Dart TextStyles but never
+     registered in pubspec.yaml, so the app actually renders the platform
+     default (Roboto on Android). Replicated faithfully here. */
+  --app-font-serif: 'Albra', 'Times New Roman', serif;
+  --app-font-sans: 'Roboto', system-ui, sans-serif;
+  --app-font-lato: 'Lato', 'Roboto', system-ui, sans-serif;
+
+  --nav-clearance: 80px;
+  --appbar-height: 56px;
+  --statusbar-height: 44px;
+}

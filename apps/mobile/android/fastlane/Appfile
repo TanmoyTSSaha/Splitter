@@ -1,0 +1,2 @@
+package_name("money.splitr.app")
+# json_key_file intentionally omitted — credentials via ENV in CI

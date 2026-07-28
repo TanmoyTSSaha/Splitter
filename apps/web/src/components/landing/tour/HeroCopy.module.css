@@ -1,0 +1,70 @@
+.wrap {
+  width: 100%;
+  max-width: 640px;
+  z-index: 2;
+}
+
+.wrap[data-variant='pinned'] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  align-self: start;
+  text-align: center;
+  margin-top: calc(var(--nav-height) + 28px);
+  /* Visible on load — fade/rise is an entrance, not a clip wipe. */
+  opacity: 1;
+  will-change: transform, opacity;
+}
+
+.wrap[data-variant='stacked'] {
+  margin-inline: auto;
+  text-align: center;
+  padding: calc(var(--section-y) * 0.6) var(--gutter) 0;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+}
+
+.subtitle {
+  margin: 0 auto 20px;
+  max-width: 520px;
+  color: var(--color-text-muted);
+  font-size: 1.125rem;
+  line-height: 1.55;
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.tertiary {
+  margin: 20px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.tertiary a {
+  color: var(--color-text-muted);
+}
+
+.tertiary a:hover {
+  color: var(--color-accent);
+}

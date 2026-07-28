@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["TEAMID.money.splitr.app"],
+        "paths": [
+          "/invite/*",
+          "/join/*",
+          "/share/*",
+          "/auth/callback",
+          "/auth/callback/*"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,72 @@
+.wrap {
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * Point offsets, radii (as a share of width) and alphas match _MeshPainter:
+ *   p0 20%/15%  r 55%  accent  a.08
+ *   p1 80%/30%  r 45%  primary a.06
+ *   p2 30%/70%  r 50%  accent  a.05
+ *   p3 75%/85%  r 40%  yellow  a.04
+ */
+.mesh {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle 226px at 20% 15%,
+      rgba(24, 197, 149, 0.08),
+      rgba(24, 197, 149, 0) 100%
+    ),
+    radial-gradient(circle 185px at 80% 30%, rgba(254, 136, 93, 0.06), rgba(254, 136, 93, 0) 100%),
+    radial-gradient(circle 206px at 30% 70%, rgba(24, 197, 149, 0.05), rgba(24, 197, 149, 0) 100%),
+    radial-gradient(circle 164px at 75% 85%, rgba(249, 254, 138, 0.04), rgba(249, 254, 138, 0) 100%);
+  animation: meshDrift 8s linear infinite;
+}
+
+@keyframes meshDrift {
+  0% {
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  25% {
+    background-position:
+      41px -9px,
+      -14px 37px,
+      44px -12px,
+      -10px 18px;
+  }
+  50% {
+    background-position:
+      0 -18px,
+      -33px 0,
+      0 -15px,
+      -25px 0;
+  }
+  75% {
+    background-position:
+      -41px -9px,
+      -14px -37px,
+      -44px -12px,
+      -10px -18px;
+  }
+  100% {
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh {
+    animation: none;
+  }
+}

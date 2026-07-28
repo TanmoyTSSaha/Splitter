@@ -1,0 +1,42 @@
+.wrap {
+  padding: 96px 0 64px;
+}
+
+@media (max-width: 767px) {
+  .wrap {
+    padding-top: 64px;
+  }
+}
+
+.article h1 {
+  position: relative;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.article h1::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 72px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: headingUnderline 300ms ease-out 120ms forwards;
+}
+
+@keyframes headingUnderline {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article h1::after {
+    animation: none;
+    transform: scaleX(1);
+  }
+}

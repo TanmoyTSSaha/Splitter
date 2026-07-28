@@ -1,0 +1,68 @@
+# frozen_string_literal: true
+
+default_platform(:android)
+
+PLAY_PACKAGE = "money.splitr.app"
+AAB_PATH = "../build/app/outputs/bundle/release/app-release.aab"
+PLAY_TRACKS = %w[internal beta production].freeze
+
+def play_json_key_data
+  ENV.fetch("PLAY_STORE_SERVICE_ACCOUNT_JSON")
+end
+
+def max_play_version_code
+  codes = PLAY_TRACKS.flat_map do |track|
+    google_play_track_version_codes(
+      package_name: PLAY_PACKAGE,
+      track: track,
+      json_key_data: play_json_key_data
+    )
+  rescue StandardError => e
+    UI.important("Could not read version codes from #{track}: #{e.message}")
+    []
+  end
+
+  codes.max || 0
+end
+
+platform :android do
+  desc "Print next monotonic versionCode for CI (max Play track code + 1)"
+  lane :print_next_build_number do
+    next_code = max_play_version_code + 1
+    next_code = 2 if next_code < 2
+    puts next_code
+  end
+
+  desc "Upload release AAB to Play internal track"
+  lane :internal do
+    upload_release(track: "internal")
+  end
+
+  desc "Upload release AAB to Play beta track"
+  lane :beta do
+    upload_release(track: "beta")
+  end
+
+  desc "Upload release AAB to Play production track"
+  lane :production do
+    upload_release(
+      track: "production",
+      rollout: ENV["ROLLOUT_FRACTION"]
+    )
+  end
+
+  private_lane :upload_release do |options|
+    upload_to_play_store(
+      track: options[:track],
+      aab: AAB_PATH,
+      json_key_data: play_json_key_data,
+      package_name: PLAY_PACKAGE,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: false,
+      changes_not_sent_for_review: true,
+      rollout: options[:rollout]
+    )
+  end
+end

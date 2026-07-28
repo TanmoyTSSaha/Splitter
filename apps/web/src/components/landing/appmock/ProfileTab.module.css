@@ -1,0 +1,283 @@
+/* Padding fromLTRB(16, 24, 16, bottomNavClearance) */
+.scroll {
+  height: 100%;
+  padding: var(--sp-24) var(--sp-16) var(--sp-80);
+}
+
+.heroMesh {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gapSm {
+  height: var(--sp-8);
+}
+
+.gapMd {
+  height: var(--sp-16);
+}
+
+.gapLg {
+  height: var(--sp-24);
+}
+
+.gapXl {
+  height: var(--sp-32);
+}
+
+/*
+ * profileHeroAvatarRadius 54, ring offset +6 => ring 120, shadow bleed 44
+ * => frame 208.
+ */
+.avatarFrame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 208px;
+  height: 208px;
+  flex: none;
+}
+
+.avatarGlow {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--r-full);
+  background: #ffffff;
+  box-shadow:
+    -10px 12px 42px rgba(181, 245, 66, 0.6),
+    10px -12px 42px rgba(139, 92, 246, 0.55),
+    0 0 64px 8px rgba(24, 197, 149, 0.15);
+}
+
+/* CircleAvatar radius 54 => 108 box */
+.avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 108px;
+  border-radius: var(--r-full);
+  background: var(--app-chip-track);
+  color: var(--app-grey-icon);
+  overflow: hidden;
+}
+
+.proBadge {
+  position: absolute;
+  top: 48px;
+  left: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  border-radius: var(--r-full);
+  border: 2px solid #ffffff;
+  background: var(--app-yellow);
+  color: var(--app-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+}
+
+/* profileEditBadgeSize 28 */
+.editBadge {
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  background: var(--app-yellow);
+  color: var(--app-on-surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+/* GlassCard padding fromLTRB(16, 24, 16, 24) */
+.identity {
+  align-self: stretch;
+  padding: var(--sp-24) var(--sp-16);
+  text-align: center;
+}
+
+.name {
+  margin: 0 0 var(--sp-4);
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-headline1-sm);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--app-on-surface);
+}
+
+.tier {
+  margin: 0;
+  font-size: var(--fs-caption-sm);
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--app-accent);
+}
+
+.chipRow {
+  display: flex;
+  gap: var(--sp-12);
+}
+
+/* radius groupRadiusStat 30, border 1.5 surfaceMuted */
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-12) var(--sp-10);
+  border: 1.5px solid var(--app-surface-border);
+  border-radius: var(--r-stat);
+  background: var(--app-card-fill);
+  box-shadow: 0 2px 6px rgba(13, 13, 13, 0.04);
+  white-space: nowrap;
+}
+
+.chipLabel {
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--app-on-surface-muted);
+}
+
+.chipValue {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: var(--app-on-surface);
+}
+
+.sectionSerif {
+  margin: 0;
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--app-on-surface);
+}
+
+.badgeRow {
+  display: flex;
+  overflow: hidden;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 100px;
+  margin-right: var(--sp-16);
+}
+
+.badgeDisc,
+.badgeDiscUnlocked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  margin-bottom: var(--sp-8);
+  border-radius: var(--r-badge);
+  box-sizing: border-box;
+}
+
+.badgeDisc {
+  background: rgba(138, 141, 142, 0.1);
+  border: 2px solid var(--app-on-surface-muted);
+  opacity: 0.4;
+}
+
+.badgeDiscUnlocked {
+  background: rgba(24, 197, 149, 0.1);
+  border: 2px solid var(--app-accent);
+}
+
+.badgeName,
+.badgeNameLocked {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.badgeName {
+  color: var(--app-on-surface);
+}
+
+.badgeNameLocked {
+  color: var(--app-on-surface-muted);
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: var(--fs-caption-sm);
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  color: var(--app-on-surface-muted);
+}
+
+.menuCard {
+  padding: 0;
+  border-radius: var(--r-card);
+}
+
+/* Tile padding symmetric(horizontal: 16, vertical: 12) */
+.tile {
+  display: flex;
+  align-items: center;
+  padding: var(--sp-12) var(--sp-16);
+}
+
+/* profileMenuIconBox 40, square (borderRadius zero), 1.5dp dark border */
+.tileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1.5px solid var(--app-on-surface);
+  background: var(--app-surface-muted);
+  color: var(--app-on-surface);
+}
+
+.tileBody {
+  flex: 1;
+  min-width: 0;
+  margin-left: 14px;
+}
+
+.tileTitle {
+  margin: 0 0 1px;
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-body-lg);
+  font-weight: 600;
+  color: var(--app-on-surface);
+}
+
+.tileSub {
+  margin: 0;
+  font-size: var(--fs-caption-sm);
+  color: var(--app-on-surface-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Divider indent 70 */
+.divider {
+  height: 1px;
+  margin-left: 70px;
+  background: var(--app-surface-muted);
+}

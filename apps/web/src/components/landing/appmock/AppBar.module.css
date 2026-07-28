@@ -1,0 +1,57 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--appbar-height);
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+  background: transparent;
+  flex: none;
+}
+
+.title {
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-headline2);
+  font-weight: 700;
+  color: var(--app-on-surface);
+  line-height: 1.1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+}
+
+.bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-on-surface);
+}
+
+.bellDot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-full);
+  background: var(--app-accent);
+  border: 1.5px solid var(--app-scaffold);
+  box-sizing: content-box;
+}
+
+/* CircleAvatar radius 20 => 40dp box */
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  background: var(--app-chip-track);
+  color: var(--app-grey-icon);
+  overflow: hidden;
+}

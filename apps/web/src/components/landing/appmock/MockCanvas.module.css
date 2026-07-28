@@ -1,0 +1,21 @@
+/*
+ * --phone-screen-w is a unitless px count published by the phone chassis.
+ * Dividing two unitless values keeps the scale factor unitless, which is what
+ * transform: scale() needs.
+ */
+.canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 411px;
+  height: 914px;
+  overflow: hidden;
+  background: var(--app-scaffold);
+  color: var(--app-on-surface);
+  font-family: var(--app-font-sans);
+  font-size: var(--fs-body);
+  line-height: 1.2;
+  transform: scale(calc(var(--phone-screen-w, 411) / 411));
+  transform-origin: top left;
+  backface-visibility: hidden;
+}

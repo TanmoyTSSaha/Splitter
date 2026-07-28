@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /auth/
+
+Sitemap: https://splitr.money/sitemap.xml
