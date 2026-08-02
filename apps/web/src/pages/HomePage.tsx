@@ -1,7 +1,6 @@
 import { ComparisonTable } from '../components/landing/ComparisonTable'
 import { FaqSection } from '../components/landing/FaqSection'
 import { FinalCta } from '../components/landing/FinalCta'
-import { HowItWorks } from '../components/landing/HowItWorks'
 import { PhoneTourSection } from '../components/landing/tour/PhoneTourSection'
 import { PricingSection } from '../components/landing/PricingSection'
 import { TrustStrip } from '../components/landing/TrustStrip'
@@ -16,7 +15,6 @@ export function HomePage() {
   )
 
   useSectionView('hero', 'hero')
-  useSectionView('how', 'how')
   useSectionView('compare', 'comparison')
   useSectionView('pricing', 'pricing')
   useSectionView('trust', 'trust')
@@ -27,7 +25,6 @@ export function HomePage() {
     <>
       <PhoneTourSection />
 
-      <HowItWorks />
       <ComparisonTable />
       <PricingSection />
       <TrustStrip />

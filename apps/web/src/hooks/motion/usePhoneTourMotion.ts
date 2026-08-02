@@ -9,14 +9,24 @@ import { useReducedMotion } from '../useReducedMotion'
 /** Hero hold is longer so the centred intro can breathe. */
 export const HERO_HOLD_PX = 420
 const HOLD_PX = 240
+/** Last beat (Profile) — same hold as other product beats so copy can be read. */
+const PROFILE_HOLD_PX = HOLD_PX
+/** Dedicated fade after Profile hold ends — phone out before Comparison. */
+const EXIT_FADE_PX = 420
 const MOVE_PX = 380
 const EDGE_GAP = 48
 const GLYPH_COUNT = 5
 
-const HOLD_DISTANCES = TOUR_BEATS.map((beat) => (beat.copy === 'hero' ? HERO_HOLD_PX : HOLD_PX))
+const LAST_BEAT = TOUR_BEATS.length - 1
+const HOLD_DISTANCES = TOUR_BEATS.map((beat, i) => {
+  if (beat.copy === 'hero') return HERO_HOLD_PX
+  if (i === LAST_BEAT) return PROFILE_HOLD_PX
+  return HOLD_PX
+})
 const MOVE_COUNT = TOUR_BEATS.length - 1
 export const TOUR_TOTAL_PX =
-  HOLD_DISTANCES.reduce((sum, d) => sum + d, 0) + MOVE_COUNT * MOVE_PX
+  HOLD_DISTANCES.reduce((sum, d) => sum + d, 0) + MOVE_COUNT * MOVE_PX + EXIT_FADE_PX
+const EXIT_FADE_START = 1 - EXIT_FADE_PX / TOUR_TOTAL_PX
 
 type Phase =
   | { kind: 'hold'; index: number }
@@ -208,6 +218,19 @@ export function usePhoneTourMotion(sectionRef: RefObject<HTMLElement | null>): v
         heroCopy.style.pointerEvents = reveal > 0.5 ? 'auto' : 'none'
       }
 
+      const applyExitFade = (progress: number) => {
+        const exitT = ramp(progress, EXIT_FADE_START, 1)
+        const opacity = 1 - exitT
+        // Fade out in place, then hard-hide. Do not translate — 3D phone escapes pin overflow into nav.
+        stage.style.opacity = String(opacity)
+        stage.style.transform = exitT > 0 ? `scale(${1 - exitT * 0.06})` : ''
+        stage.style.pointerEvents = exitT > 0.25 ? 'none' : ''
+        stage.style.visibility = exitT >= 0.55 ? 'hidden' : ''
+        // Keep pinned tour under Comparison so table never paints underneath the phone.
+        pinEl.style.zIndex = exitT > 0 ? '-1' : ''
+        section.dataset.tourExit = exitT > 0 ? 'true' : 'false'
+      }
+
       const render = (progress: number) => {
         const phase = phaseAt(progress)
 
@@ -232,6 +255,7 @@ export function usePhoneTourMotion(sectionRef: RefObject<HTMLElement | null>): v
             setTourCopy(i, i === index && TOUR_BEATS[i].copy !== 'hero' ? 1 : 0)
             setCards(i, i === index ? 1 : 0)
           })
+          applyExitFade(progress)
           return
         }
 
@@ -299,6 +323,7 @@ export function usePhoneTourMotion(sectionRef: RefObject<HTMLElement | null>): v
             }
           }
         })
+        applyExitFade(progress)
       }
 
       measure()

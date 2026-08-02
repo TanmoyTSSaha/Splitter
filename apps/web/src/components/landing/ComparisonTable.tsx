@@ -1,24 +1,47 @@
-import { useRef } from 'react'
-import { useComparisonMotion } from '../../hooks/motion/useLandingScrollMotion'
 import styles from './ComparisonTable.module.css'
 
 type Cell = 'yes' | 'no' | 'partial' | 'varies'
 
-const columns = ['Splitr', 'Splitwise', 'BillSplit', 'BillSplitzer'] as const
+type Column = {
+  id: 'splitr' | 'splitwise' | 'splitkaro'
+  name: string
+  mark: string
+  highlight?: boolean
+}
 
-const rows: { topic: string; values: Cell[] }[] = [
-  { topic: 'UPI settle-up', values: ['yes', 'varies', 'yes', 'yes'] },
-  { topic: 'Personal finance home', values: ['yes', 'partial', 'no', 'no'] },
-  { topic: 'P2P lending', values: ['yes', 'no', 'no', 'no'] },
-  { topic: 'Financial goals', values: ['yes', 'no', 'no', 'no'] },
-  { topic: 'Receipt OCR (Pro)', values: ['yes', 'no', 'no', 'no'] },
-  { topic: 'Offline group reads', values: ['partial', 'no', 'no', 'no'] },
+type Row = {
+  topic: string
+  values: [Cell, Cell, Cell]
+  splitrNote?: string
+}
+
+const columns: Column[] = [
+  { id: 'splitr', name: 'Splitr', mark: 'S', highlight: true },
+  { id: 'splitwise', name: 'Splitwise', mark: 'W' },
+  { id: 'splitkaro', name: 'Splitkaro', mark: 'K' },
+]
+
+const rows: Row[] = [
+  {
+    topic: 'UPI settle-up',
+    values: ['yes', 'varies', 'yes'],
+    splitrNote: 'UPI-friendly settle',
+  },
+  { topic: 'Personal finance home', values: ['yes', 'partial', 'yes'] },
+  { topic: 'P2P lending', values: ['yes', 'no', 'no'] },
+  { topic: 'Financial goals', values: ['yes', 'no', 'no'] },
+  { topic: 'Free core (no daily caps)', values: ['yes', 'no', 'yes'] },
+  {
+    topic: 'Receipt OCR (Pro)',
+    values: ['yes', 'yes', 'no'],
+    splitrNote: 'Pro',
+  },
 ]
 
 function CellMark({ value }: { value: Cell }) {
   if (value === 'yes') {
     return (
-      <span className={`${styles.yes} comparison-yes`} aria-label="Yes">
+      <span className={styles.yes} aria-label="Yes">
         ✓
       </span>
     )
@@ -28,64 +51,70 @@ function CellMark({ value }: { value: Cell }) {
   return <span className={styles.muted} aria-label="No">—</span>
 }
 
-export function ComparisonTable() {
-  const sectionRef = useRef<HTMLElement>(null)
-  useComparisonMotion(sectionRef)
-
+function ColumnMark({ mark, highlight }: { mark: string; highlight?: boolean }) {
   return (
-    <section ref={sectionRef} className={styles.section} id="compare" aria-labelledby="compare-heading">
+    <span
+      className={`${styles.colMark} ${highlight ? styles.colMarkSplitr : ''}`}
+      aria-hidden="true"
+    >
+      {mark}
+    </span>
+  )
+}
+
+export function ComparisonTable() {
+  return (
+    <section className={styles.section} id="compare" aria-labelledby="compare-heading">
       <div className="container">
         <h2 id="compare-heading" className={styles.heading}>
           How Splitr compares
         </h2>
-        <p className={styles.note}>Factual comparison only. Features verified against shipped Splitr capabilities.</p>
+        <p className={styles.note}>
+          Factual comparison. Features checked against shipped Splitr and public competitor info.
+        </p>
 
-        <div className={styles.tableWrap} data-motion-table>
-          <div className={styles.scanLine} data-motion-scan aria-hidden="true" />
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Feature</th>
-                {columns.map((col, i) => (
-                  <th key={col} scope="col" className={i === 0 ? styles.splitrCol : undefined}>
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.topic}>
-                  <th scope="row">{row.topic}</th>
-                  {row.values.map((val, i) => (
-                    <td key={columns[i]} className={i === 0 ? styles.splitrCol : undefined}>
-                      <CellMark value={val} />
-                    </td>
+        <div className={styles.tableWrap}>
+          <div className={styles.cardShell}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Feature</th>
+                  {columns.map((col) => (
+                    <th
+                      key={col.id}
+                      scope="col"
+                      className={col.highlight ? styles.splitrCol : undefined}
+                    >
+                      <span className={styles.colHead}>
+                        <ColumnMark mark={col.mark} highlight={col.highlight} />
+                        <span>{col.name}</span>
+                      </span>
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className={styles.cards}>
-          {columns.map((col, colIndex) => (
-            <article
-              key={col}
-              className={`${styles.card} ${colIndex === 0 ? styles.cardSplitr : ''}`}
-              data-motion-splitr-card={colIndex === 0 ? true : undefined}
-            >
-              <h3>{col}</h3>
-              <ul>
+              </thead>
+              <tbody>
                 {rows.map((row) => (
-                  <li key={row.topic}>
-                    <span>{row.topic}</span>
-                    <CellMark value={row.values[colIndex]} />
-                  </li>
+                  <tr key={row.topic}>
+                    <th scope="row">{row.topic}</th>
+                    {row.values.map((val, i) => (
+                      <td
+                        key={columns[i].id}
+                        className={columns[i].highlight ? styles.splitrCol : undefined}
+                      >
+                        <div className={styles.cellStack}>
+                          <CellMark value={val} />
+                          {columns[i].highlight && row.splitrNote ? (
+                            <span className={styles.splitrNote}>{row.splitrNote}</span>
+                          ) : null}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </ul>
-            </article>
-          ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
