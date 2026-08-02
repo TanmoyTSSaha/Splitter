@@ -1,0 +1,9 @@
+.page {
+  padding: 96px 0;
+  text-align: center;
+}
+
+.message {
+  margin: 0;
+  color: var(--color-text-muted);
+}

@@ -15,3 +15,21 @@ verify_jwt = true
 
 [functions.razorpay-webhook]
 verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
+
+[functions.process-push-outbox]
+verify_jwt = false
+
+[functions.process-settlement-reminders]
+verify_jwt = false
+
+[functions.process-budget-alerts]
+verify_jwt = false
+
+[functions.send-marketing-push]
+verify_jwt = false
+
+[functions.preview-invite]
+verify_jwt = false

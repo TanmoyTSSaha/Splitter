@@ -1,0 +1,58 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    transform 100ms ease-out,
+    filter 150ms ease-out,
+    opacity 150ms ease-out,
+    border-color 150ms ease-out;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btnPrimary {
+  background: var(--color-accent);
+  color: var(--color-accent-on);
+  border: none;
+}
+
+.btnPrimary:hover {
+  filter: brightness(1.04);
+}
+
+.btnGhost {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btnGhost:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.btnDanger {
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid color-mix(in srgb, var(--color-error) 45%, transparent);
+}
+
+.btnDanger:hover {
+  background: color-mix(in srgb, var(--color-error) 8%, transparent);
+  border-color: var(--color-error);
+}

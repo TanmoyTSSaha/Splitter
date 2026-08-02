@@ -1,0 +1,30 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  line-height: 1;
+  font-weight: normal;
+  font-style: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.filled {
+  font-family: 'Material Icons', sans-serif;
+}
+
+.outlined {
+  font-family: 'Material Icons Outlined', sans-serif;
+}
+
+.round {
+  font-family: 'Material Icons Round', sans-serif;
+}

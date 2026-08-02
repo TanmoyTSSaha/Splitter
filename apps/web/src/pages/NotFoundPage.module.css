@@ -1,0 +1,46 @@
+.page {
+  padding: var(--section-y) 0;
+  text-align: center;
+}
+
+.inner {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.code {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 700;
+  line-height: 1;
+  color: color-mix(in srgb, var(--color-accent) 70%, var(--color-text));
+}
+
+.code span {
+  display: inline-block;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: clamp(32px, 5vw, 40px);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.body {
+  margin: 0 0 24px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}

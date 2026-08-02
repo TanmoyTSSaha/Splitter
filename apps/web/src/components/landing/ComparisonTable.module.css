@@ -1,0 +1,136 @@
+.section {
+  padding: var(--section-y) 0;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  background: var(--color-bg, #000);
+}
+
+/*
+  Opaque bg + z-index keep Comparison above residual pin space after
+  the dedicated tour exit fade (no negative-margin overlap with Profile).
+*/
+
+.heading {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 700;
+}
+
+.note {
+  margin: 0 0 32px;
+  max-width: 560px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.tableWrap {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cardShell {
+  position: relative;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+@media (min-width: 768px) {
+  .table tbody tr:hover th,
+  .table tbody tr:hover td {
+    background: var(--color-accent-fill-soft);
+  }
+}
+
+.table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.table th:first-child,
+.table td:first-child {
+  text-align: left;
+}
+
+.table thead th {
+  font-weight: 600;
+}
+
+.colHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.colMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 40%, transparent);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.colMarkSplitr {
+  border-color: var(--color-accent);
+  background: var(--color-accent-fill-soft);
+  color: var(--color-accent);
+}
+
+.cellStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.splitrNote {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.splitrCol {
+  background: var(--color-accent-fill-soft);
+  border-left: 3px solid var(--color-accent);
+}
+
+.yes {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.partial {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}

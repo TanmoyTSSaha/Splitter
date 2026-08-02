@@ -1,0 +1,125 @@
+/*
+ * Lives inside the phone mount but outside the 3D wrapper, so the cards
+ * travel with the phone without rotating with it.
+ */
+.wrap {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.set {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.card {
+  position: absolute;
+  width: 148px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-surface-elevated) 88%, transparent);
+  border: 1px solid color-mix(in srgb, white 14%, var(--color-border));
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.cardTop {
+  top: 12%;
+}
+
+.cardBottom {
+  top: 62%;
+}
+
+/* Always on the side the copy is on, so they never leave the viewport. */
+.wrap[data-side='right'] .card {
+  right: calc(100% + 28px);
+}
+
+.wrap[data-side='left'] .card {
+  left: calc(100% + 28px);
+}
+
+.wrap[data-side='right'] .cardBottom {
+  right: calc(100% + 76px);
+}
+
+.wrap[data-side='left'] .cardBottom {
+  left: calc(100% + 76px);
+}
+
+/* Hero beat: one card either side of the centred phone. */
+.wrap[data-side='center'] .cardTop {
+  right: calc(100% + 28px);
+  left: auto;
+}
+
+.wrap[data-side='center'] .cardBottom {
+  left: calc(100% + 28px);
+  right: auto;
+}
+
+.cardLabel {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.accent {
+  color: var(--color-accent);
+}
+
+.cardMeta {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 36px;
+  margin-top: 6px;
+}
+
+.chartBar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(
+    180deg,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 40%, transparent)
+  );
+  min-height: 8px;
+}
+
+.progress {
+  margin-top: 8px;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, white 12%, transparent);
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+}

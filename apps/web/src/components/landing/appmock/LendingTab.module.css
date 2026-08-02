@@ -1,0 +1,247 @@
+.scroll {
+  height: 100%;
+}
+
+/* _buildHeaderContent padding fromLTRB(16, 8, 16, 16) */
+.header {
+  padding: var(--sp-8) var(--sp-16) var(--sp-16);
+}
+
+/* GlassCard padding: all(groupGapLg) */
+.hero {
+  padding: var(--sp-24);
+}
+
+.tagline {
+  margin: 0;
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-headline1);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--app-on-surface);
+}
+
+.gapLg {
+  height: var(--sp-24);
+}
+
+.heroLabel {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-body);
+  color: var(--app-on-surface-muted);
+}
+
+.heroSub {
+  margin: 0 0 var(--sp-8);
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: var(--app-grey);
+}
+
+.heroAmount {
+  margin: 0 0 var(--sp-8);
+  font-family: var(--app-font-serif);
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--app-on-surface);
+}
+
+.heroChip {
+  display: inline-block;
+  padding: var(--sp-6) var(--sp-12);
+  border: 1px solid #4caf50;
+  border-radius: var(--r-control-sm);
+  background: rgba(76, 175, 80, 0.12);
+  font-size: var(--fs-caption);
+  font-style: italic;
+  font-weight: 700;
+  color: #388e3c;
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--sp-16);
+}
+
+.actionCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  height: 100px;
+  padding: var(--sp-16);
+  border-radius: var(--r-card);
+  background: var(--app-card-fill);
+  box-shadow: 0 4px 10px rgba(13, 13, 13, 0.05);
+  color: var(--app-on-surface);
+  box-sizing: border-box;
+}
+
+.actionLabel {
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.pillBar {
+  display: flex;
+  align-items: stretch;
+  height: 60px;
+  margin: var(--sp-8) var(--sp-16);
+  border-radius: var(--r-pill);
+  background: rgba(138, 141, 142, 0.08);
+}
+
+.pillActive,
+.pillIdle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.pillActive {
+  background: var(--app-bg);
+  color: #ffffff;
+}
+
+.pillIdle {
+  color: var(--app-on-surface-muted);
+}
+
+/* ListView padding fromLTRB(16, 16, 16, ...) */
+.list {
+  padding: var(--sp-16) var(--sp-16) 0;
+}
+
+.loanCard {
+  margin-bottom: var(--sp-16);
+  border-radius: var(--r-card);
+}
+
+.loanTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.loanWho {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  background: var(--app-chip-track);
+  color: var(--app-grey-icon);
+  flex: none;
+}
+
+.loanName {
+  margin: 0;
+  font-size: var(--fs-body-lg);
+  font-weight: 700;
+  color: var(--app-on-surface);
+}
+
+.loanRole {
+  margin: 0;
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: var(--app-on-surface-muted);
+}
+
+.statusBadge {
+  padding: var(--sp-4) var(--sp-10);
+  border: 1px solid var(--app-accent);
+  border-radius: var(--r-control-sm);
+  background: rgba(24, 197, 149, 0.2);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: var(--app-on-surface);
+}
+
+.loanFigures {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: var(--sp-16);
+}
+
+.figRight {
+  text-align: right;
+}
+
+.figLabel {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: var(--app-on-surface-muted);
+}
+
+.figSmall {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--app-on-surface);
+}
+
+.figLarge {
+  margin: 0;
+  font-size: var(--fs-headline3);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--app-on-surface);
+}
+
+/* Stacked repayment bar — height 12, radius 4, 1dp muted border */
+.progress {
+  display: flex;
+  height: 12px;
+  margin-top: var(--sp-16);
+  border: 1px solid rgba(138, 141, 142, 0.35);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+}
+
+.dueRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-top: var(--sp-8);
+  font-size: var(--fs-caption);
+  font-style: italic;
+  color: var(--app-on-surface-muted);
+}
+
+/* SizedBox(160 x 56) extended FAB, centerFloat, bottom 96 + 16 + 10 */
+.fab {
+  position: absolute;
+  left: 50%;
+  bottom: 122px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 160px;
+  height: 56px;
+  border-radius: var(--r-card);
+  background: var(--app-bg);
+  color: #ffffff;
+  font-size: var(--fs-body-lg);
+  font-weight: 700;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}

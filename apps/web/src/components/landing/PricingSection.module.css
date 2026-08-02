@@ -1,0 +1,124 @@
+.section {
+  padding: var(--section-y) 0;
+  background: color-mix(in srgb, var(--color-surface) 40%, transparent);
+}
+
+.heading {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 700;
+}
+
+.sub {
+  margin: 0 0 40px;
+  max-width: 520px;
+  color: var(--color-text-muted);
+}
+
+.grid {
+  display: grid;
+  gap: 24px;
+  max-width: 720px;
+}
+
+@media (max-width: 767px) {
+  .grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .featured {
+    order: -1;
+  }
+}
+
+.card {
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-bg);
+}
+
+.featured {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  will-change: transform;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .featured {
+    animation: annualBreathe 4s ease-in-out infinite;
+  }
+}
+
+@keyframes annualBreathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+      0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent),
+      0 12px 32px rgba(0, 0, 0, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .featured {
+    animation: none;
+  }
+}
+
+.card h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bestValue {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-yellow);
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.price {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.period {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.storeCta {
+  margin-top: 32px;
+}

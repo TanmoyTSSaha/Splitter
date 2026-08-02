@@ -1,0 +1,114 @@
+.backLink {
+  margin-top: 0;
+}
+
+.skeletonHero {
+  height: 120px;
+  margin-bottom: 16px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.balanceLarge {
+  margin: 0;
+  font-size: 20px;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.memberChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.memberChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+.memberAvatar {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  border-radius: 50%;
+}
+
+.staticRow {
+  cursor: default;
+}
+
+.emptyText {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.profileCard {
+  margin-bottom: 24px;
+  padding: 24px;
+  text-align: center;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.profileAvatar {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  font-size: 24px;
+  border-radius: 50%;
+}
+
+.profileTitle {
+  margin: 0 0 4px;
+  font-size: 28px;
+}
+
+.profileEmail {
+  margin: 0 0 16px;
+  color: var(--color-text-muted);
+}
+
+.balanceCaption {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.balanceHero {
+  margin: 0;
+  font-size: 28px;
+}
+
+.emptySection {
+  margin: 0 0 32px;
+  color: var(--color-text-muted);
+}
+
+.footnote {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}

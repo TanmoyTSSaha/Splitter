@@ -1,0 +1,35 @@
+:root {
+  --color-bg: #0d0d0d;
+  --color-surface: #333333;
+  --color-surface-elevated: #1e1e1e;
+  --color-border: #323232;
+  --color-text: #ffffff;
+  --color-text-muted: #8a8d8e;
+  --color-accent: #18c595;
+  --color-accent-on: #000000;
+  --color-accent-fill-soft: rgba(24, 197, 149, 0.12);
+  --color-primary: #fe885d;
+  --color-primary-on: #ffffff;
+  --color-success: #4caf50;
+  --color-warning: #e6a800;
+  --color-error: #c62828;
+  --color-yellow: #f9fe8a;
+
+  --container-max: 1200px;
+  --container-narrow: 720px;
+  --gutter: 16px;
+  --section-y: 64px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --nav-height: 64px;
+
+  --font-display: 'Albra', 'Poppins', system-ui, sans-serif;
+  --font-body: 'Poppins', system-ui, sans-serif;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 24px;
+    --section-y: 96px;
+  }
+}

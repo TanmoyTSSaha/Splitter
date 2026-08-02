@@ -1,0 +1,150 @@
+.section {
+  position: relative;
+  z-index: 0;
+}
+
+.featuresAnchor {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Mobile / reduced-motion: centred static hero, then stacked beats */
+.staticHero {
+  display: grid;
+  gap: 40px;
+  justify-items: center;
+  padding-bottom: 48px;
+}
+
+.staticPhone {
+  width: 260px;
+  height: calc(260px * 691.15 / 324);
+}
+
+.staticPhone > * {
+  transform-origin: top left;
+}
+
+/* Stacked fallback: mobile, tablet and reduced motion */
+.stack {
+  display: grid;
+  gap: 72px;
+  padding: var(--section-y) var(--gutter);
+  max-width: var(--container-max);
+  margin-inline: auto;
+}
+
+.stackItem {
+  display: grid;
+  gap: 32px;
+  justify-items: center;
+  text-align: left;
+}
+
+.stackPhone {
+  width: 260px;
+  height: calc(260px * 691.15 / 324);
+}
+
+.stackPhone > * {
+  transform-origin: top left;
+}
+
+@media (min-width: 1024px) {
+  .stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    gap: 96px 64px;
+  }
+
+  .stackItem {
+    display: contents;
+  }
+}
+
+/* Pinned desktop stage */
+.pin {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  perspective: 1600px;
+  perspective-origin: 50% 50%;
+  transform-origin: center center;
+  will-change: opacity, transform;
+}
+
+.mesh {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78vh;
+  height: 78vh;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 35% 35%,
+      color-mix(in srgb, var(--color-accent) 34%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 65% 55%,
+      color-mix(in srgb, var(--color-primary) 18%, transparent),
+      transparent 52%
+    );
+  filter: blur(56px);
+  opacity: 0.45;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.copyLayer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 0 48px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.copyLayer > * {
+  pointer-events: auto;
+}
+
+/* Margins are half the unscaled body box, so the mount stays centred at any
+   --phone-fit. */
+.phoneMount {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -162px;
+  margin-top: -345.575px;
+  z-index: 3;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.phoneScale {
+  transform: scale(var(--phone-fit, 1));
+  transform-origin: center center;
+  transform-style: preserve-3d;
+}
+
+.phone3d {
+  transform-style: preserve-3d;
+  will-change: transform;
+}

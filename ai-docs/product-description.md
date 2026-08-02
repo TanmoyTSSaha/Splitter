@@ -101,7 +101,7 @@ Default currency is **INR**; 25 currencies are supported for display and convers
 |--------|--------|----------|
 | Email + password sign-in | `LoginScreen` | `supabase.auth.signInWithPassword`; on success clears local Drift cache, refreshes premium status, processes pending deep-link invites, navigates to main app |
 | Email + password sign-up | `RegisterScreen` | Collects first name, last name, username, email, password; `supabase.auth.signUp` with metadata; navigates to `LoginScreen` (no auto-login) |
-| Google OAuth | `LoginScreen`, `RegisterScreen` | `signInWithOAuth(Google)` with redirect `io.supabase.flutterquickstart://login-callback/` |
+| Google OAuth | `LoginScreen`, `RegisterScreen` | `signInWithOAuth(Google)` with redirect `https://splitr.money/auth/callback` (`AppBranding.authRedirectUrl`; web page hands off to `splitr://login-callback/`) |
 | Biometric unlock | `BiometricLockScreen` | Local `local_auth`; unlock → main app |
 | Logout | `ProfileScreen` | Confirm dialog → `signOut` + `AppDatabase.clearAllUserData()` → `LoginScreen` |
 
@@ -110,12 +110,12 @@ Default currency is **INR**; 25 currencies are supported for display and convers
 - DB trigger `handle_new_user` creates `public.users` row on `auth.users` INSERT.
 - Client may also upsert `users` on signup when session is immediate.
 
-### 4.5 Auth gaps (verified — not implemented)
+### 4.5 Auth gaps (verified — partial)
 
 | Feature | Status |
 |---------|--------|
-| Forgot password | UI button exists; handler is a stub (`debugPrint` only) |
-| Password change | Not found |
+| Forgot password | **Implemented:** `resetPasswordForEmail` → HTTPS/custom-scheme callback → `ResetPasswordScreen` → `updateUser`; `AuthChangeEvent.passwordRecovery` backup route |
+| Password change | Not found (reset-via-email only) |
 | Profile picture upload | URL displayed; no upload flow |
 | Username edit after signup | Not found (`user_name` set at registration only) |
 
@@ -613,7 +613,7 @@ Unlock toast: `BadgeUnlockToast`.
 - Data from `GamificationService.generateRecap`.
 - Share via screenshot + `#SplitrApp`.
 
-**Gap:** `MonthlyRecapScreen` is **implemented but not linked** from Profile or any navigation entry found in code. Slide 4 contains **hardcoded** trend text and mock chart — not live data.
+**Navigation:** Linked from Profile → `MonthlyRecapScreen`. UX/animation polish deferred.
 
 ---
 
@@ -621,12 +621,12 @@ Unlock toast: `BadgeUnlockToast`.
 
 **Screen:** `RequestFeatureScreen`
 
-- Lists requests from `feature_requests` filtered by `status == 'open'` (sort: votes or newest).
-- Vote/unvote via `feature_request_votes`; vote count updated on `feature_requests` row.
+- Lists all requests from `feature_requests` (sort: `vote_count` or `created_at`).
+- Vote/unvote via `feature_request_votes`; `vote_count` maintained by DB trigger `trg_feature_request_vote_count`.
 - Submit sheet: title, description, category (`splitting`, `analytics`, `payments`, `groups`, `design`, `other`), priority (`nice_to_have`, `really_need`, `deal_breaker`). Creator's vote auto-inserted into `feature_request_votes`.
-- UI shows **In Progress** badge when `status == 'in_progress'`.
+- UI shows **Implemented** badge when `status == 'implemented'` (dashboard-managed; values: `open`, `implemented`, `closed`).
 
-**Schema mismatch (verified):** Migration `20260101000001_initial_features.sql` defines column `vote_count` and **no `status` column**, but the Flutter client reads/writes `votes`, filters `status = 'open'`, and displays `in_progress`. Feature voting and listing may fail against a fresh migrated database until schema is aligned.
+**Schema:** `vote_count` + `status` column (migration `20260726120000_feature_request_status.sql`). No client UPDATE RLS on `status`.
 
 ---
 
@@ -797,11 +797,11 @@ Logged-out users: URI stored in SharedPreferences; processed after login via `pr
 
 | Item | Detail |
 |------|--------|
-| Forgot password | Stub only (`debugPrint` in `LoginScreen`) |
+| Forgot password | Full flow via `resetPasswordForEmail` + deep link + `ResetPasswordScreen` |
 | Profile photo | No upload |
-| Monthly recap | `MonthlyRecapScreen` implemented; **no navigation entry** in app; slide 4 has hardcoded trend text and mock chart |
+| Monthly recap | Linked from Profile; UX polish deferred |
 | `PersonalTransactionScreen` | Exists with mock data; not wired to home |
-| Feature requests schema | DB has `vote_count`, no `status`; client uses `votes` + `status` — likely broken on fresh DB |
+| Feature requests schema | `vote_count` + trigger; `status` (`open`/`implemented`/`closed`) dashboard-only |
 | UPI Quick Settle / Elite Badge | Paywall copy only; no runtime gate |
 | Home offline | Personal transactions not repository-backed |
 | Add expense offline | Direct Supabase — no queue |
@@ -839,7 +839,7 @@ Logged-out users: URI stored in SharedPreferences; processed after login via `pr
 `CreateGoalScreen`, `GoalDetailsScreen`
 
 ### Insights & recap
-`ExpenseInsightsScreen`, `MonthlyRecapScreen` (orphaned nav)
+`ExpenseInsightsScreen`, `MonthlyRecapScreen` (Profile → recap)
 
 ### Profile & settings
 `PersonalDetailsScreen`, `EditCurrencyScreen`, `NotificationsScreen`, `PremiumPlanScreen`, `RequestFeatureScreen`, `FeatureComingUpNext`

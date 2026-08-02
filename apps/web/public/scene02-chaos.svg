@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none" aria-hidden="true">
+  <path
+    data-motion="iou-path"
+    d="M200 180 C 120 160, 80 120, 60 80"
+    stroke="#8a8d8e"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    opacity="0.7"
+  />
+  <path
+    data-motion="iou-path"
+    d="M200 190 C 280 170, 320 130, 340 90"
+    stroke="#8a8d8e"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    opacity="0.65"
+  />
+  <path
+    data-motion="iou-path"
+    d="M200 200 C 150 240, 100 280, 70 320"
+    stroke="#8a8d8e"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    opacity="0.6"
+  />
+  <path
+    data-motion="iou-path"
+    d="M200 195 C 250 230, 300 270, 330 310"
+    stroke="#8a8d8e"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    opacity="0.55"
+  />
+  <path
+    data-motion="iou-path"
+    d="M200 185 C 180 130, 200 70, 200 40"
+    stroke="#8a8d8e"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    opacity="0.5"
+  />
+  <path
+    data-motion="accent-path"
+    d="M120 320 C 160 280, 200 260, 280 240"
+    stroke="#18c595"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+</svg>

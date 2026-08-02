@@ -30,11 +30,11 @@
 
 
 
-5. I have integrated 3rd party firebase auth inside supabase, check if we can set google login using it. Or else we need to use direct firebase or GCP. You can use supabase and firebase MCP.
+5. Google login via Supabase (no Firebase Auth).
 
-	- **Finding:** Supabase Google via `signInWithOAuth` works with the native Google provider. Firebase-as-third-party in Supabase requires `signInWithIdToken` using a Firebase ID token from `firebase_auth` — not the current OAuth redirect flow.
+	- **Decision:** GCP OAuth project `splitr-501702` + `google_sign_in` → Supabase `signInWithIdToken`. Firebase is **not** used for login. Firebase project `splitr-9a35d` reserved for future FCM only.
 
-	- Implementation: **Done** (`google_sign_in` + `signInWithIdToken` when `googleWebClientId` is set; OAuth deep-link callback + `Get.offAll` fallback).
+	- Implementation: **Done** (`google_sign_in` + `signInWithIdToken` when `GOOGLE_WEB_CLIENT_ID` is set; OAuth deep-link callback fallback).
 
 
 
@@ -58,7 +58,7 @@
 
 	- **Verified:** Migration `20260101000001_initial_features.sql` defines column `vote_count` (no `votes`, no `status`). `RequestFeatureScreen` reads/writes `votes`, sorts by `votes`, and `FeatureRequestModel` expects `status`.
 
-	- Implementation: **Done** (client uses `vote_count`; DB trigger keeps count in sync; migration `20260709100000_feature_request_vote_count.sql`).
+	- Implementation: **Done** (client uses `vote_count`; DB trigger keeps count in sync; `status` column added via `20260726120000_feature_request_status.sql`; **Implemented** badge in UI).
 
 
 
@@ -208,7 +208,7 @@
 
 	- **Verified:** `auth_service.dart` and `deep_link_service.dart` use `io.supabase.flutterquickstart://login-callback/` — not tied to `com.example.splitr` or a production bundle. Google OAuth / email confirm / password-reset links depend on this matching Android intent filters + Supabase dashboard redirect allowlist.
 
-	- Implementation: **Done** (`splitr://login-callback/` in auth + manifest; legacy quickstart retained).
+	- Implementation: **Done** (`https://splitr.money/auth/callback` primary redirect; `splitr://login-callback/` handoff; legacy quickstart removed; Android App Links + iOS associated domains for `/auth/callback`).
 
 
 
@@ -216,7 +216,7 @@
 
 	- **Verified:** `resetPasswordForEmail` sends link; `DeepLinkService` handles `login-callback` by calling `getSessionFromUrl` then `Get.offAll` to main app. No screen to enter a new password (`recovery` / `updateUser` flow absent in `lib/`).
 
-	- Implementation: **Done** (`ResetPasswordScreen` on `type=recovery` deep link).
+	- Implementation: **Done** (`ResetPasswordScreen` on recovery deep link + `AuthChangeEvent.passwordRecovery`; email validated before send).
 
 
 
@@ -304,7 +304,7 @@
 
 	- **Verified:** `AppBranding.appScheme` = `splitr` used by `InviteLinkService` (`splitr://join/...`). Supabase auth still redirects to `io.supabase.flutterquickstart://login-callback/` (`auth_service.dart`, `AndroidManifest.xml`). Users get mixed URL schemes in production.
 
-	- Implementation: **Done** (unified `splitr://login-callback/` for auth; invites remain `splitr://join`).
+	- Implementation: **Done** (auth uses `https://splitr.money/auth/callback` → `splitr://login-callback/`; invites remain `splitr://join` / HTTPS invite paths).
 
 
 

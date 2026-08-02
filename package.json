@@ -1,0 +1,19 @@
+{
+  "name": "splitr-monorepo",
+  "private": true,
+  "scripts": {
+    "mobile:get": "flutter pub get --directory apps/mobile",
+    "mobile:analyze": "flutter analyze --directory apps/mobile",
+    "mobile:test": "flutter test --directory apps/mobile",
+    "mobile:run": "make mobile-run",
+    "web:dev": "pnpm --filter web dev",
+    "web:build": "pnpm --filter web build",
+    "web:dev:npm": "npm run dev --prefix apps/web",
+    "web:build:npm": "npm run build --prefix apps/web",
+    "web:lint:npm": "npm run lint --prefix apps/web",
+    "check:web": "npm run web:lint:npm && npm run web:build:npm",
+    "supabase:deploy-preview-invite": "npx supabase functions deploy preview-invite",
+    "supabase:login": "npx supabase login",
+    "supabase:link": "npx supabase link"
+  }
+}

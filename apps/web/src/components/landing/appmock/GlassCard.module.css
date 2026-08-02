@@ -1,0 +1,12 @@
+.card {
+  padding: var(--sp-16);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, var(--glass-a));
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, var(--glass-a-bump)),
+    rgba(255, 255, 255, var(--glass-a-dip))
+  );
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
