@@ -7,17 +7,16 @@ void main() {
       final local = DateTime(2026, 7, 12, 21, 15);
       final iso = TransactionDateFormatter.toStorageIso(local);
 
+      expect(iso, local.toUtc().toIso8601String());
       expect(iso.endsWith('Z'), isTrue);
-      expect(iso.contains('T15:45:00'), isTrue);
     });
 
     test('parseStorage returns local wall clock from UTC storage', () {
-      final parsed =
-          TransactionDateFormatter.parseStorage('2026-07-12T15:45:00.000Z');
+      const stored = '2026-07-12T15:45:00.000Z';
+      final parsed = TransactionDateFormatter.parseStorage(stored);
 
       expect(parsed, isNotNull);
-      expect(parsed!.hour, 21);
-      expect(parsed.minute, 15);
+      expect(parsed, DateTime.parse(stored).toLocal());
     });
 
     test('round-trip preserves local capture time', () {
@@ -37,8 +36,7 @@ void main() {
       final utc = DateTime.utc(2026, 7, 12, 15, 45);
       final local = TransactionDateFormatter.parseStorage(utc);
 
-      expect(local?.hour, 21);
-      expect(local?.minute, 15);
+      expect(local, utc.toLocal());
     });
   });
 }

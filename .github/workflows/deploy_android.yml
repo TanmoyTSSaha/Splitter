@@ -139,7 +139,12 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: split0
           SENTRY_PROJECT: splitr
-        run: dart run sentry_dart_plugin
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "SENTRY_AUTH_TOKEN not set; skipping Sentry symbol upload"
+            exit 0
+          fi
+          dart run sentry_dart_plugin
 
       - name: Upload to Play Store
         env:
