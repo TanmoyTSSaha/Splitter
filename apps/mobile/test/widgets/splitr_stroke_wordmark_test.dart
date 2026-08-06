@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:splitr/Constants/app_branding.dart';
 import 'package:splitr/Widgets/splitr_fluid_wordmark_timeline.dart';
 import 'package:splitr/Widgets/splitr_stroke_wordmark.dart';
 
@@ -76,7 +75,7 @@ void main() {
     });
   });
 
-  testWidgets('shows brand logo text when animations disabled', (tester) async {
+  testWidgets('shows static wordmark image when animations disabled', (tester) async {
     await tester.pumpWidget(
       const MediaQuery(
         data: MediaQueryData(disableAnimations: true),
@@ -90,6 +89,6 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text(AppBranding.brandLogo), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
   });
 }

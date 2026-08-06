@@ -641,7 +641,7 @@ class SpendingIntelligenceService {
 
   static String spendingExplanation(double percentChange) {
     if (percentChange > InsightsLimits.spendingExplainHigh) {
-      return '${AppStrings.services.insights.spendingJumped}${percentChange.toStringAsFixed(0)}${AppStrings.services.insights.vsLastMonth}';
+      return '${AppStrings.services.insights.spendingJumped}${percentChange.toStringAsFixed(0)}%${AppStrings.services.insights.vsLastMonth}';
     }
     if (percentChange > InsightsLimits.spendingExplainMed) {
       return '${AppStrings.services.insights.spendingUpReview}${percentChange.toStringAsFixed(0)}${AppStrings.services.insights.reviewTopCategories}';
