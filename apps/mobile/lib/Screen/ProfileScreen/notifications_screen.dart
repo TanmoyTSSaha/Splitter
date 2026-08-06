@@ -61,7 +61,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _groupService = GroupService();
   final _reminderSettings = Get.find<ReminderSettingsService>();
   final _pushPrefsService = PushPreferencesService();
-  final String _userId = SupabaseAuth().supabaseGetUserID();
+  String? get _userId => SupabaseAuth().supabaseGetUserIDOrNull();
 
   List<NotificationModel> _notifications = [];
   List<GroupInviteModel> _pendingInvites = [];
@@ -90,7 +90,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadPushPrefs() async {
-    final prefs = await _pushPrefsService.getPreferences(_userId);
+    final userId = _userId;
+    if (userId == null) {
+      if (mounted) setState(() => _loadingPushPrefs = false);
+      return;
+    }
+    final prefs = await _pushPrefsService.getPreferences(userId);
     if (mounted) {
       setState(() {
         _pushPrefs = prefs;
@@ -102,10 +107,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _updatePushPref(
     PushPreferences Function(PushPreferences current) update,
   ) async {
+    final userId = _userId;
+    if (userId == null) return;
     final next = update(_pushPrefs);
     setState(() => _pushPrefs = next);
     try {
-      await _pushPrefsService.savePreferences(userId: _userId, prefs: next);
+      await _pushPrefsService.savePreferences(userId: userId, prefs: next);
     } catch (e, stack) {
       AppErrorReporter.reportActionFailure(
         AppStrings.notifications.pushPrefsSaveError,
@@ -122,11 +129,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _load() async {
+    final userId = _userId;
+    if (userId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() => _loading = true);
     final results = await Future.wait([
-      _service.getNotifications(userID: _userId),
-      _groupService.getPendingInvites(userID: _userId),
-      Get.find<LoanRepository>().getPendingLoansAwaitingAction(_userId),
+      _service.getNotifications(userID: userId),
+      _groupService.getPendingInvites(userID: userId),
+      Get.find<LoanRepository>().getPendingLoansAwaitingAction(userId),
     ]);
     if (mounted) {
       setState(() {
@@ -214,7 +226,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markAllRead() async {
-    await _service.markAllRead(userID: _userId);
+    final userId = _userId;
+    if (userId == null) return;
+    await _service.markAllRead(userID: userId);
     setState(() {
       _notifications = _notifications
           .map((n) => NotificationModel(

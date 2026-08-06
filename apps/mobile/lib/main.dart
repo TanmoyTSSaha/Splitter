@@ -156,7 +156,7 @@ Future<_BootstrapResult> _bootstrapServices() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool hasSeenOnboarding;
   final bool biometricEnabled;
   const MyApp({
@@ -164,6 +164,19 @@ class MyApp extends StatelessWidget {
     required this.hasSeenOnboarding,
     this.biometricEnabled = false,
   });
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      deepLinkService.markNavigationReady();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +202,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
         home: SplitrSplashScreen(
-          hasSeenOnboarding: hasSeenOnboarding,
-          biometricEnabled: biometricEnabled,
+          hasSeenOnboarding: widget.hasSeenOnboarding,
+          biometricEnabled: widget.biometricEnabled,
         ),
       ),
     );

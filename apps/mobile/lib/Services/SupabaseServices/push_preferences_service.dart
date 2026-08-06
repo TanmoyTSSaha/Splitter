@@ -147,13 +147,14 @@ class PushPreferencesService {
         ...prefs.toMap(),
       });
     } catch (e, stack) {
-      AppErrorReporter.report(
-        'PushPreferencesService.savePreferences failed',
-        error: e,
-        stack: stack,
-        context: {'feature': 'push', 'operation': 'savePreferences'},
-      );
-      rethrow;
+      if (!AppErrorReporter.shouldSkipSentry(e)) {
+        AppErrorReporter.report(
+          'PushPreferencesService.savePreferences failed',
+          error: e,
+          stack: stack,
+          context: {'feature': 'push', 'operation': 'savePreferences'},
+        );
+      }
     }
   }
 }

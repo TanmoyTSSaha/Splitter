@@ -12,10 +12,11 @@ import 'package:splitr/Constants/constants.dart';
 import 'package:splitr/Constants/domain_values.dart';
 import 'package:splitr/Constants/shared.dart';
 import 'package:splitr/Controller/auth_controller.dart';
-import 'package:splitr/Screen/AuthScreens/register_screen.dart';
 import 'package:splitr/Controllers/premium_subscription_controller.dart';
+import 'package:splitr/Screen/AuthScreens/register_screen.dart';
 import 'package:splitr/Screen/BottomNavigationController/bottom_navigation_controller.dart';
 import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Services/auth_flow_coordinator.dart';
 import 'package:splitr/Services/deep_link_service.dart';
 import 'package:splitr/Services/supabase_service.dart';
 import 'package:splitr/Utils/app_error_reporter.dart';
@@ -282,21 +283,30 @@ class _LoginScreenState extends State<LoginScreen> {
                                   HapticFeedback.vibrate();
                                   _authController.turnAuthScreenLoadingOn();
                                   try {
-                                    final ok =
-                                        await SupabaseAuth().googleSignIn();
-                                    if (!ok || !mounted) {
+                                    final result =
+                                        await SupabaseAuth().signInWithGoogle();
+                                    if (!mounted) {
                                       _authController
                                           .turnAuthScreenLoadingOff();
                                       return;
                                     }
+                                    if (result.isPendingBrowser) {
+                                      _authController
+                                          .turnAuthScreenLoadingOff();
+                                      return;
+                                    }
+                                    if (!result.isCompleted) {
+                                      _authController
+                                          .turnAuthScreenLoadingOff();
+                                      final message = result.userMessage;
+                                      if (message != null &&
+                                          message.isNotEmpty) {
+                                        SplitrToast.show(message);
+                                      }
+                                      return;
+                                    }
                                     _authController.turnAuthScreenLoadingOff();
-                                    await Get.find<
-                                            PremiumSubscriptionController>()
-                                        .refreshStatus();
-                                    await Get.find<DeepLinkService>()
-                                        .processPendingInvite();
-                                    Get.offAll(() =>
-                                        const BottomNavigationController());
+                                    await AuthFlowCoordinator.completeSignIn();
                                   } catch (e, stack) {
                                     _authController.turnAuthScreenLoadingOff();
                                     AppErrorReporter.report(

@@ -13,7 +13,10 @@ import 'package:splitr/Constants/constants.dart';
 import 'package:splitr/Constants/shared.dart';
 import 'package:flutter/services.dart';
 import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
+import 'package:splitr/Controller/auth_controller.dart';
+import 'package:splitr/Services/auth_flow_coordinator.dart';
 import 'package:splitr/Services/supabase_service.dart';
+import 'package:splitr/Utils/app_error_reporter.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,6 +26,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final AuthController _authController = Get.put(AuthController());
   TextEditingController emailTextEditingController = TextEditingController();
   TextEditingController firstNameTextEditingController =
       TextEditingController();
@@ -214,9 +218,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       enabled: true,
                       onTapUp: () async {
                         HapticFeedback.vibrate();
-                        bool isSuccess = await SupabaseAuth().googleSignIn();
-                        if (isSuccess) {
-                          // Handled by auth listener or deep link
+                        _authController.turnAuthScreenLoadingOn();
+                        try {
+                          final result =
+                              await SupabaseAuth().signInWithGoogle();
+                          if (!mounted) {
+                            _authController.turnAuthScreenLoadingOff();
+                            return;
+                          }
+                          if (result.isPendingBrowser) {
+                            _authController.turnAuthScreenLoadingOff();
+                            return;
+                          }
+                          if (!result.isCompleted) {
+                            _authController.turnAuthScreenLoadingOff();
+                            final message = result.userMessage;
+                            if (message != null && message.isNotEmpty) {
+                              SplitrToast.show(message);
+                            }
+                            return;
+                          }
+                          _authController.turnAuthScreenLoadingOff();
+                          await AuthFlowCoordinator.completeSignIn();
+                        } catch (e, stack) {
+                          _authController.turnAuthScreenLoadingOff();
+                          AppErrorReporter.report(
+                            'Google sign-up failed',
+                            error: e,
+                            stack: stack,
+                          );
                         }
                       },
                       child: Padding(

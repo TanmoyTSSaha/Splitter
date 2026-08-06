@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:splitr/Constants/domain_values.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ########## THIS SECTION IS FOR FONT STYLE ##########
 
@@ -177,18 +176,36 @@ final TextTheme splitter_custom_text_theme = TextTheme(
   titleLarge: body1_text,
   titleMedium: body2_text,
   titleSmall: caption_text,
-  bodyLarge:
-      GoogleFonts.lato(fontSize: splitrFontBodyLg, fontWeight: FontWeight.w600),
-  bodyMedium: GoogleFonts.lato(
-      fontSize: splitrFontBodyLg, fontWeight: FontWeight.normal),
-  bodySmall:
-      GoogleFonts.lato(fontSize: splitrFontBody, fontWeight: FontWeight.normal),
-  labelLarge:
-      GoogleFonts.lato(fontSize: splitrFontBody, fontWeight: FontWeight.bold),
-  labelMedium: GoogleFonts.lato(
-      fontSize: splitrFontCaption, fontWeight: FontWeight.normal),
-  labelSmall: GoogleFonts.lato(
-      fontSize: splitrFontMicro, fontWeight: FontWeight.normal),
+  bodyLarge: TextStyle(
+    fontFamily: 'Lato',
+    fontSize: splitrFontBodyLg,
+    fontWeight: FontWeight.w600,
+  ),
+  bodyMedium: TextStyle(
+    fontFamily: 'Lato',
+    fontSize: splitrFontBodyLg,
+    fontWeight: FontWeight.normal,
+  ),
+  bodySmall: TextStyle(
+    fontFamily: 'Lato',
+    fontSize: splitrFontBody,
+    fontWeight: FontWeight.normal,
+  ),
+  labelLarge: TextStyle(
+    fontFamily: 'Lato',
+    fontSize: splitrFontBody,
+    fontWeight: FontWeight.bold,
+  ),
+  labelMedium: TextStyle(
+    fontFamily: 'Lato',
+    fontSize: splitrFontCaption,
+    fontWeight: FontWeight.normal,
+  ),
+  labelSmall: TextStyle(
+    fontFamily: 'Lato',
+    fontSize: splitrFontMicro,
+    fontWeight: FontWeight.normal,
+  ),
 );
 
 // ########## THIS SECTION IS FOR COLORS ##########

@@ -1345,6 +1345,12 @@ final class _ServiceAuth {
   final unexpectedError = 'An unexpected error occurred.';
   final googleNoIdToken = 'Google sign-in did not return an ID token.';
   final googleSignInFailed = 'Google Sign In failed.';
+  final googleSignInConfigError =
+      'Google Sign-In is not configured for this build. Please update the app or contact support.';
+  final googleSignInNetworkError =
+      'Could not reach Google. Check your connection and try again.';
+  final googleEmailRegisteredWithPassword =
+      'This email is registered with a password. Sign in with email or reset your password.';
   final emailAlreadyRegisteredUseGoogle =
       'This email is already registered. Sign in with Google.';
   final verifyEmailBeforeGoogle =
@@ -1378,6 +1384,8 @@ final class _ServiceAi {
 final class _ServiceDeepLink {
   const _ServiceDeepLink();
   final googleSignInIncomplete = 'Google sign-in could not be completed.';
+  final emailLinkExpired =
+      'This sign-in link has expired. Request a new one from the login screen.';
   final signInToAccept = 'Sign in to accept this invite';
   final signInQueued =
       'Sign in to accept this invite — we\'ll open it after login';

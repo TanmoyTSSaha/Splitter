@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:splitr/Constants/app_motion.dart';
 import 'package:splitr/Constants/app_palette.dart';
@@ -88,11 +89,20 @@ class _MonthlyRecapStoryHostState extends State<MonthlyRecapStoryHost> {
         )
         .toList();
 
-    // ponytail: parent vertical drag — story_view 0.16.6 null-derefs verticalDragInfo on swipe end
-    return GestureDetector(
-      onVerticalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity > 400) _closeRecap();
+    // Intercept vertical drags before story_view 0.16.6 null-derefs verticalDragInfo.
+    return RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      gestures: <Type, GestureRecognizerFactory>{
+        VerticalDragGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<VerticalDragGestureRecognizer>(
+          () => VerticalDragGestureRecognizer(),
+          (VerticalDragGestureRecognizer instance) {
+            instance.onEnd = (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity > 400) _closeRecap();
+            };
+          },
+        ),
       },
       child: Stack(
         fit: StackFit.expand,
@@ -118,25 +128,25 @@ class _MonthlyRecapStoryHostState extends State<MonthlyRecapStoryHost> {
               widget.onComplete?.call();
             },
           ),
-        Positioned(
-          top: topInset + groupGapSm,
-          right: groupGapLg,
-          child: GestureDetector(
-            onTap: _closeRecap,
-            child: Container(
-              padding: const EdgeInsets.all(groupGapSm),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppPalette.recapBorder),
-                color: neopopBackground.withValues(alpha: 0.6),
-              ),
-              child: const Icon(
-                Icons.close_rounded,
-                color: AppPalette.recapOnSurface,
-                size: 20,
+          Positioned(
+            top: topInset + groupGapSm,
+            right: groupGapLg,
+            child: GestureDetector(
+              onTap: _closeRecap,
+              child: Container(
+                padding: const EdgeInsets.all(groupGapSm),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppPalette.recapBorder),
+                  color: neopopBackground.withValues(alpha: 0.6),
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: AppPalette.recapOnSurface,
+                  size: 20,
+                ),
               ),
             ),
-          ),
           ),
         ],
       ),

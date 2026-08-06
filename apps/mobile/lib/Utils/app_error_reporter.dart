@@ -70,12 +70,21 @@ abstract final class AppErrorReporter {
     return text.contains('fonts.gstatic.com');
   }
 
+  static bool isOtpExpiredAuthError(Object error) {
+    if (error is! AuthException) return false;
+    final code = error.code ?? '';
+    final status = error.statusCode ?? '';
+    if (code == 'otp_expired' || status == 'otp_expired') return true;
+    return error.message.toLowerCase().contains('invalid or has expired');
+  }
+
   /// Skip Sentry for known dev/config gaps — still log locally.
   static bool shouldSkipSentry(Object? error) {
     if (error == null) return false;
     return isMissingSchemaError(error) ||
         isFirebaseConfigError(error) ||
-        isOfflineFontError(error);
+        isOfflineFontError(error) ||
+        isOtpExpiredAuthError(error);
   }
 
   static void unexpected(
@@ -161,7 +170,9 @@ abstract final class AppErrorReporter {
   /// Whether the error is a known user-facing category (auth cancel, etc.).
   /// Does not mean raw [error.message] should be shown.
   static bool isExpectedUserError(Object error) {
-    if (error is AuthException) return true;
+    if (error is AuthException) {
+      return !isOtpExpiredAuthError(error);
+    }
     if (error is StorageException) {
       final message = error.message.toLowerCase();
       if (message.contains('bucket not found')) return true;
@@ -193,6 +204,9 @@ abstract final class AppErrorReporter {
     final contextual = _contextualFallback(fallback, mergedContext);
 
     if (error is AuthException) {
+      if (isOtpExpiredAuthError(error)) {
+        return AppStrings.services.deepLink.emailLinkExpired;
+      }
       return feature == 'auth' ? error.message : AppStrings.errors.genericHumorous;
     }
 

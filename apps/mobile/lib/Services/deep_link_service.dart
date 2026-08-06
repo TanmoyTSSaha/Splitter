@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:splitr/Widgets/splitr_toast.dart';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:splitr/Constants/app_branding.dart';
@@ -9,12 +10,13 @@ import 'package:splitr/Constants/app_keys.dart';
 import 'package:splitr/Constants/app_strings.dart';
 import 'package:splitr/Constants/domain_values.dart';
 import 'package:splitr/Controller/group_screen_controller.dart';
-import 'package:splitr/Screen/BottomNavigationController/bottom_navigation_controller.dart';
+import 'package:splitr/Screen/AuthScreens/login_screen.dart';
 import 'package:splitr/Screen/FriendScreen/friends_screen.dart';
 import 'package:splitr/Screen/GroupScreen/group_detailed_screen.dart';
 import 'package:splitr/Services/auth_recovery_coordinator.dart';
+import 'package:splitr/Services/auth_flow_coordinator.dart';
+import 'package:splitr/Services/google_auth_errors.dart';
 import 'package:splitr/Services/invite_link_service.dart';
-import 'package:splitr/Services/local/database.dart';
 import 'package:splitr/Services/supabase_service.dart';
 import 'package:splitr/Utils/app_error_reporter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,6 +27,19 @@ class DeepLinkService {
   final InviteLinkService _inviteLinks = InviteLinkService();
   StreamSubscription<Uri>? _sub;
   bool _handling = false;
+  bool _navigationReady = false;
+  final List<VoidCallback> _pendingNavigation = [];
+
+  /// Call after [GetMaterialApp] mounts so [Get.offAll]/[Get.to] are safe.
+  void markNavigationReady() {
+    if (_navigationReady) return;
+    _navigationReady = true;
+    final pending = List<VoidCallback>.from(_pendingNavigation);
+    _pendingNavigation.clear();
+    for (final action in pending) {
+      action();
+    }
+  }
 
   Future<void> initialize() async {
     try {
@@ -99,6 +114,30 @@ class DeepLinkService {
     return fragment.contains('${SupabaseAuthQuery.type}=${SupabaseAuthQuery.recovery}');
   }
 
+  @visibleForTesting
+  static Map<String, String> authCallbackParams(Uri uri) {
+    final normalized = _normalizeAuthUri(uri);
+    final params = Map<String, String>.from(normalized.queryParameters);
+    if (normalized.fragment.isNotEmpty) {
+      params.addAll(Uri.splitQueryString(normalized.fragment));
+    }
+    return params;
+  }
+
+  @visibleForTesting
+  static bool isAuthCallbackFailure(Map<String, String> params) {
+    final errorCode = params['error_code'] ?? '';
+    final error = params['error'] ?? '';
+    return errorCode == 'otp_expired' || error == 'access_denied';
+  }
+
+  @visibleForTesting
+  static bool hasAuthSessionPayload(Map<String, String> params) {
+    return params.containsKey('access_token') ||
+        params.containsKey('refresh_token') ||
+        params.containsKey('code');
+  }
+
   static Uri _normalizeAuthUri(Uri uri) {
     if (uri.scheme != AppBranding.appScheme) return uri;
     if (uri.host.isNotEmpty) return uri;
@@ -113,25 +152,68 @@ class DeepLinkService {
     return host == AppBranding.webHost || host == 'www.${AppBranding.webHost}';
   }
 
+  void _runWhenNavigationReady(VoidCallback action) {
+    if (_navigationReady && Get.key.currentContext != null) {
+      action();
+      return;
+    }
+    _pendingNavigation.add(action);
+  }
+
+  void _routeToLogin({required String message}) {
+    _runWhenNavigationReady(() {
+      SplitrToast.show(message);
+      Get.offAll(() => const LoginScreen());
+    });
+  }
+
+  void _routeToHome({String loginMethod = LoginMethods.email}) {
+    _runWhenNavigationReady(() {
+      unawaited(AuthFlowCoordinator.completeSignIn(loginMethod: loginMethod));
+    });
+  }
+
   Future<void> _handleUri(Uri uri, {bool fromQueue = false}) async {
     if (_handling) return;
 
     if (isAuthCallbackUri(uri)) {
       final normalized = _normalizeAuthUri(uri);
+      final params = authCallbackParams(normalized);
+
+      if (isAuthCallbackFailure(params) && !hasAuthSessionPayload(params)) {
+        _routeToLogin(
+          message: AppStrings.services.deepLink.emailLinkExpired,
+        );
+        return;
+      }
+
       try {
         await Supabase.instance.client.auth.getSessionFromUrl(normalized);
         if (isRecoveryUri(normalized)) {
-          AuthRecoveryCoordinator.routeToResetPassword();
+          _runWhenNavigationReady(AuthRecoveryCoordinator.routeToResetPassword);
           return;
         }
-        if (Get.isRegistered<AppDatabase>()) {
-          await Get.find<AppDatabase>().clearAllUserData();
-        }
-        await SupabaseAuth().recordLastUsedLoginMethod(LoginMethods.google);
-        Get.offAll(() => const BottomNavigationController());
+        final user = Supabase.instance.client.auth.currentUser;
+        final loginMethod = GoogleAuthErrors.isGoogleOAuthCallback(params) ||
+                GoogleAuthErrors.userSignedInWithGoogle(user)
+            ? LoginMethods.google
+            : LoginMethods.email;
+        _routeToHome(loginMethod: loginMethod);
         await processPendingInvite();
+      } on AuthException catch (e) {
+        if (AppErrorReporter.isOtpExpiredAuthError(e)) {
+          _routeToLogin(
+            message: AppStrings.services.deepLink.emailLinkExpired,
+          );
+          return;
+        }
+        _routeToLogin(
+          message: AppStrings.services.deepLink.googleSignInIncomplete,
+        );
       } catch (e) {
-        SplitrToast.show(AppStrings.services.deepLink.googleSignInIncomplete);
+        _routeToLogin(
+          message: AppStrings.services.deepLink.googleSignInIncomplete,
+        );
       }
       return;
     }
@@ -153,19 +235,27 @@ class DeepLinkService {
         case InviteLinkType.friend:
           await _inviteLinks.acceptFriendInvite(payload.id);
           SplitrToast.show(AppStrings.services.deepLink.friendRequestSent);
-          Get.to(() => const FriendsScreen());
+          _runWhenNavigationReady(() => Get.to(() => const FriendsScreen()));
           break;
         case InviteLinkType.group:
           final groupId = await _inviteLinks.acceptGroupInvite(payload.id);
+          final userId = SupabaseAuth().supabaseGetUserIDOrNull();
+          if (userId == null) {
+            await _savePendingUri(uri);
+            SplitrToast.show(AppStrings.services.deepLink.signInToAccept);
+            return;
+          }
           GroupScreenController.refreshFromAnywhere();
-          final groups = await SupabaseDatabase().getGroupData(
-            userID: SupabaseAuth().supabaseGetUserID(),
-          );
+          final groups = await SupabaseDatabase().getGroupData(userID: userId);
           final group = groups.firstWhere((g) => g.groupID == groupId);
-          Get.to(() => GroupDetailedScreen(
+          _runWhenNavigationReady(
+            () => Get.to(
+              () => GroupDetailedScreen(
                 groupModel: group,
-                userID: SupabaseAuth().supabaseGetUserID(),
-              ));
+                userID: userId,
+              ),
+            ),
+          );
           SplitrToast.show(AppStrings.services.deepLink.joinedGroup);
           break;
       }

@@ -9,6 +9,7 @@ import 'package:splitr/Model/user_details_model.dart';
 import 'package:splitr/Model/master_upi_bank_model.dart';
 import 'package:splitr/Model/user_upi_account_model.dart';
 import 'package:splitr/Services/SupabaseServices/auth_service.dart';
+import 'package:splitr/Services/google_auth_result.dart';
 import 'package:splitr/Services/SupabaseServices/friend_service.dart';
 import 'package:splitr/Services/SupabaseServices/group_service.dart';
 import 'package:splitr/Services/SupabaseServices/transaction_service.dart';
@@ -23,6 +24,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseAuth {
   final supabase = Supabase.instance.client;
   final AuthService _authService = AuthService();
+
+  String? supabaseGetUserIDOrNull() {
+    return _authService.supabaseGetUserIDOrNull();
+  }
 
   String supabaseGetUserID() {
     return _authService.supabaseGetUserID();
@@ -60,6 +65,10 @@ class SupabaseAuth {
 
   Future<bool> googleSignIn() {
     return _authService.googleSignIn();
+  }
+
+  Future<GoogleAuthResult> signInWithGoogle() {
+    return _authService.signInWithGoogle();
   }
 
   Future<String?> getLastUsedLoginMethod() {

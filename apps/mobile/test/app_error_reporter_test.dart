@@ -15,6 +15,43 @@ void main() {
       );
     });
 
+    test('otp_expired AuthException is not expected user error', () {
+      expect(
+        AppErrorReporter.isExpectedUserError(
+          const AuthException(
+            'Email link is invalid or has expired',
+            statusCode: 'otp_expired',
+            code: 'access_denied',
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        AppErrorReporter.shouldSkipSentry(
+          const AuthException(
+            'Email link is invalid or has expired',
+            statusCode: 'otp_expired',
+            code: 'access_denied',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('otp_expired maps to email link expired copy', () {
+      expect(
+        AppErrorReporter.userSafeMessage(
+          const AuthException(
+            'Email link is invalid or has expired',
+            statusCode: 'otp_expired',
+            code: 'access_denied',
+          ),
+          fallback: AppStrings.errors.genericHumorous,
+        ),
+        AppStrings.services.deepLink.emailLinkExpired,
+      );
+    });
+
     test('biometric user cancel PlatformException is expected', () {
       expect(
         AppErrorReporter.isExpectedUserError(
