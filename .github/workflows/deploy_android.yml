@@ -135,8 +135,12 @@ jobs:
 
       - name: Resolve build number from Play
         id: version
+        env:
+          BUILD_NUMBER_FILE: ${{ runner.temp }}/next-build-number.txt
         run: |
-          BUILD_NUMBER=$(cd android && bundle exec fastlane print_next_build_number 2>&1 | grep -Eo '^[0-9]+$' | tail -n 1 | tr -d '\r')
+          cd android
+          bundle exec fastlane print_next_build_number
+          BUILD_NUMBER=$(tr -d '\r\n' < "$BUILD_NUMBER_FILE")
           if ! echo "$BUILD_NUMBER" | grep -Eq '^[0-9]+$'; then
             echo "Could not resolve build number from Play API"
             exit 1

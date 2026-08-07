@@ -34,6 +34,9 @@ platform :android do
   lane :print_next_build_number do
     next_code = max_play_version_code + 1
     next_code = 2 if next_code < 2
+    if ENV["BUILD_NUMBER_FILE"]
+      File.write(ENV["BUILD_NUMBER_FILE"], next_code.to_s)
+    end
     puts next_code
   end
 
