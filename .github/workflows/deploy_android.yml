@@ -104,6 +104,26 @@ jobs:
             "storeFile=../upload-keystore.jks" \
             > android/key.properties
 
+      - name: Materialize Play Store service account key
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          PLAY_STORE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: |
+          KEY_FILE="${RUNNER_TEMP}/play-store-key.json"
+          if [ -n "$PLAY_STORE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > "$KEY_FILE"
+          elif [ -n "$PLAY_STORE_SERVICE_ACCOUNT_JSON" ]; then
+            printf '%s' "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > "$KEY_FILE"
+          else
+            echo "Set PLAY_STORE_SERVICE_ACCOUNT_JSON or PLAY_STORE_SERVICE_ACCOUNT_JSON_BASE64 in the internal environment"
+            exit 1
+          fi
+          python3 -c "import json; json.load(open('$KEY_FILE'))" || {
+            echo "Play Store service account JSON is invalid. Re-paste the full GCP key JSON (or base64) into GitHub internal environment secrets."
+            exit 1
+          }
+          echo "PLAY_STORE_JSON_KEY_PATH=$KEY_FILE" >> "$GITHUB_ENV"
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
@@ -115,14 +135,11 @@ jobs:
 
       - name: Resolve build number from Play
         id: version
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
         run: |
-          set +e
-          BUILD_NUMBER=$(cd android && bundle exec fastlane print_next_build_number 2>/dev/null | tail -n 1 | tr -d '\r')
+          BUILD_NUMBER=$(cd android && bundle exec fastlane print_next_build_number 2>&1 | tail -n 1 | tr -d '\r')
           if ! echo "$BUILD_NUMBER" | grep -Eq '^[0-9]+$'; then
-            echo "Play API unavailable; defaulting build number to 2"
-            BUILD_NUMBER=2
+            echo "Could not resolve build number from Play API"
+            exit 1
           fi
           echo "Using build number: $BUILD_NUMBER"
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
@@ -150,12 +167,11 @@ jobs:
 
       - name: Upload to Play Store
         env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
           ROLLOUT_FRACTION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollout_fraction || '' }}
           FASTLANE_LANE: ${{ github.event_name == 'workflow_dispatch' && inputs.track || 'internal' }}
         run: |
-          if [ -z "$PLAY_STORE_SERVICE_ACCOUNT_JSON" ]; then
-            echo "PLAY_STORE_SERVICE_ACCOUNT_JSON secret is not set"
+          if [ -z "$PLAY_STORE_JSON_KEY_PATH" ]; then
+            echo "PLAY_STORE_JSON_KEY_PATH is not set"
             exit 1
           fi
           cd android

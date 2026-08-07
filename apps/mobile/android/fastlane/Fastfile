@@ -6,8 +6,12 @@ PLAY_PACKAGE = "money.splitr.app"
 AAB_PATH = "../build/app/outputs/bundle/release/app-release.aab"
 PLAY_TRACKS = %w[internal beta production].freeze
 
-def play_json_key_data
-  ENV.fetch("PLAY_STORE_SERVICE_ACCOUNT_JSON")
+def play_store_auth_options
+  if ENV["PLAY_STORE_JSON_KEY_PATH"]
+    { json_key: ENV.fetch("PLAY_STORE_JSON_KEY_PATH") }
+  else
+    { json_key_data: ENV.fetch("PLAY_STORE_SERVICE_ACCOUNT_JSON") }
+  end
 end
 
 def max_play_version_code
@@ -15,7 +19,7 @@ def max_play_version_code
     google_play_track_version_codes(
       package_name: PLAY_PACKAGE,
       track: track,
-      json_key_data: play_json_key_data
+      **play_store_auth_options
     )
   rescue StandardError => e
     UI.important("Could not read version codes from #{track}: #{e.message}")
@@ -52,17 +56,19 @@ platform :android do
   end
 
   private_lane :upload_release do |options|
-    upload_to_play_store(
+    upload_args = {
       track: options[:track],
       aab: AAB_PATH,
-      json_key_data: play_json_key_data,
       package_name: PLAY_PACKAGE,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true,
       skip_upload_changelogs: false,
-      changes_not_sent_for_review: true,
-      rollout: options[:rollout]
-    )
+      changes_not_sent_for_review: true
+    }
+    rollout = options[:rollout]
+    upload_args[:rollout] = rollout if rollout && !rollout.empty?
+
+    upload_to_play_store(**upload_args.merge(play_store_auth_options))
   end
 end
