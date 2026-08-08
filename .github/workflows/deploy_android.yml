@@ -67,6 +67,9 @@ jobs:
           fi
           printf '%s' "$PROD_ENV_JSON" > env.prod.json
 
+      - name: Validate production env
+        run: node ../../scripts/validate-env-prod.mjs env.prod.json
+
       - name: Materialize google-services.json
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
