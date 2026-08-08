@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 import 'package:splitr/Controller/auth_controller.dart';
 import 'package:splitr/Services/auth_flow_coordinator.dart';
+import 'package:splitr/Services/google_auth_result.dart';
 import 'package:splitr/Services/supabase_service.dart';
 import 'package:splitr/Utils/app_error_reporter.dart';
 
@@ -226,8 +227,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             _authController.turnAuthScreenLoadingOff();
                             return;
                           }
-                          if (result.isPendingBrowser) {
+                          if (result.outcome == GoogleAuthOutcome.cancelled) {
                             _authController.turnAuthScreenLoadingOff();
+                            SplitrToast.show(
+                              AppStrings.services.auth.googleSignInCancelled,
+                            );
                             return;
                           }
                           if (!result.isCompleted) {

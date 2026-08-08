@@ -8,15 +8,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 abstract final class GoogleAuthErrors {
   static String? mapAuthException(AuthException e) {
     final msg = e.message.toLowerCase();
-    final code = (e.code ?? '').toLowerCase();
 
     if (msg.contains('email not confirmed') ||
         msg.contains('email_not_confirmed')) {
       return AppStrings.services.auth.verifyEmailBeforeGoogle;
     }
-    if (_isIdentityConflict(msg, code)) {
-      return AppStrings.services.auth.googleEmailRegisteredWithPassword;
-    }
+    // Verified-email identity conflicts are handled in AuthService via
+    // linkIdentityWithIdToken (D-10) — do not map to password-only copy here.
     if (_isNetworkError(msg)) {
       return AppStrings.services.auth.googleSignInNetworkError;
     }

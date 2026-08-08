@@ -18,6 +18,7 @@ import 'package:splitr/Screen/BottomNavigationController/bottom_navigation_contr
 import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 import 'package:splitr/Services/auth_flow_coordinator.dart';
 import 'package:splitr/Services/deep_link_service.dart';
+import 'package:splitr/Services/google_auth_result.dart';
 import 'package:splitr/Services/supabase_service.dart';
 import 'package:splitr/Utils/app_error_reporter.dart';
 
@@ -290,9 +291,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                           .turnAuthScreenLoadingOff();
                                       return;
                                     }
-                                    if (result.isPendingBrowser) {
-                                      _authController
-                                          .turnAuthScreenLoadingOff();
+                                    if (result.outcome == GoogleAuthOutcome.cancelled) {
+                                      _authController.turnAuthScreenLoadingOff();
+                                      SplitrToast.show(
+                                        AppStrings.services.auth
+                                            .googleSignInCancelled,
+                                      );
                                       return;
                                     }
                                     if (!result.isCompleted) {

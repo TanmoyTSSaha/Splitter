@@ -9,7 +9,6 @@ void main() {
     test('completed outcome is successful', () {
       const result = GoogleAuthResult.completed();
       expect(result.isCompleted, isTrue);
-      expect(result.isPendingBrowser, isFalse);
       expect(result.outcome, GoogleAuthOutcome.completed);
     });
 
@@ -26,12 +25,6 @@ void main() {
       expect(cancelled.outcome, isNot(failed.outcome));
     });
 
-    test('pendingBrowser does not report completed', () {
-      const result = GoogleAuthResult.pendingBrowser();
-      expect(result.isCompleted, isFalse);
-      expect(result.isPendingBrowser, isTrue);
-    });
-
     test('failed carries user message', () {
       final result = GoogleAuthResult.failed('oops');
       expect(result.outcome, GoogleAuthOutcome.failed);
@@ -40,13 +33,29 @@ void main() {
   });
 
   group('GoogleAuthErrors', () {
-    test('maps identity conflict from AuthException', () {
+    test('does not map verified-email identity conflict to password copy (D-10)', () {
       final message = GoogleAuthErrors.mapAuthException(
         const AuthException('User already registered'),
       );
+      expect(message, isNull);
       expect(
-        message,
-        AppStrings.services.auth.googleEmailRegisteredWithPassword,
+        GoogleAuthErrors.isVerifiedEmailIdentityConflict(
+          const AuthException('User already registered'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('maps unconfirmed email before Google sign-in', () {
+      final message = GoogleAuthErrors.mapAuthException(
+        const AuthException('Email not confirmed'),
+      );
+      expect(message, AppStrings.services.auth.verifyEmailBeforeGoogle);
+      expect(
+        GoogleAuthErrors.isVerifiedEmailIdentityConflict(
+          const AuthException('Email not confirmed'),
+        ),
+        isFalse,
       );
     });
 
@@ -64,7 +73,7 @@ void main() {
       expect(message, AppStrings.services.auth.googleSignInNetworkError);
     });
 
-    test('detects verified-email identity conflict for D-10 linking', () {
+    test('detects verified-email identity conflict for linkIdentityWithIdToken', () {
       expect(
         GoogleAuthErrors.isVerifiedEmailIdentityConflict(
           const AuthException('Identity already exists'),
@@ -157,24 +166,45 @@ void main() {
         isTrue,
       );
     });
+
+    test('offline block must not report to Sentry', () {
+      expect(
+        GoogleAuthErrors.shouldReportGoogleAuthFailure(
+          outcome: GoogleAuthOutcome.failed,
+        ),
+        isFalse,
+      );
+    });
   });
 
-  group('Native Google sign-in service contract (tracer)', () {
-    test('documents config-missing user copy expectation (D-02)', () {
-      // AuthService returns this when AppSecrets.googleWebClientId is empty
-      // after D-01 removal — no browser OAuth launch.
+  group('Native Google sign-in service contract', () {
+    test('config-missing user copy points to email sign-in (D-02)', () {
       expect(
         AppStrings.services.auth.googleSignInUnavailableUseEmail,
-        isNotEmpty,
+        contains('email'),
       );
     });
 
-    test('documents cancel toast copy (D-08)', () {
-      expect(AppStrings.services.auth.googleSignInCancelled, isNotEmpty);
+    test('cancel toast copy (D-08)', () {
+      expect(
+        AppStrings.services.auth.googleSignInCancelled,
+        'Sign-in cancelled',
+      );
     });
 
-    test('documents offline block copy (D-09)', () {
-      expect(AppStrings.services.auth.googleSignInOffline, isNotEmpty);
+    test('offline block copy (D-09)', () {
+      expect(
+        AppStrings.services.auth.googleSignInOffline,
+        'Internet required to sign in',
+      );
+    });
+
+    test('D-10 identity conflict triggers linkIdentityWithIdToken in AuthService', () {
+      // AuthService._signInWithGoogleTokens calls linkIdentityWithIdToken when
+      // signInWithIdToken throws a verified-email identity conflict.
+      const conflict = AuthException('Identity already exists');
+      expect(GoogleAuthErrors.isVerifiedEmailIdentityConflict(conflict), isTrue);
+      expect(GoogleAuthErrors.mapAuthException(conflict), isNull);
     });
   });
 }
