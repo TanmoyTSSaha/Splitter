@@ -146,12 +146,12 @@ Plans:
   3. Misconfigured builds show clear user error + Sentry event; email/password fallback remains
   4. Email/password recovery and confirm links complete via `https://splitr.money/auth/callback` App Links
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 
 Plans:
 
 - [x] 07-01-PLAN.md
-- [ ] 07-02-PLAN.md
+- [x] 07-02-PLAN.md
 - [ ] 07-03-PLAN.md
 
 **Wave 1** *(parallel)*
@@ -176,4 +176,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 (Phase 7 
 | 4. Mobile Maintainability | 0/3 | Not started | - |
 | 5. Tooling Alignment | 0/2 | Not started | - |
 | 6. Android Performance | 0/3 | Not started | - |
-| 7. Google Auth (Closed Testing) | 1/3 | In Progress|  |
+| 7. Google Auth (Closed Testing) | 2/3 | In Progress|  |
