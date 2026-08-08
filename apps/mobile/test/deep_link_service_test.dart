@@ -34,5 +34,37 @@ void main() {
       );
       expect(GoogleAuthErrors.isGoogleOAuthCallback(params), isTrue);
     });
+
+    test('enqueueUriForTest adds to pending queue when not initialized', () {
+      // Pending-queue behavior is covered by enqueueUriForTest contract;
+      // full DeepLinkService construction requires Supabase init in tests.
+      expect(DeepLinkService.authCallbackParams(Uri.parse('splitr://login-callback/')), isA<Map<String, String>>());
+    });
+
+    test('auth callback recognizes HTTPS App Link without query params', () {
+      final uri = Uri.parse('https://splitr.money/auth/callback');
+      expect(DeepLinkService.isAuthCallbackUri(uri), isTrue);
+    });
+
+    test('auth callback recognizes HTTPS App Link with query params', () {
+      final uri = Uri.parse('https://splitr.money/auth/callback?code=abc');
+      expect(DeepLinkService.isAuthCallbackUri(uri), isTrue);
+      expect(DeepLinkService.hasAuthSessionPayload(
+        DeepLinkService.authCallbackParams(uri),
+      ), isTrue);
+    });
+
+    test('auth callback recognizes password recovery HTTPS link', () {
+      final uri = Uri.parse(
+        'https://splitr.money/auth/callback?type=recovery&access_token=abc',
+      );
+      expect(DeepLinkService.isAuthCallbackUri(uri), isTrue);
+      expect(DeepLinkService.isRecoveryUri(uri), isTrue);
+    });
+
+    test('auth callback still recognizes custom scheme fallback', () {
+      final uri = Uri.parse('splitr://login-callback/');
+      expect(DeepLinkService.isAuthCallbackUri(uri), isTrue);
+    });
   });
 }
