@@ -47,7 +47,7 @@
 - [x] **AUTH-01**: Release CI rejects placeholder or invalid production secrets in `env.prod.json` / `PROD_ENV_JSON`
 - [x] **AUTH-02**: Mobile Google sign-in uses native `google_sign_in` only; browser OAuth fallback removed from release path
 - [x] **AUTH-03**: Google sign-in config failures surface clear user message and Sentry telemetry; email/password fallback remains
-- [ ] **AUTH-04**: Email confirm and password reset complete via `https://splitr.money/auth/callback` App Links on Android
+- [x] **AUTH-04**: Email confirm and password reset complete via `https://splitr.money/auth/callback` App Links on Android (code complete; Vercel deploy pending for live verification)
 
 ## v2 Requirements
 
@@ -101,7 +101,7 @@
 | AUTH-01 | Phase 7 | Complete |
 | AUTH-02 | Phase 7 | Complete |
 | AUTH-03 | Phase 7 | Complete |
-| AUTH-04 | Phase 7 | Pending |
+| AUTH-04 | Phase 7 | Complete (deploy pending) |
 
 **Coverage:**
 
