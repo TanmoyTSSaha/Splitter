@@ -37,6 +37,11 @@ if [[ ${#MISSING_PATHS[@]} -gt 0 ]]; then
   exit 1
 fi
 
+VALIDATOR="$ROOT/scripts/validate-env-prod.mjs"
+if [[ -f "$VALIDATOR" ]]; then
+  node "$VALIDATOR" "$MOBILE_DIR/env.prod.json"
+fi
+
 echo "Building release AAB (version from pubspec.yaml)..."
 
 cd "$MOBILE_DIR"
