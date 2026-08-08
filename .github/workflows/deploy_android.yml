@@ -90,6 +90,49 @@ jobs:
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
 
+      - name: Verify Android signing fingerprints
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GCP_ANDROID_OAUTH_UPLOAD_SHA1: ${{ secrets.GCP_ANDROID_OAUTH_UPLOAD_SHA1 }}
+          GCP_ANDROID_OAUTH_PLAY_SIGNING_SHA1: ${{ secrets.GCP_ANDROID_OAUTH_PLAY_SIGNING_SHA1 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "Android signing secrets are required for fingerprint verification"
+            exit 1
+          fi
+          if [ -z "$GCP_ANDROID_OAUTH_UPLOAD_SHA1" ]; then
+            echo "GCP_ANDROID_OAUTH_UPLOAD_SHA1 secret is not set"
+            echo "Run keytool on upload-keystore.jks and register SHA-1 in GCP Android OAuth client"
+            exit 1
+          fi
+          if [ -z "$GCP_ANDROID_OAUTH_PLAY_SIGNING_SHA1" ]; then
+            echo "GCP_ANDROID_OAUTH_PLAY_SIGNING_SHA1 secret is not set"
+            echo "Register Play app-signing SHA-1 in GCP Android OAuth client (Play Console → App signing)"
+            exit 1
+          fi
+          KEYTOOL_ERR=$(mktemp)
+          KEYTOOL_OUT=$(keytool -list -v \
+            -keystore android/upload-keystore.jks \
+            -alias "$ANDROID_KEY_ALIAS" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>"$KEYTOOL_ERR") || {
+            echo "keytool failed to read upload keystore (check alias and store password)"
+            exit 1
+          }
+          rm -f "$KEYTOOL_ERR"
+          ACTUAL_SHA1=$(echo "$KEYTOOL_OUT" | grep -m1 'SHA1:' | sed 's/.*SHA1:[[:space:]]*//' | tr '[:lower:]' '[:upper:]' | tr -d '\r')
+          EXPECTED_SHA1=$(echo "$GCP_ANDROID_OAUTH_UPLOAD_SHA1" | tr '[:lower:]' '[:upper:]' | tr -d '\r')
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "Could not extract SHA-1 from upload keystore"
+            exit 1
+          fi
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "Upload keystore SHA-1 does not match GCP_ANDROID_OAUTH_UPLOAD_SHA1"
+            echo "Update the GitHub secret or re-register the fingerprint in GCP Android OAuth client"
+            exit 1
+          fi
+          echo "Upload keystore SHA-1 matches GCP_ANDROID_OAUTH_UPLOAD_SHA1"
+
       - name: Write key.properties
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
