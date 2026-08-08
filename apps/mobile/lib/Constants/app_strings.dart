@@ -1345,6 +1345,10 @@ final class _ServiceAuth {
   final unexpectedError = 'An unexpected error occurred.';
   final googleNoIdToken = 'Google sign-in did not return an ID token.';
   final googleSignInFailed = 'Google Sign In failed.';
+  final googleSignInCancelled = 'Sign-in cancelled';
+  final googleSignInOffline = 'Internet required to sign in';
+  final googleSignInUnavailableUseEmail =
+      'Google Sign-In is not available in this build. Please sign in with your email and password.';
   final googleSignInConfigError =
       'Google Sign-In is not configured for this build. Please update the app or contact support.';
   final googleSignInNetworkError =
