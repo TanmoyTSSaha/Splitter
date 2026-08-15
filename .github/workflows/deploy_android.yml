@@ -197,8 +197,25 @@ jobs:
           echo "Using build number: $BUILD_NUMBER"
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
 
+      - name: Configure CI build memory
+        run: |
+          # ubuntu-latest has 7 GB RAM; R8 minify + Gradle -Xmx4G often OOMs.
+          sudo swapoff -a || true
+          sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> android/gradle.properties
+
       - name: Build release app bundle
         run: |
+          if [ -z "$BUILD_NUMBER" ]; then
+            echo "BUILD_NUMBER is empty"
+            exit 1
+          fi
+          mkdir -p build/app build/debug-info
+          flutter --version
+          echo "Building with versionCode=$BUILD_NUMBER"
           flutter build appbundle --release \
             --build-number="$BUILD_NUMBER" \
             --dart-define-from-file=env.prod.json \
