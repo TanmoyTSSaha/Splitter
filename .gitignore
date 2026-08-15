@@ -57,3 +57,11 @@ apps/mobile/android/app/google-services.json
 client_secret_*.json
 *.jks
 *.keystore
+
+# Local workflow / agent tooling (machine-specific, not shared)
+.planning/
+.superpowers/
+.cursor/mcp.json
+docs/
+/pubspec.lock
+apps/web/.vercel-deploy-files.json
