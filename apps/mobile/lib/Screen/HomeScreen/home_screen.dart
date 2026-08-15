@@ -75,7 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Obx(() {
       final user = _profile.user.value;
-      if (user == null) return const LoadingWidget();
+      if (user == null) {
+        return const Scaffold(body: Center(child: LoadingWidget()));
+      }
 
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
@@ -83,7 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Column(
           children: [
             StreamBuilder<SyncStatus>(
-              stream: Get.find<SyncService>().syncStatus,
+              stream: Get.isRegistered<SyncService>()
+                  ? Get.find<SyncService>().syncStatus
+                  : const Stream<SyncStatus>.empty(),
               initialData: SyncStatus.synced,
               builder: (context, syncSnapshot) {
                 return SyncStatusBanner(
@@ -91,118 +95,66 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-            Obx(() {
-              final error = _homeController.fetchError.value;
-              if (error == null) return const SizedBox.shrink();
-              return MaterialBanner(
-                backgroundColor: neopopErrorFillMedium,
-                content: Text(
-                  error,
-                  style: body2_text.copyWith(color: groupOnSurface),
-                ),
-                leading: const Icon(
-                  Icons.cloud_off_rounded,
-                  color: neopopError,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => _homeController.fetchError.value = null,
-                    child: Text(
-                      AppStrings.actions.dismiss,
-                      style: body2_text.copyWith(color: groupOnSurfaceMuted),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _homeController.fetchHomeData,
-                    child: Text(
-                      AppStrings.actions.retry,
-                      style: body2_text.copyWith(
-                        color: neopopAccent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }),
+            _HomeErrorBanner(controller: _homeController),
             Expanded(
-              child: Obx(() {
-                if (_homeController.isLoading.value) {
-                  return Center(
-                    child: LoadingAnimationWidget.discreteCircle(
-                      color: neopopAccent,
-                      size: AppDimensions.loadingIndicatorLg,
-                    ),
-                  );
-                }
-                if (!_homeController.hasHomeData) {
-                  return HomeEmptyState(
-                    userName: user.firstName,
-                    onActionComplete: _homeController.fetchHomeData,
-                  );
-                }
-                return SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: _homePadding,
-                  child: Column(
-                    children: [
-                      const MonthlyRecapDropCard(),
-                      const InsightsPromoCard(),
-                      GradientMeshBackground(
-                        child: GlassCard(
-                          margin: EdgeInsets.zero,
-                          padding: EdgeInsets.symmetric(vertical: height_16),
-                          opacity: 0.12,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildTagline(),
-                              SizedBox(height: height_16 * 2),
-                              _buildMonthlySpendSection(),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: height_16 * 2),
-                      _buildTransactionsList(),
-                      SizedBox(height: height_16 * 2),
-                      _buildAnalyticsHeader(),
-                      SizedBox(height: height_16),
-                      Obx(() => _homeController.showTrueSpend.value
-                          ? _buildPulseGraph()
-                          : _buildCashFlowSection()),
-                      SizedBox(height: height_16 * 2),
-                      _buildGoalsSection(),
-                      SizedBox(height: height_10 * 8),
-                    ],
-                  ),
-                );
-              }),
+              child: _HomeReactiveBody(
+                controller: _homeController,
+                user: user,
+                padding: _homePadding,
+                contentBuilder: (ctx, u) => _buildHomeScrollContent(u),
+              ),
             ),
           ],
         ),
-        floatingActionButton: Obx(() {
-          if (!_homeController.hasHomeData) {
-            return const SizedBox.shrink();
-          }
-          return Padding(
-            padding: const EdgeInsets.only(bottom: bottomNavClearance + 16),
-            child: FloatingActionButton(
-              heroTag: HeroTags.homeFab,
-              onPressed: () async {
-                bool? result =
-                    await Get.to(() => const AddPersonalTransactionScreen());
-                if (result == true) {
-                  _homeController.fetchHomeData();
-                }
-              },
-              backgroundColor: neopopBackground,
-              child: const Icon(Icons.add, color: neopopOnPrimary),
-            ),
-          );
-        }),
+        floatingActionButton: _HomeFab(
+          controller: _homeController,
+          onPressed: () async {
+            final result =
+                await Get.to(() => const AddPersonalTransactionScreen());
+            if (result == true) {
+              _homeController.fetchHomeData();
+            }
+          },
+        ),
       );
     });
+  }
+
+  Widget _buildHomeScrollContent(UserDetails user) {
+    return Column(
+      children: [
+        const MonthlyRecapDropCard(),
+        const InsightsPromoCard(),
+        GradientMeshBackground(
+          child: GlassCard(
+            margin: EdgeInsets.zero,
+            padding: EdgeInsets.symmetric(vertical: height_16),
+            opacity: 0.12,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTagline(),
+                SizedBox(height: height_16 * 2),
+                _buildMonthlySpendSection(),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(height: height_16 * 2),
+        _buildTransactionsList(),
+        SizedBox(height: height_16 * 2),
+        _buildAnalyticsHeader(),
+        SizedBox(height: height_16),
+        _HomeAnalyticsSection(
+          controller: _homeController,
+          pulseGraph: _buildPulseGraph(),
+          cashFlowSection: _buildCashFlowSection(),
+        ),
+        SizedBox(height: height_16 * 2),
+        _buildGoalsSection(),
+        SizedBox(height: height_10 * 8),
+      ],
+    );
   }
 
   AppBar _buildAppBar(UserDetails user) {
@@ -508,18 +460,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         SizedBox(height: height_16),
-        ..._homeController.unifiedTransactions.map(
-          (txn) => TransactionTile(
-            txn: txn,
-            onLongPress: txn['type'] != TransactionTypes.group
-                ? () => PersonalTransactionSheet.show(
-                      context,
-                      txn: txn,
-                      onChanged: _homeController.fetchHomeData,
-                    )
-                : null,
-          ),
-        ),
+        Obx(() {
+          final currencySymbol = Get.find<CurrencyController>().symbol;
+          return Column(
+            children: _homeController.unifiedTransactions
+                .map(
+                  (txn) => TransactionTile(
+                    txn: txn,
+                    currencySymbol: currencySymbol,
+                    onLongPress: txn['type'] != TransactionTypes.group
+                        ? () => PersonalTransactionSheet.show(
+                              context,
+                              txn: txn,
+                              onChanged: _homeController.fetchHomeData,
+                            )
+                        : null,
+                  ),
+                )
+                .toList(),
+          );
+        }),
       ],
     );
   }
@@ -672,5 +632,135 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+}
+
+class _HomeErrorBanner extends StatelessWidget {
+  const _HomeErrorBanner({required this.controller});
+
+  final HomeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final error = controller.fetchError.value;
+      if (error == null) return const SizedBox.shrink();
+      return MaterialBanner(
+        backgroundColor: neopopErrorFillMedium,
+        content: Text(
+          error,
+          style: body2_text.copyWith(color: groupOnSurface),
+        ),
+        leading: const Icon(
+          Icons.cloud_off_rounded,
+          color: neopopError,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => controller.fetchError.value = null,
+            child: Text(
+              AppStrings.actions.dismiss,
+              style: body2_text.copyWith(color: groupOnSurfaceMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: controller.fetchHomeData,
+            child: Text(
+              AppStrings.actions.retry,
+              style: body2_text.copyWith(
+                color: neopopAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _HomeReactiveBody extends StatelessWidget {
+  const _HomeReactiveBody({
+    required this.controller,
+    required this.user,
+    required this.padding,
+    required this.contentBuilder,
+  });
+
+  final HomeController controller;
+  final UserDetails user;
+  final EdgeInsets padding;
+  final Widget Function(BuildContext context, UserDetails user) contentBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.isLoading.value) {
+        return Center(
+          child: LoadingAnimationWidget.discreteCircle(
+            color: neopopAccent,
+            size: AppDimensions.loadingIndicatorLg,
+          ),
+        );
+      }
+      if (!controller.hasHomeData) {
+        return HomeEmptyState(
+          userName: user.firstName,
+          onActionComplete: controller.fetchHomeData,
+        );
+      }
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: padding,
+        child: contentBuilder(context, user),
+      );
+    });
+  }
+}
+
+class _HomeAnalyticsSection extends StatelessWidget {
+  const _HomeAnalyticsSection({
+    required this.controller,
+    required this.pulseGraph,
+    required this.cashFlowSection,
+  });
+
+  final HomeController controller;
+  final Widget pulseGraph;
+  final Widget cashFlowSection;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => controller.showTrueSpend.value ? pulseGraph : cashFlowSection,
+    );
+  }
+}
+
+class _HomeFab extends StatelessWidget {
+  const _HomeFab({
+    required this.controller,
+    required this.onPressed,
+  });
+
+  final HomeController controller;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (!controller.hasHomeData) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(bottom: bottomNavClearance + 16),
+        child: FloatingActionButton(
+          heroTag: HeroTags.homeFab,
+          onPressed: onPressed,
+          backgroundColor: neopopBackground,
+          child: const Icon(Icons.add, color: neopopOnPrimary),
+        ),
+      );
+    });
   }
 }

@@ -37,6 +37,11 @@ if [[ ${#MISSING_PATHS[@]} -gt 0 ]]; then
   exit 1
 fi
 
+VALIDATOR="$ROOT/scripts/validate-env-prod.mjs"
+if [[ -f "$VALIDATOR" ]]; then
+  node "$VALIDATOR" "$MOBILE_DIR/env.prod.json"
+fi
+
 echo "Building release AAB (version from pubspec.yaml)..."
 
 cd "$MOBILE_DIR"
@@ -45,6 +50,8 @@ flutter build appbundle --release \
   --obfuscate \
   --split-debug-info=build/debug-info \
   --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json
+
+python3 "$ROOT/scripts/check-aab-16kb.py" "$AAB_OUT"
 
 echo ""
 echo "AAB ready: $AAB_OUT"

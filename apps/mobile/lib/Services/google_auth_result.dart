@@ -1,10 +1,7 @@
 /// Outcome of a Google sign-in attempt from [AuthService.signInWithGoogle].
 enum GoogleAuthOutcome {
-  /// Native or browser OAuth finished; session is active.
+  /// Native Google sign-in finished; session is active.
   completed,
-
-  /// Browser OAuth launched; session will arrive via deep link.
-  pendingBrowser,
 
   /// User dismissed the Google account picker.
   cancelled,
@@ -18,9 +15,6 @@ final class GoogleAuthResult {
 
   const GoogleAuthResult.completed() : this._(GoogleAuthOutcome.completed);
 
-  const GoogleAuthResult.pendingBrowser()
-      : this._(GoogleAuthOutcome.pendingBrowser);
-
   const GoogleAuthResult.cancelled() : this._(GoogleAuthOutcome.cancelled);
 
   const GoogleAuthResult.failed(String message)
@@ -30,6 +24,4 @@ final class GoogleAuthResult {
   final String? userMessage;
 
   bool get isCompleted => outcome == GoogleAuthOutcome.completed;
-
-  bool get isPendingBrowser => outcome == GoogleAuthOutcome.pendingBrowser;
 }

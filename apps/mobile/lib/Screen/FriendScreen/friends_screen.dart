@@ -143,9 +143,9 @@ class _FriendsScreenState extends State<FriendsScreen>
           body: TabBarView(
             controller: _tabController,
             children: [
-              _buildFriendsTab(),
-              _buildPendingTab(),
-              _buildIncomingTab(),
+              _KeepAliveTab(child: _buildFriendsTab()),
+              _KeepAliveTab(child: _buildPendingTab()),
+              _KeepAliveTab(child: _buildIncomingTab()),
             ],
           ),
         );
@@ -572,5 +572,26 @@ class _FriendsScreenState extends State<FriendsScreen>
         ),
       ),
     );
+  }
+}
+
+class _KeepAliveTab extends StatefulWidget {
+  const _KeepAliveTab({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveTab> createState() => _KeepAliveTabState();
+}
+
+class _KeepAliveTabState extends State<_KeepAliveTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

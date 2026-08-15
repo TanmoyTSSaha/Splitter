@@ -4,7 +4,9 @@
     "target": {
       "namespace": "android_app",
       "package_name": "money.splitr.app",
-      "sha256_cert_fingerprints": []
+      "sha256_cert_fingerprints": [
+        "8E:49:D2:B3:E1:6A:E9:13:0A:14:F4:04:65:4C:F5:63:FA:47:73:3D:4A:7D:1D:9F:AF:6F:16:F0:C4:29:D9:C9"
+      ]
     }
   }
 ]

@@ -9,6 +9,9 @@ import 'package:splitr/Services/local/database.dart';
 import 'package:splitr/Utils/sync_operation_planner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Max sync queue items processed per [SyncService.syncPendingItems] invocation.
+const int SYNC_CHUNK_SIZE = 10;
+
 /// Applies a planned sync mutation remotely (Supabase by default).
 typedef SyncPlanExecutor = Future<void> Function(SyncOperationPlan plan);
 
@@ -49,22 +52,23 @@ class SyncService {
     syncPendingItems();
   }
 
-  /// Process all pending items in the sync queue.
+  /// Process pending sync queue items in bounded chunks.
   Future<void> syncPendingItems() async {
     if (_isSyncing) return;
     _isSyncing = true;
     _syncStatusController.add(SyncStatus.syncing);
 
+    var scheduleContinuation = false;
     try {
       final pendingItems = await _db.getPendingSyncItems();
 
       if (pendingItems.isEmpty) {
         _syncStatusController.add(SyncStatus.synced);
-        _isSyncing = false;
         return;
       }
 
-      for (final item in pendingItems) {
+      final chunk = pendingItems.take(SYNC_CHUNK_SIZE).toList();
+      for (final item in chunk) {
         try {
           await _processSyncItem(item);
           await _db.markSynced(item.id);
@@ -79,12 +83,19 @@ class SyncService {
         }
       }
 
-      _syncStatusController.add(SyncStatus.synced);
+      if (pendingItems.length > SYNC_CHUNK_SIZE) {
+        scheduleContinuation = true;
+      } else {
+        _syncStatusController.add(SyncStatus.synced);
+      }
     } catch (e, stack) {
       AppLogger.error('Sync queue processing failed', error: e, stack: stack);
       _syncStatusController.add(SyncStatus.error);
     } finally {
       _isSyncing = false;
+      if (scheduleContinuation) {
+        Future.microtask(syncPendingItems);
+      }
     }
   }
 

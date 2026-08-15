@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:splitr/Constants/app_keys.dart';
 import 'package:splitr/Widgets/splitr_toast.dart';
 import 'package:splitr/Constants/app_strings.dart';
@@ -178,28 +179,35 @@ class AuthService {
     }
   }
 
-  /// Native Google Sign-In when [AppSecrets.googleWebClientId] is set; otherwise
-  /// launches browser OAuth and returns [GoogleAuthOutcome.pendingBrowser].
+  /// Native Google Sign-In via [google_sign_in] + [signInWithIdToken] only (D-01).
   Future<GoogleAuthResult> signInWithGoogle() async {
     try {
-      if (AppSecrets.googleWebClientId.isEmpty) {
-        final launched = await supabase.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: AppBranding.authRedirectUrl,
+      final connectivity = await Connectivity().checkConnectivity();
+      if (!connectivity.any((r) => r != ConnectivityResult.none)) {
+        return GoogleAuthResult.failed(
+          AppStrings.services.auth.googleSignInOffline,
         );
-        if (!launched) {
-          return GoogleAuthResult.failed(
-            AppStrings.services.auth.googleSignInFailed,
-          );
-        }
-        return const GoogleAuthResult.pendingBrowser();
+      }
+
+      if (AppSecrets.googleWebClientId.isEmpty) {
+        AppErrorReporter.report(
+          'Google Sign-In unavailable: missing GOOGLE_WEB_CLIENT_ID',
+          context: {
+            'feature': 'auth',
+            'reason': 'missing_google_web_client_id',
+          },
+          showToastOnUserFacing: false,
+        );
+        return GoogleAuthResult.failed(
+          AppStrings.services.auth.googleSignInUnavailableUseEmail,
+        );
       }
 
       await _ensureGoogleSignInInitialized();
       try {
         await GoogleSignIn.instance.signOut();
       } catch (_) {
-        // Best-effort so account picker shows on repeat attempts.
+        // Best-effort so account picker shows on repeat attempts (D-07).
       }
 
       GoogleSignInAccount account;
@@ -219,18 +227,68 @@ class AuthService {
 
       final idToken = account.authentication.idToken;
       if (idToken == null) {
+        AppErrorReporter.report(
+          'Google sign-in missing ID token',
+          context: {'feature': 'auth', 'reason': 'missing_id_token'},
+          showToastOnUserFacing: false,
+        );
         return GoogleAuthResult.failed(
           AppStrings.services.auth.googleNoIdToken,
         );
       }
 
-      final response = await supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
+      return await _signInWithGoogleTokens(
         idToken: idToken,
         accessToken: authorization.accessToken,
       );
+    } on GoogleSignInException catch (e, stack) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        return const GoogleAuthResult.cancelled();
+      }
+      AppErrorReporter.report(
+        'AuthService.signInWithGoogle failed',
+        error: e,
+        stack: stack,
+        context: {'feature': 'auth', 'operation': 'googleSignIn'},
+        showToastOnUserFacing: false,
+      );
+      return GoogleAuthResult.failed(GoogleAuthErrors.mapThrowable(e));
+    } on AuthException catch (e, stack) {
+      return _googleAuthFailureFromException(e, stack: stack);
+    } catch (e, stack) {
+      if (GoogleAuthErrors.shouldReportGoogleAuthFailure(
+        outcome: GoogleAuthOutcome.failed,
+        error: e,
+      )) {
+        AppErrorReporter.report(
+          'AuthService.signInWithGoogle failed',
+          error: e,
+          stack: stack,
+          context: {'feature': 'auth', 'operation': 'googleSignIn'},
+          showToastOnUserFacing: false,
+        );
+      }
+      return GoogleAuthResult.failed(GoogleAuthErrors.mapThrowable(e));
+    }
+  }
+
+  Future<GoogleAuthResult> _signInWithGoogleTokens({
+    required String idToken,
+    required String? accessToken,
+  }) async {
+    try {
+      final response = await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
 
       if (response.session == null && !_hasActiveSession()) {
+        AppErrorReporter.report(
+          'Google sign-in completed without session',
+          context: {'feature': 'auth', 'operation': 'signInWithIdToken'},
+          showToastOnUserFacing: false,
+        );
         return GoogleAuthResult.failed(
           AppStrings.services.auth.googleSignInFailed,
         );
@@ -242,21 +300,69 @@ class AuthService {
       }
 
       return const GoogleAuthResult.completed();
-    } on AuthException catch (e) {
-      final mapped = _googleAuthUserMessage(e);
-      return GoogleAuthResult.failed(
-        mapped ?? AppStrings.services.auth.googleSignInFailed,
-      );
-    } catch (e, stack) {
-      AppErrorReporter.report(
-        'AuthService.signInWithGoogle failed',
-        error: e,
-        stack: stack,
-        context: {'feature': 'auth', 'operation': 'googleSignIn'},
-        showToastOnUserFacing: false,
-      );
-      return GoogleAuthResult.failed(GoogleAuthErrors.mapThrowable(e));
+    } on AuthException catch (e, stack) {
+      if (GoogleAuthErrors.isVerifiedEmailIdentityConflict(e)) {
+        try {
+          final linkResponse = await supabase.auth.linkIdentityWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idToken,
+            accessToken: accessToken,
+          );
+
+          if (linkResponse.session != null || _hasActiveSession()) {
+            final user = linkResponse.user ?? supabase.auth.currentUser;
+            if (user != null) {
+              await _syncGoogleProfileIfNeeded(user);
+            }
+            return const GoogleAuthResult.completed();
+          }
+        } on AuthException catch (linkError, linkStack) {
+          AppErrorReporter.report(
+            'AuthService.linkIdentityWithIdToken failed',
+            error: linkError,
+            stack: linkStack,
+            context: {
+              'feature': 'auth',
+              'operation': 'linkIdentityWithIdToken',
+            },
+            showToastOnUserFacing: false,
+          );
+          final mapped = _googleAuthUserMessage(linkError);
+          return GoogleAuthResult.failed(
+            mapped ?? AppStrings.services.auth.googleSignInConfigError,
+          );
+        }
+
+        AppErrorReporter.report(
+          'Google identity link did not establish session',
+          error: e,
+          stack: stack,
+          context: {'feature': 'auth', 'operation': 'linkIdentityWithIdToken'},
+          showToastOnUserFacing: false,
+        );
+        return GoogleAuthResult.failed(
+          AppStrings.services.auth.googleEmailRegisteredWithPassword,
+        );
+      }
+      return _googleAuthFailureFromException(e, stack: stack);
     }
+  }
+
+  GoogleAuthResult _googleAuthFailureFromException(
+    AuthException e, {
+    StackTrace? stack,
+  }) {
+    AppErrorReporter.report(
+      'AuthService.signInWithGoogle AuthException',
+      error: e,
+      stack: stack,
+      context: {'feature': 'auth', 'operation': 'googleSignIn'},
+      showToastOnUserFacing: false,
+    );
+    final mapped = _googleAuthUserMessage(e);
+    return GoogleAuthResult.failed(
+      mapped ?? AppStrings.services.auth.googleSignInFailed,
+    );
   }
 
   /// Backward-compatible wrapper; shows toast on failure.
@@ -265,9 +371,8 @@ class AuthService {
     switch (result.outcome) {
       case GoogleAuthOutcome.completed:
         return true;
-      case GoogleAuthOutcome.pendingBrowser:
-        return false;
       case GoogleAuthOutcome.cancelled:
+        SplitrToast.show(AppStrings.services.auth.googleSignInCancelled);
         return false;
       case GoogleAuthOutcome.failed:
         final message = result.userMessage;

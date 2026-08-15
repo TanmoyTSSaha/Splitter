@@ -44,5 +44,9 @@ try {
     Pop-Location
 }
 
+$checker = Join-Path $RepoRoot "scripts\check-aab-16kb.py"
+& python $checker $AabOut
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host ""
 Write-Host "AAB ready: $AabOut"

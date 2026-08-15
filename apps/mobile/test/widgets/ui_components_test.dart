@@ -244,6 +244,7 @@ void main() {
       await ComponentTestHarness.pump(
         tester,
         TransactionTile(
+          currencySymbol: '₹',
           txn: {
             'title': 'Coffee',
             'amount': 120,

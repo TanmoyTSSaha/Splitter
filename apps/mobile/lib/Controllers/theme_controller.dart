@@ -8,6 +8,14 @@ import 'package:splitr/Constants/domain_values.dart';
 class ThemeController extends GetxController {
   final Rx<ThemeMode> themeMode = ThemeMode.light.obs;
 
+  static ThemeMode modeFromStoredValue(String? raw) {
+    return switch (raw) {
+      ThemeModeValues.dark => ThemeMode.dark,
+      ThemeModeValues.system => ThemeMode.system,
+      _ => ThemeMode.light,
+    };
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -16,12 +24,7 @@ class ThemeController extends GetxController {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(PrefKeys.themeMode);
-    themeMode.value = switch (raw) {
-      ThemeModeValues.dark => ThemeMode.dark,
-      ThemeModeValues.system => ThemeMode.system,
-      _ => ThemeMode.light,
-    };
+    themeMode.value = modeFromStoredValue(prefs.getString(PrefKeys.themeMode));
   }
 
   Future<void> setMode(ThemeMode mode) async {

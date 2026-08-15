@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:splitr/Constants/app_dimensions.dart';
 import 'package:splitr/Constants/app_motion.dart';
@@ -11,36 +13,58 @@ class GradientMeshBackground extends StatefulWidget {
 
   const GradientMeshBackground({this.child, super.key});
 
+  /// Static mesh when reduce-motion is on or device likely low-end Android.
+  static bool shouldUseStaticMesh(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return true;
+    final features =
+        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures;
+    if (features.disableAnimations) return true;
+
+    if (!kIsWeb && Platform.isAndroid) {
+      final mq = MediaQuery.of(context);
+      final logicalShortSide = min(mq.size.width, mq.size.height);
+      // Heuristic: sub-360dp short side often correlates with low RAM tier.
+      if (logicalShortSide < 360) return true;
+    }
+    return false;
+  }
+
   @override
   State<GradientMeshBackground> createState() => _GradientMeshBackgroundState();
 }
 
 class _GradientMeshBackgroundState extends State<GradientMeshBackground>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: AppMotion.meshBackground,
-    )..repeat();
-  }
+  AnimationController? _controller;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (GradientMeshBackground.shouldUseStaticMesh(context)) {
+      _controller?.dispose();
+      _controller = null;
+      return CustomPaint(
+        painter: _MeshPainter(progress: 0),
+        child: widget.child,
+      );
+    }
+
+    _controller ??= AnimationController(
+      vsync: this,
+      duration: AppMotion.meshBackground,
+    )..repeat();
+
+    final controller = _controller!;
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       builder: (context, child) {
         return CustomPaint(
-          painter: _MeshPainter(progress: _controller.value),
+          painter: _MeshPainter(progress: controller.value),
           child: child,
         );
       },
@@ -56,7 +80,6 @@ class _MeshPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Animated radial gradients at 4 points
     final points = [
       Offset(
         size.width * (0.2 + 0.1 * sin(progress * 2 * pi)),

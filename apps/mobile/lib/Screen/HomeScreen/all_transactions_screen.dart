@@ -6,11 +6,11 @@ import 'package:splitr/Constants/app_strings.dart';
 import 'package:splitr/Constants/constants.dart';
 import 'package:splitr/Constants/domain_values.dart';
 import 'package:splitr/Controller/all_transactions_controller.dart';
+import 'package:splitr/Controllers/currency_controller.dart';
 import 'package:splitr/Screen/HomeScreen/widgets/personal_transaction_sheet.dart';
 import 'package:splitr/Screen/HomeScreen/widgets/transaction_filter_sheet.dart';
 import 'package:splitr/Screen/HomeScreen/widgets/transaction_section_header.dart';
 import 'package:splitr/Screen/HomeScreen/widgets/transaction_sort_sheet.dart';
-import 'package:splitr/Utils/transaction_section_grouper.dart';
 import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 import 'package:splitr/Widgets/splitr_detail_app_bar.dart';
 import 'package:splitr/Widgets/transaction_tile.dart';
@@ -69,22 +69,6 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
       txn: txn,
       onChanged: _controller.fetchTransactions,
     );
-  }
-
-  List<Widget> _buildListItems(List<TransactionSection> sections) {
-    final items = <Widget>[];
-    for (final section in sections) {
-      items.add(TransactionSectionHeader(title: section.header));
-      for (final txn in section.transactions) {
-        items.add(TransactionTile(
-          txn: txn,
-          onLongPress: txn['type'] != TransactionTypes.group
-              ? () => _openPersonalTransactionSheet(txn)
-              : null,
-        ));
-      }
-    }
-    return items;
   }
 
   @override
@@ -153,6 +137,8 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
 
         final sections = _controller.sections;
         final error = _controller.fetchError.value;
+        final currencySymbol = Get.find<CurrencyController>().symbol;
+        final itemCount = _controller.flatItemCount;
         if (sections.isEmpty && error != null) {
           return Center(
             child: Column(
@@ -189,7 +175,23 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: groupGutter),
               sliver: SliverList(
-                delegate: SliverChildListDelegate(_buildListItems(sections)),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = _controller.flatItemAt(index);
+                    if (item.isHeader) {
+                      return TransactionSectionHeader(title: item.header!);
+                    }
+                    final txn = item.txn!;
+                    return TransactionTile(
+                      txn: txn,
+                      currencySymbol: currencySymbol,
+                      onLongPress: txn['type'] != TransactionTypes.group
+                          ? () => _openPersonalTransactionSheet(txn)
+                          : null,
+                    );
+                  },
+                  childCount: itemCount,
+                ),
               ),
             ),
             if (_controller.canLoadOlder.value)

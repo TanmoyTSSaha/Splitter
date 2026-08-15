@@ -4,19 +4,16 @@ import 'package:splitr/Screen/AuthScreens/biometric_lock_screen.dart';
 import 'package:splitr/Screen/AuthScreens/login_screen.dart';
 import 'package:splitr/Screen/BottomNavigationController/bottom_navigation_controller.dart';
 import 'package:splitr/Screen/OnboardingScreen/onboarding_screen.dart';
+import 'package:splitr/Services/app_bootstrap.dart';
+import 'package:splitr/Services/app_services.dart';
+import 'package:splitr/Services/deep_link_service.dart';
 import 'package:splitr/Services/supabase_service.dart';
 import 'package:splitr/Widgets/splitr_stroke_wordmark.dart';
+import 'package:splitr/config/sentry_cold_start.dart';
 
 /// Branded splash — white surface, centered animated Splitr. wordmark.
 class SplitrSplashScreen extends StatefulWidget {
-  final bool hasSeenOnboarding;
-  final bool biometricEnabled;
-
-  const SplitrSplashScreen({
-    super.key,
-    required this.hasSeenOnboarding,
-    this.biometricEnabled = false,
-  });
+  const SplitrSplashScreen({super.key});
 
   @override
   State<SplitrSplashScreen> createState() => _SplitrSplashScreenState();
@@ -24,19 +21,38 @@ class SplitrSplashScreen extends StatefulWidget {
 
 class _SplitrSplashScreenState extends State<SplitrSplashScreen> {
   bool _navigated = false;
+  late final Future<BootstrapSessionResult> _deferredBootstrap;
 
-  void _onAnimationComplete() {
-    if (_navigated || !mounted) return;
-    _navigated = true;
-    Get.off(() => _resolveInitialScreen(), transition: Transition.fade);
+  @override
+  void initState() {
+    super.initState();
+    _deferredBootstrap = bootstrapDeferred();
   }
 
-  Widget _resolveInitialScreen() {
-    if (!widget.hasSeenOnboarding) {
+  Future<void> _onAnimationComplete() async {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+
+    final session = await _deferredBootstrap;
+    SentryColdStart.finishTimeToHome();
+
+    if (!mounted) return;
+    if (Get.isRegistered<DeepLinkService>()) {
+      deepLinkService.markNavigationReady();
+    }
+
+    Get.off(
+      () => _resolveInitialScreen(session),
+      transition: Transition.fade,
+    );
+  }
+
+  Widget _resolveInitialScreen(BootstrapSessionResult session) {
+    if (!session.hasSeenOnboarding) {
       return const OnboardingScreen();
     }
     final hasSession = SupabaseAuth().supabaseRetrieveSession();
-    if (hasSession && widget.biometricEnabled) {
+    if (hasSession && session.biometricEnabled) {
       return const BiometricLockScreen();
     }
     return hasSession
@@ -50,7 +66,9 @@ class _SplitrSplashScreenState extends State<SplitrSplashScreen> {
     return Scaffold(
       backgroundColor: surface,
       body: Center(
-        child: SplitrStrokeWordmark(onDrawComplete: _onAnimationComplete),
+        child: SplitrStrokeWordmark(
+          onDrawComplete: () => _onAnimationComplete(),
+        ),
       ),
     );
   }

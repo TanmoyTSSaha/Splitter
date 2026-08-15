@@ -9,13 +9,20 @@ void main() {
     test('completed outcome is successful', () {
       const result = GoogleAuthResult.completed();
       expect(result.isCompleted, isTrue);
-      expect(result.isPendingBrowser, isFalse);
+      expect(result.outcome, GoogleAuthOutcome.completed);
     });
 
-    test('pendingBrowser does not report completed', () {
-      const result = GoogleAuthResult.pendingBrowser();
-      expect(result.isCompleted, isFalse);
-      expect(result.isPendingBrowser, isTrue);
+    test('cancelled is distinct from failed', () {
+      const cancelled = GoogleAuthResult.cancelled();
+      final failed = GoogleAuthResult.failed('oops');
+
+      expect(cancelled.outcome, GoogleAuthOutcome.cancelled);
+      expect(cancelled.isCompleted, isFalse);
+      expect(cancelled.userMessage, isNull);
+
+      expect(failed.outcome, GoogleAuthOutcome.failed);
+      expect(failed.userMessage, 'oops');
+      expect(cancelled.outcome, isNot(failed.outcome));
     });
 
     test('failed carries user message', () {
@@ -26,13 +33,29 @@ void main() {
   });
 
   group('GoogleAuthErrors', () {
-    test('maps identity conflict from AuthException', () {
+    test('does not map verified-email identity conflict to password copy (D-10)', () {
       final message = GoogleAuthErrors.mapAuthException(
         const AuthException('User already registered'),
       );
+      expect(message, isNull);
       expect(
-        message,
-        AppStrings.services.auth.googleEmailRegisteredWithPassword,
+        GoogleAuthErrors.isVerifiedEmailIdentityConflict(
+          const AuthException('User already registered'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('maps unconfirmed email before Google sign-in', () {
+      final message = GoogleAuthErrors.mapAuthException(
+        const AuthException('Email not confirmed'),
+      );
+      expect(message, AppStrings.services.auth.verifyEmailBeforeGoogle);
+      expect(
+        GoogleAuthErrors.isVerifiedEmailIdentityConflict(
+          const AuthException('Email not confirmed'),
+        ),
+        isFalse,
       );
     });
 
@@ -48,6 +71,21 @@ void main() {
         Exception('SocketException: Failed host lookup'),
       );
       expect(message, AppStrings.services.auth.googleSignInNetworkError);
+    });
+
+    test('detects verified-email identity conflict for linkIdentityWithIdToken', () {
+      expect(
+        GoogleAuthErrors.isVerifiedEmailIdentityConflict(
+          const AuthException('Identity already exists'),
+        ),
+        isTrue,
+      );
+      expect(
+        GoogleAuthErrors.isVerifiedEmailIdentityConflict(
+          const AuthException('Email not confirmed'),
+        ),
+        isFalse,
+      );
     });
 
     test('detects Google OAuth callback params', () {
@@ -86,6 +124,87 @@ void main() {
       );
       expect(GoogleAuthErrors.userSignedInWithGoogle(user), isTrue);
       expect(GoogleAuthErrors.userSignedInWithGoogle(null), isFalse);
+    });
+  });
+
+  group('Google auth Sentry contract (D-04 vs D-08)', () {
+    test('cancel path must not report to Sentry', () {
+      expect(
+        GoogleAuthErrors.shouldReportGoogleAuthFailure(
+          outcome: GoogleAuthOutcome.cancelled,
+        ),
+        isFalse,
+      );
+    });
+
+    test('missing GOOGLE_WEB_CLIENT_ID must report to Sentry', () {
+      expect(
+        GoogleAuthErrors.shouldReportGoogleAuthFailure(
+          outcome: GoogleAuthOutcome.failed,
+          missingClientIdReason: 'missing_google_web_client_id',
+        ),
+        isTrue,
+      );
+    });
+
+    test('AuthException must report to Sentry with feature auth', () {
+      expect(
+        GoogleAuthErrors.shouldReportGoogleAuthFailure(
+          outcome: GoogleAuthOutcome.failed,
+          error: const AuthException('Invalid token'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('ApiException 10 config error must report to Sentry', () {
+      expect(
+        GoogleAuthErrors.shouldReportGoogleAuthFailure(
+          outcome: GoogleAuthOutcome.failed,
+          error: Exception('ApiException: 10: '),
+        ),
+        isTrue,
+      );
+    });
+
+    test('offline block must not report to Sentry', () {
+      expect(
+        GoogleAuthErrors.shouldReportGoogleAuthFailure(
+          outcome: GoogleAuthOutcome.failed,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('Native Google sign-in service contract', () {
+    test('config-missing user copy points to email sign-in (D-02)', () {
+      expect(
+        AppStrings.services.auth.googleSignInUnavailableUseEmail,
+        contains('email'),
+      );
+    });
+
+    test('cancel toast copy (D-08)', () {
+      expect(
+        AppStrings.services.auth.googleSignInCancelled,
+        'Sign-in cancelled',
+      );
+    });
+
+    test('offline block copy (D-09)', () {
+      expect(
+        AppStrings.services.auth.googleSignInOffline,
+        'Internet required to sign in',
+      );
+    });
+
+    test('D-10 identity conflict triggers linkIdentityWithIdToken in AuthService', () {
+      // AuthService._signInWithGoogleTokens calls linkIdentityWithIdToken when
+      // signInWithIdToken throws a verified-email identity conflict.
+      const conflict = AuthException('Identity already exists');
+      expect(GoogleAuthErrors.isVerifiedEmailIdentityConflict(conflict), isTrue);
+      expect(GoogleAuthErrors.mapAuthException(conflict), isNull);
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:splitr/Constants/app_assets.dart';
@@ -56,20 +57,18 @@ class UserAvatar extends StatelessWidget {
         imageUrl != AvatarSentinels.nullImageUrl;
 
     if (hasCustomImage) {
-      // Keep existing logic for custom uploaded images if any
-
-      return Container(
-        width: radius * 2,
-        height: radius * 2,
-        decoration: BoxDecoration(
-          shape: shape,
-          borderRadius: shape == BoxShape.rectangle ? customBorderRadius : null,
-          image: DecorationImage(
-            image: NetworkImage(
-                imageUrl!), // Changed to NetworkImage for simplicity or keep Cached if needed, but for now standardizing.
-
-            fit: BoxFit.cover,
-          ),
+      return ClipRRect(
+        borderRadius: shape == BoxShape.rectangle
+            ? (customBorderRadius as BorderRadius? ?? BorderRadius.zero)
+            : BorderRadius.circular(radius),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl!,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          memCacheWidth: (radius * 2 * MediaQuery.devicePixelRatioOf(context))
+              .round(),
+          errorWidget: (_, __, ___) => _buildDiceBearAvatar(),
         ),
       );
     }

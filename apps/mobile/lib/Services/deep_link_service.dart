@@ -27,7 +27,9 @@ class DeepLinkService {
   final InviteLinkService _inviteLinks = InviteLinkService();
   StreamSubscription<Uri>? _sub;
   bool _handling = false;
+  bool _initialized = false;
   bool _navigationReady = false;
+  final List<Uri> _pendingUris = [];
   final List<VoidCallback> _pendingNavigation = [];
 
   /// Call after [GetMaterialApp] mounts so [Get.offAll]/[Get.to] are safe.
@@ -62,6 +64,18 @@ class DeepLinkService {
 
     if (SupabaseAuth().supabaseRetrieveSession()) {
       await processPendingInvite();
+    }
+
+    _initialized = true;
+    await _drainPendingUris();
+  }
+
+  Future<void> _drainPendingUris() async {
+    if (_pendingUris.isEmpty) return;
+    final queued = List<Uri>.from(_pendingUris);
+    _pendingUris.clear();
+    for (final uri in queued) {
+      await _handleUri(uri, fromQueue: true);
     }
   }
 
@@ -174,6 +188,10 @@ class DeepLinkService {
   }
 
   Future<void> _handleUri(Uri uri, {bool fromQueue = false}) async {
+    if (!_initialized) {
+      _pendingUris.add(uri);
+      return;
+    }
     if (_handling) return;
 
     if (isAuthCallbackUri(uri)) {
@@ -273,5 +291,15 @@ class DeepLinkService {
 
   void dispose() {
     _sub?.cancel();
+  }
+
+  @visibleForTesting
+  int get pendingUriCountForTest => _pendingUris.length;
+
+  @visibleForTesting
+  void enqueueUriForTest(Uri uri) {
+    if (!_initialized) {
+      _pendingUris.add(uri);
+    }
   }
 }

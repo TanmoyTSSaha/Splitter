@@ -320,4 +320,36 @@ class AllTransactionsController extends GetxController {
   }
 
   Future<void> loadOlder() => fetchTransactions(reset: false, loadOlder: true);
+
+  /// Flat list index count: one row per section header plus each transaction.
+  int get flatItemCount {
+    var count = 0;
+    for (final section in sections) {
+      count += 1 + section.transactions.length;
+    }
+    return count;
+  }
+
+  /// Maps a flat [index] to section header title or transaction map.
+  ({bool isHeader, String? header, Map<String, dynamic>? txn}) flatItemAt(
+    int index,
+  ) {
+    if (index < 0 || index >= flatItemCount) {
+      throw RangeError.index(index, this, 'index', null, flatItemCount);
+    }
+    var cursor = 0;
+    for (final section in sections) {
+      if (cursor == index) {
+        return (isHeader: true, header: section.header, txn: null);
+      }
+      cursor++;
+      for (final txn in section.transactions) {
+        if (cursor == index) {
+          return (isHeader: false, header: null, txn: txn);
+        }
+        cursor++;
+      }
+    }
+    throw RangeError.index(index, this, 'index', null, flatItemCount);
+  }
 }

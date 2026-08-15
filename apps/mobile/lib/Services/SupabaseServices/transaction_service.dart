@@ -668,6 +668,51 @@ class TransactionService {
     return result;
   }
 
+  /// Batch monthly spend totals via RPC (single round-trip for trend charts).
+  Future<List<Map<String, dynamic>>> getMultiMonthSpendTotals({
+    required String userID,
+    int months = 6,
+    DateTime? endMonth,
+    String selectedCurrency = CurrencyDefaults.code,
+  }) async {
+    final anchor = endMonth ?? DateTime.now();
+    final endDate = DateTime(anchor.year, anchor.month, 1);
+    final endIso =
+        '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-01';
+
+    final response = await supabase.rpc(
+      'get_multi_month_spend_totals',
+      params: {
+        'p_user_id': userID,
+        'p_months': months,
+        'p_end_month': endIso,
+      },
+    );
+
+    final rows = (response as List).cast<dynamic>();
+    final Map<String, double> liveRates =
+        await CurrencyService().getRates(base: CurrencyDefaults.code);
+    final double inrToSelected = selectedCurrency == CurrencyDefaults.code
+        ? 1.0
+        : (liveRates[selectedCurrency] ?? 1.0);
+
+    return rows.map((row) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final monthStr = map['month_start'] as String;
+      final parts = monthStr.split('-');
+      final month = DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        1,
+      );
+      final totalInr = (map['total_inr'] as num).toDouble();
+      return {
+        'month': month,
+        'total': totalInr * inrToSelected,
+      };
+    }).toList();
+  }
+
   Future<double> getMonthlyCashFlow(
       {required String userID,
       String selectedCurrency = CurrencyDefaults.code,

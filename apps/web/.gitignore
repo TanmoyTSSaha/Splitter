@@ -23,3 +23,15 @@ public/share/config.js
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright (browsers cache + local audit artifacts)
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+scripts/responsive-screenshots/
+scripts/responsive-audit-results.json
+scripts/responsive-audit-filtered.json
+scripts/responsive-audit-v2.json
+scripts/responsive-audit-v2-summary.txt
+scripts/visual-report.json
