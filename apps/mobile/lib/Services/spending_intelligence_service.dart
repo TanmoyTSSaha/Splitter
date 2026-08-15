@@ -44,18 +44,20 @@ class SpendingIntelligenceService {
 
   /// Last N months of total spend for trend charts.
   Future<List<Map<String, dynamic>>> getSpendingTrend({int months = 6}) async {
-    final now = DateTime.now();
-    final trend = <Map<String, dynamic>>[];
-    for (int i = months - 1; i >= 0; i--) {
-      final month = DateTime(now.year, now.month - i, 1);
-      final total = await getMonthlySpending(month);
-      trend.add({
-        'month': month,
-        'label': _monthLabel(month),
-        'total': total,
-      });
-    }
-    return trend;
+    final rows = await _txService.getMultiMonthSpendTotals(
+      userID: _currentUserId,
+      months: months,
+      selectedCurrency: _currency,
+    );
+    return rows
+        .map(
+          (row) => {
+            'month': row['month'] as DateTime,
+            'label': _monthLabel(row['month'] as DateTime),
+            'total': row['total'] as double,
+          },
+        )
+        .toList();
   }
 
   String _monthLabel(DateTime month) {
@@ -942,17 +944,21 @@ class SpendingIntelligenceService {
     DateTime anchorMonth, {
     int months = InsightsLimits.trendMonthsDefault,
   }) async {
-    final trend = <Map<String, dynamic>>[];
-    for (int i = months - 1; i >= 0; i--) {
-      final month = DateTime(anchorMonth.year, anchorMonth.month - i, 1);
-      final total = await getMonthlySpending(month);
-      trend.add({
-        'month': month,
-        'label': _monthLabel(month),
-        'total': total,
-      });
-    }
-    return trend;
+    final rows = await _txService.getMultiMonthSpendTotals(
+      userID: _currentUserId,
+      months: months,
+      endMonth: anchorMonth,
+      selectedCurrency: _currency,
+    );
+    return rows
+        .map(
+          (row) => {
+            'month': row['month'] as DateTime,
+            'label': _monthLabel(row['month'] as DateTime),
+            'total': row['total'] as double,
+          },
+        )
+        .toList();
   }
 
   /// Weekday vs weekend spend for recap habit slide.

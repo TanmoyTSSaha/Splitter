@@ -193,76 +193,55 @@ class _TransactionTabState extends State<TransactionTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      return Column(
-        children: [
-          SyncStatusBanner(status: _controller.syncStatus.value),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _controller.refresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: _buildTransactionList(),
-              ),
-            ),
-          ),
-        ],
-      );
-    });
+    return Column(
+      children: [
+        Obx(() => SyncStatusBanner(status: _controller.syncStatus.value)),
+        Expanded(child: Obx(() => _buildTransactionBody(context))),
+      ],
+    );
   }
 
-  Widget _buildTransactionList() {
+  Widget _buildTransactionBody(BuildContext context) {
     if (_controller.isLoading.value &&
         _controller.consolidatedTransactions.isEmpty) {
-      return SizedBox(
-        height: devSysHeight * 0.6,
-        width: devSysWidth,
-        child: const Center(child: LoadingWidget()),
-      );
+      return const Center(child: LoadingWidget());
     }
 
     if (_controller.errorMessage.value != null) {
-      return SizedBox(
-        height: devSysHeight * 0.6,
-        width: devSysWidth,
-        child: Center(
-          child: Text(
-            _controller.errorMessage.value!,
-            style: sub_headline5_text.copyWith(color: neopopAccent),
-          ),
+      return Center(
+        child: Text(
+          _controller.errorMessage.value!,
+          style: sub_headline5_text.copyWith(color: neopopAccent),
         ),
       );
     }
 
     final cnsGrpTrns = _controller.consolidatedTransactions;
     if (cnsGrpTrns.isEmpty) {
-      return SizedBox(
-        height: devSysHeight * 0.55,
-        width: double.infinity,
-        child: TabEmptyState(
-          variant: TabEmptyVariant.transactions,
-          title: AppStrings.groups.noTransactionsYet,
-          subtitle: AppStrings.groups.addExpenseToStart,
+      return RefreshIndicator(
+        onRefresh: _controller.refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: devSysHeight * 0.55,
+              child: TabEmptyState(
+                variant: TabEmptyVariant.transactions,
+                title: AppStrings.groups.noTransactionsYet,
+                subtitle: AppStrings.groups.addExpenseToStart,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return Container(
-      width: devSysWidth,
-      padding: EdgeInsets.symmetric(horizontal: groupGutter),
-      decoration: BoxDecoration(
-        color: groupTransparent,
-        borderRadius: BorderRadius.circular(groupRadiusSm),
-        border: Border.all(
-          color: neopopGreyIconMuted,
-          width: 1,
-        ),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+    return RefreshIndicator(
+      onRefresh: _controller.refresh,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(horizontal: groupGutter),
         itemCount: cnsGrpTrns.length,
-        padding: EdgeInsets.zero,
         itemBuilder: (context, index) {
           double cardPrice = 0;
           Color amountColor = neopopAccent;
@@ -279,42 +258,62 @@ class _TransactionTabState extends State<TransactionTab> {
               }
             }
           }
-          return StaggeredListItem(
-            index: index,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onLongPress: () {
-                _showTransactionOptions(
-                  context,
-                  cnsGrpTrns[index].transactionGroupID!,
-                  cnsGrpTrns[index],
-                );
-              },
-              child: TransactionCard(
-                index: index,
-                forLightSurface: true,
-                cardTitle: cnsGrpTrns[index].description!,
-                cardSubTitle: widget.userID == cnsGrpTrns[index].paidByUUID
-                    ? GroupCopy.paidByYou
-                    : AppStringFormat.paidBy(cnsGrpTrns[index].paidByName!),
-                cardDateTime: cnsGrpTrns[index].transactionDate!,
-                cardPrice: cardPrice,
-                categoryLogoURL: cnsGrpTrns[index].categoryLogo ?? '',
-                category: cnsGrpTrns[index].category ?? '',
-                amountColor: amountColor,
+          return Column(
+            children: [
+              if (index > 0)
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: groupGap10,
+                    vertical: groupGapNone,
+                  ),
+                  child: Divider(
+                    height: 1,
+                    thickness: 2,
+                    color: groupMutedBorderHairline,
+                  ),
+                ),
+              Container(
+                width: devSysWidth,
+                decoration: BoxDecoration(
+                  color: groupTransparent,
+                  borderRadius: BorderRadius.circular(groupRadiusSm),
+                  border: Border.all(
+                    color: neopopGreyIconMuted,
+                    width: 1,
+                  ),
+                ),
+                child: StaggeredListItem(
+                  index: index,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onLongPress: () {
+                      _showTransactionOptions(
+                        context,
+                        cnsGrpTrns[index].transactionGroupID!,
+                        cnsGrpTrns[index],
+                      );
+                    },
+                    child: TransactionCard(
+                      index: index,
+                      forLightSurface: true,
+                      cardTitle: cnsGrpTrns[index].description!,
+                      cardSubTitle:
+                          widget.userID == cnsGrpTrns[index].paidByUUID
+                              ? GroupCopy.paidByYou
+                              : AppStringFormat.paidBy(
+                                  cnsGrpTrns[index].paidByName!),
+                      cardDateTime: cnsGrpTrns[index].transactionDate!,
+                      cardPrice: cardPrice,
+                      categoryLogoURL: cnsGrpTrns[index].categoryLogo ?? '',
+                      category: cnsGrpTrns[index].category ?? '',
+                      amountColor: amountColor,
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           );
         },
-        separatorBuilder: (context, index) => Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: groupGap10, vertical: groupGapNone),
-          child: Divider(
-            height: 1,
-            thickness: 2,
-            color: groupMutedBorderHairline,
-          ),
-        ),
       ),
     );
   }

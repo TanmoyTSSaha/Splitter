@@ -90,6 +90,7 @@ class _GroupScreenState extends State<GroupScreen>
   void dispose() {
     _currencyWorker?.dispose();
     _tabController.dispose();
+    _groupController.unsubscribeFromGroupRealtime();
     super.dispose();
   }
 
@@ -556,8 +557,14 @@ class _GroupScreenState extends State<GroupScreen>
         }
 
         return Column(
-          children:
-              filteredTxns.map((txn) => TransactionTile(txn: txn)).toList(),
+          children: filteredTxns
+              .map(
+                (txn) => TransactionTile(
+                  txn: txn,
+                  currencySymbol: Get.find<CurrencyController>().symbol,
+                ),
+              )
+              .toList(),
         );
       },
     );

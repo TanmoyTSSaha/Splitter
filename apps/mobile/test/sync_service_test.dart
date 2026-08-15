@@ -126,5 +126,24 @@ void main() {
       final rows = await db.select(db.syncQueue).get();
       expect(rows.single.status, 'failed');
     });
+
+    test('processes large queue in SYNC_CHUNK_SIZE chunks', () async {
+      for (var i = 0; i < 11; i++) {
+        await enqueue(
+          operation: 'INSERT',
+          recordId: 'tx-$i',
+          payload: {'id': 'tx-$i', 'amount': i},
+        );
+      }
+
+      await service.syncPendingItems();
+      expect(executedPlans, hasLength(SYNC_CHUNK_SIZE));
+
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(executedPlans, hasLength(11));
+      expect(await db.getPendingSyncItems(), isEmpty);
+    });
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:splitr/Utils/currency_utils.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
@@ -405,9 +406,12 @@ class SettleUpBalanceWidget extends StatelessWidget {
             child: ClipRRect(
               borderRadius:
                   BorderRadius.circular(AppDimensions.loadingIndicatorLg),
-              child: Image.network(
-                balanceHolderImage,
+              child: CachedNetworkImage(
+                imageUrl: balanceHolderImage,
                 fit: BoxFit.cover,
+                memCacheWidth: (groupGutter * 4 *
+                        MediaQuery.devicePixelRatioOf(context))
+                    .round(),
               ),
             ),
           ),

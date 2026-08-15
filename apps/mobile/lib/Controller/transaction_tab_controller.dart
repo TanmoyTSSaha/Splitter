@@ -16,9 +16,9 @@ class TransactionTabController extends GetxController {
 
   TransactionTabController({required this.groupId, required this.userId});
 
-  final TransactionRepository _repository = Get.find();
-  final SyncService _syncService = Get.find();
-  final RealtimeService _realtimeService = Get.find();
+  late final TransactionRepository _repository;
+  late final SyncService _syncService;
+  late final RealtimeService _realtimeService;
 
   final consolidatedTransactions = <ConsolidatedGroupTransactionModel>[].obs;
   final isLoading = true.obs;
@@ -32,6 +32,9 @@ class TransactionTabController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _repository = Get.find<TransactionRepository>();
+    _syncService = Get.find<SyncService>();
+    _realtimeService = Get.find<RealtimeService>();
     _transactionSub =
         _repository.watchTransactions(groupId).listen(_onLocalTransactions);
     _realtimeSub = _realtimeService.onTransactionChange.listen((event) {

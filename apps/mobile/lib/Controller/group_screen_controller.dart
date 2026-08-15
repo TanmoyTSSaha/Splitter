@@ -9,9 +9,9 @@ import 'package:splitr/Services/sync_service.dart';
 import 'package:splitr/Utils/app_error_reporter.dart';
 
 class GroupScreenController extends GetxController {
-  final GroupRepository _repository = Get.find();
-  final SyncService _syncService = Get.find();
-  final RealtimeService _realtimeService = Get.find();
+  late final GroupRepository _repository;
+  late final SyncService _syncService;
+  late final RealtimeService _realtimeService;
 
   final groups = <GroupModel>[].obs;
   final isLoadingGroups = true.obs;
@@ -138,6 +138,9 @@ class GroupScreenController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _repository = Get.find<GroupRepository>();
+    _syncService = Get.find<SyncService>();
+    _realtimeService = Get.find<RealtimeService>();
     _syncSub = _syncService.syncStatus.listen((status) {
       syncStatus.value = status;
     });

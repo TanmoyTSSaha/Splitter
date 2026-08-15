@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:get/get.dart';
-
 import 'package:splitr/Constants/app_dimensions.dart';
 
 import 'package:splitr/Constants/constants.dart';
 
 import 'package:splitr/Constants/domain_values.dart';
-
-import 'package:splitr/Controllers/currency_controller.dart';
 
 import 'package:splitr/Screen/GroupScreen/group_screen_spacing.dart';
 
@@ -23,9 +19,12 @@ class TransactionTile extends StatelessWidget {
 
   final VoidCallback? onLongPress;
 
+  final String currencySymbol;
+
   const TransactionTile({
     super.key,
     required this.txn,
+    required this.currencySymbol,
     this.showDate = true,
     this.showFlowArrow = true,
     this.onLongPress,
@@ -168,17 +167,13 @@ class TransactionTile extends StatelessWidget {
               ),
             ],
             const SizedBox(width: groupGapSm),
-            Obx(() {
-              final sym = Get.find<CurrencyController>().symbol;
-
-              return Text(
-                "$sym${(txn[UnifiedTxnKeys.amount] as num).toStringAsFixed(0)}",
-                style: body1_text.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: amountColor,
-                ),
-              );
-            }),
+            Text(
+              '$currencySymbol${(txn[UnifiedTxnKeys.amount] as num).toStringAsFixed(0)}',
+              style: body1_text.copyWith(
+                fontWeight: FontWeight.bold,
+                color: amountColor,
+              ),
+            ),
           ],
         ),
       ),
