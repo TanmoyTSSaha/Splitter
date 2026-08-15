@@ -51,5 +51,7 @@ flutter build appbundle --release \
   --split-debug-info=build/debug-info \
   --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json
 
+python3 "$ROOT/scripts/check-aab-16kb.py" "$AAB_OUT"
+
 echo ""
 echo "AAB ready: $AAB_OUT"

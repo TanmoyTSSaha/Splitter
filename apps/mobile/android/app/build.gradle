@@ -80,6 +80,12 @@ android {
         versionName = flutterVersionName
     }
 
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+
     signingConfigs {
         release {
             if (releaseKeystoreReady) {
@@ -96,7 +102,9 @@ android {
             signingConfig = releaseKeystoreReady
                     ? signingConfigs.release
                     : signingConfigs.debug
-            proguardFiles 'proguard-rules.pro'
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -116,5 +124,8 @@ configurations.all {
         force 'androidx.activity:activity:1.9.3'
         force 'androidx.core:core-ktx:1.13.1'
         force 'androidx.core:core:1.13.1'
+        // 16 KB page-size: 1.0.2 AAB shipped 4 KB-aligned
+        // libmlkit_google_ocr_pipeline.so (Play: Does not support 16 KB).
+        force 'com.google.mlkit:text-recognition:16.0.1'
     }
 }
